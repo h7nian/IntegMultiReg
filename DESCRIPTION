@@ -9,11 +9,6 @@ Authors@R: c(
     person("Thierry", "Chekouo", email = "tchekouo@umn.edu",
            role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-3594-9182")))
-Author: Sinian Zhang [aut],
-    Jianfeng Wang [aut],
-    Thierry Chekouo [aut, cre] (ORCID:
-    <https://orcid.org/0000-0002-3594-9182>)
-Maintainer: Thierry Chekouo <tchekouo@umn.edu>
 Description: A Bayesian framework that integrates several regression models to
     identify a parsimonious set of biomarkers shared across disparate data
     platforms (for example genomic, transcriptomic and proteomic assays).
