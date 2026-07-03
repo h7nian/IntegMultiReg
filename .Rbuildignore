@@ -1,0 +1,14 @@
+^data-raw$
+^paper$
+^\.vscode$
+^\.DS_Store$
+^.*\.Rproj$
+^\.Rproj\.user$
+^README\.Rmd$
+^config\.log$
+^config\.status$
+^autom4te\.cache$
+^src/.*\.o$
+^src/.*\.so$
+^src/symbols\.rds$
+^src/Makevars$
