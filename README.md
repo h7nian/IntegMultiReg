@@ -1,6 +1,7 @@
 # IntegMultiReg
 
 <!-- badges: start -->
+[![R-CMD-check](https://github.com/h7nian/IntegMultiReg/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/h7nian/IntegMultiReg/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 **Integrative Bayesian Multiple Regression for Multi-Platform Biomarkers.**
@@ -30,11 +31,24 @@ installed first:
 * Debian/Ubuntu: `sudo apt-get install libgsl-dev`
 * Windows: GSL is provided by Rtools.
 
-Then install the package from a local source tarball:
+Then install the development version directly from GitHub:
+
+```r
+install.packages("pak")
+pak::pkg_install("h7nian/IntegMultiReg")
+```
+
+Alternatively, install a local source tarball:
 
 ```r
 install.packages("IntegMultiReg_0.1.0.tar.gz", repos = NULL, type = "source")
 ```
+
+The CRAN checking tools `checkbashisms` and `qpdf` are not runtime
+dependencies. Package users do not need them. Maintainers running
+`R CMD check --as-cran` locally can install them with
+`brew install checkbashisms qpdf` on macOS or
+`sudo apt-get install devscripts qpdf` on Debian/Ubuntu.
 
 ## Quick start
 
