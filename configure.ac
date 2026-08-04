@@ -1,5 +1,6 @@
-
-AC_INIT([IntegMultReg], 0.1.0)
+AC_PREREQ([2.69])
+AC_INIT([IntegMultiReg], [0.1.0])
+AC_CONFIG_SRCDIR([DESCRIPTION])
 
 ## Use gsl-config to find arguments for compiler and linker flags
 ##
@@ -23,4 +24,5 @@ AC_SUBST(GSL_CFLAGS)
 AC_SUBST(GSL_LIBS)
 ##AC_SUBST(RCPP_LDFLAGS)
 
-AC_OUTPUT(src/Makevars)
+AC_CONFIG_FILES([src/Makevars])
+AC_OUTPUT
