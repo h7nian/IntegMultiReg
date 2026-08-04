@@ -53,7 +53,19 @@ jobs:
           extra-packages: any::rcmdcheck
           needs: check
 
-      - uses: r-lib/actions/check-r-package@v2
+      # The PDF manual is checked on Linux and macOS. On Windows, focus on
+      # compilation, installation, examples, tests, and vignettes; this also
+      # matches the default arguments of r-lib/actions/check-r-package.
+      - name: Check package on Windows
+        if: runner.os == 'Windows'
+        uses: r-lib/actions/check-r-package@v2
+        with:
+          args: c("--no-manual", "--as-cran")
+          error-on: '"warning"'
+
+      - name: Check package with PDF manual
+        if: runner.os != 'Windows'
+        uses: r-lib/actions/check-r-package@v2
         with:
           args: c("--as-cran")
           error-on: '"warning"'
