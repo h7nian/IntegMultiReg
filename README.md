@@ -1,9 +1,5 @@
 # IntegMultiReg
 
-<!-- badges: start -->
-[![R-CMD-check](https://github.com/h7nian/IntegMultiReg/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/h7nian/IntegMultiReg/actions/workflows/R-CMD-check.yaml)
-<!-- badges: end -->
-
 **Integrative Bayesian Multiple Regression for Multi-Platform Biomarkers.**
 
 `IntegMultiReg` implements the integrative multi-regression (IMR) model of
@@ -31,11 +27,10 @@ installed first:
 * Debian/Ubuntu: `sudo apt-get install libgsl-dev`
 * Windows: GSL is provided by Rtools.
 
-Then install the development version directly from GitHub:
+Once available on CRAN, install the package with:
 
 ```r
-install.packages("pak")
-pak::pkg_install("h7nian/IntegMultiReg")
+install.packages("IntegMultiReg")
 ```
 
 Alternatively, install a local source tarball:
