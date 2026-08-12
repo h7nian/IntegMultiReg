@@ -1,6 +1,6 @@
 Package: IntegMultiReg
 Title: Integrative Bayesian Multiple Regression for Multi-Platform Biomarkers
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: c(
     person("Sinian", "Zhang", email = "zhan9381@umn.edu",
            role = "aut"),

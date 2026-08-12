@@ -581,7 +581,7 @@ void mean_3d_array(int n, int n1, int n2, double (*x)[n1][n2], double me[n1][n2]
         }
     }
 }
-void mean_array_columns(int n, int n1, double **x, double me[n1])
+void mean_array_columns(int n, int n1, double **x, double *me)
 {
     int i, l;
     for (i = 0; i < n1; i++)

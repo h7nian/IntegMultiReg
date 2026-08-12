@@ -40,7 +40,7 @@ double mean(int n, double *x);
 double var(int n, double *x);
 
 /* Matrix and array helpers. */
-void mean_array_columns(int n, int n_cols, double **x, double mean_out[n_cols]);
+void mean_array_columns(int n, int n_cols, double **x, double *mean_out);
 void mean_3d_array(int n, int n_rows, int n_cols,
                    double (*x)[n_rows][n_cols],
                    double mean_out[n_rows][n_cols]);

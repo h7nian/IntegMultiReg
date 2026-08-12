@@ -1,3 +1,8 @@
+# IntegMultiReg 0.1.1
+
+* Fixed undefined behavior in the MRF theta summary when a platform occurs in
+  only one availability subgroup (zero pairwise theta parameters).
+
 # IntegMultiReg 0.1.0
 
 * First release of the integrative multi-regression (IMR) model of Chekouo et

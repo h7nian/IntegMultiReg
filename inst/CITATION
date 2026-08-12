@@ -19,5 +19,5 @@ bibentry(
   bibtype  = "Manual",
   title    = "IntegMultiReg: Integrative Bayesian Multiple Regression for Multi-Platform Biomarkers",
   author   = c(person("Sinian", "Zhang"), person("Thierry", "Chekouo")),
-  note     = "R package version 0.1.0"
+  note     = sprintf("R package version %s", meta$Version)
 )

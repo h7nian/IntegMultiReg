@@ -1,0 +1,93 @@
+name: Native sanitizer checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sanitizers:
+    name: R-devel / ${{ matrix.compiler }} / ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: gcc
+            flags: undefined
+            label: UBSAN
+            preload_asan: false
+          - compiler: clang
+            flags: undefined
+            label: UBSAN
+            preload_asan: false
+          - compiler: clang
+            flags: address,undefined
+            label: ASAN+UBSAN
+            preload_asan: true
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+      ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: devel
+          use-public-rspm: true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes clang gcc libgsl-dev
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::testthat
+          needs: check
+
+      - name: Configure ${{ matrix.compiler }} with ${{ matrix.label }}
+        shell: bash
+        run: |
+          makevars="${RUNNER_TEMP}/Makevars.sanitizer"
+          {
+            echo "CC = ${{ matrix.compiler }}"
+            echo "CFLAGS = -g -O1 -fsanitize=${{ matrix.flags }} -fno-sanitize-recover=undefined -fno-omit-frame-pointer"
+            echo "LDFLAGS = -fsanitize=${{ matrix.flags }}"
+          } > "${makevars}"
+          echo "R_MAKEVARS_USER=${makevars}" >> "${GITHUB_ENV}"
+
+          if [[ "${{ matrix.preload_asan }}" == "true" ]]; then
+            asan_runtime="$(clang -print-file-name=libclang_rt.asan-x86_64.so)"
+            test -f "${asan_runtime}"
+            echo "ASAN_RUNTIME=${asan_runtime}" >> "${GITHUB_ENV}"
+          fi
+
+      - name: Install instrumented package and tests
+        shell: bash
+        run: |
+          mkdir -p "${RUNNER_TEMP}/sanitizer-library"
+          if [[ "${{ matrix.preload_asan }}" == "true" ]]; then
+            export LD_PRELOAD="${ASAN_RUNTIME}"
+          fi
+          R CMD INSTALL --preclean --install-tests \
+            --library="${RUNNER_TEMP}/sanitizer-library" .
+
+      - name: Run complete test suite under ${{ matrix.label }}
+        shell: bash
+        run: |
+          if [[ "${{ matrix.preload_asan }}" == "true" ]]; then
+            export LD_PRELOAD="${ASAN_RUNTIME}"
+          fi
+          R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
+            Rscript -e 'library(testthat); library(IntegMultiReg); test_check("IntegMultiReg")'

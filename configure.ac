@@ -1,5 +1,5 @@
 AC_PREREQ([2.69])
-AC_INIT([IntegMultiReg], [0.1.0])
+AC_INIT([IntegMultiReg], [0.1.1])
 AC_CONFIG_SRCDIR([DESCRIPTION])
 
 ## Use gsl-config to find arguments for compiler and linker flags

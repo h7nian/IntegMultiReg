@@ -36,7 +36,7 @@ install.packages("IntegMultiReg")
 Alternatively, install a local source tarball:
 
 ```r
-install.packages("IntegMultiReg_0.1.0.tar.gz", repos = NULL, type = "source")
+install.packages("IntegMultiReg_0.1.1.tar.gz", repos = NULL, type = "source")
 ```
 
 The CRAN checking tools `checkbashisms` and `qpdf` are not runtime

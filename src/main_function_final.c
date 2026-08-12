@@ -347,14 +347,22 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     double ***theta_sample = malloc(n_platforms * sizeof(double **));
     for (int l = 0; l < n_platforms; l++)
     {
-        theta_sample[l] = dmatrix(0, sample_c - 1, 0, n_platform_models_c[l] * (n_platform_models_c[l] - 1) / 2 - 1);
+        int n_theta_pairs = n_platform_models_c[l] *
+                            (n_platform_models_c[l] - 1) / 2;
+        theta_sample[l] = n_theta_pairs > 0
+            ? dmatrix(0, sample_c - 1, 0, n_theta_pairs - 1)
+            : NULL;
     }
     _Bool thetaFreed = false;
     if (strcmp(sampler_method, "BMS") == 0)
     {
         for (int l = 0; l < n_platforms; l++)
         {
-            free_dmatrix(theta_sample[l], 0, sample_c - 1, 0, n_platform_models_c[l] * (n_platform_models_c[l] - 1) / 2 - 1);
+            int n_theta_pairs = n_platform_models_c[l] *
+                                (n_platform_models_c[l] - 1) / 2;
+            if (n_theta_pairs > 0)
+                free_dmatrix(theta_sample[l], 0, sample_c - 1,
+                             0, n_theta_pairs - 1);
         }
         free(theta_sample);
         thetaFreed = true;
@@ -534,8 +542,17 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     {
         for (int l = 0; l < n_platforms; l++)
         {
-            double ThetaXSM[n_platform_models_c[l] * (n_platform_models_c[l] - 1) / 2];
-            mean_array_columns(sample_c, n_platform_models_c[l] * (n_platform_models_c[l] - 1) / 2, theta_sample[l], ThetaXSM);
+            int n_theta_pairs = n_platform_models_c[l] *
+                                (n_platform_models_c[l] - 1) / 2;
+            if (n_theta_pairs == 0)
+                continue;
+
+            double *ThetaXSM = malloc((size_t)n_theta_pairs * sizeof(double));
+            if (!ThetaXSM)
+                nrerror("allocation failure for theta posterior means");
+
+            mean_array_columns(sample_c, n_theta_pairs,
+                               theta_sample[l], ThetaXSM);
             int m1 = 0;
             for (int i = 1; i < n_platform_models_c[l]; i++)
             {
@@ -545,6 +562,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
                     m1++;
                 }
             }
+            free(ThetaXSM);
         }
     }
 
@@ -668,7 +686,11 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     {
         for (int l = 0; l < n_platforms; l++)
         {
-            free_dmatrix(theta_sample[l], 0, sample_c - 1, 0, n_platform_models_c[l] * (n_platform_models_c[l] - 1) / 2 - 1);
+            int n_theta_pairs = n_platform_models_c[l] *
+                                (n_platform_models_c[l] - 1) / 2;
+            if (n_theta_pairs > 0)
+                free_dmatrix(theta_sample[l], 0, sample_c - 1,
+                             0, n_theta_pairs - 1);
         }
         free(theta_sample);
     }
