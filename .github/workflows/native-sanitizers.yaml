@@ -67,27 +67,55 @@ jobs:
           } > "${makevars}"
           echo "R_MAKEVARS_USER=${makevars}" >> "${GITHUB_ENV}"
 
-          if [[ "${{ matrix.preload_asan }}" == "true" ]]; then
+          if [[ "${{ matrix.compiler }}" == "gcc" ]]; then
+            sanitizer_runtime="$(gcc -print-file-name=libubsan.so)"
+          elif [[ "${{ matrix.preload_asan }}" == "true" ]]; then
             asan_runtime="$(clang -print-file-name=libclang_rt.asan-x86_64.so)"
+            ubsan_runtime="$(clang -print-file-name=libclang_rt.ubsan_standalone-x86_64.so)"
             test -f "${asan_runtime}"
-            echo "ASAN_RUNTIME=${asan_runtime}" >> "${GITHUB_ENV}"
+            test -f "${ubsan_runtime}"
+            sanitizer_runtime="${asan_runtime}:${ubsan_runtime}"
+          else
+            sanitizer_runtime="$(clang -print-file-name=libclang_rt.ubsan_standalone-x86_64.so)"
           fi
+          test -f "${sanitizer_runtime%%:*}"
+          echo "SANITIZER_RUNTIME=${sanitizer_runtime}" >> "${GITHUB_ENV}"
 
       - name: Install instrumented package and tests
         shell: bash
         run: |
           mkdir -p "${RUNNER_TEMP}/sanitizer-library"
-          if [[ "${{ matrix.preload_asan }}" == "true" ]]; then
-            export LD_PRELOAD="${ASAN_RUNTIME}"
-          fi
+          export LD_PRELOAD="${SANITIZER_RUNTIME}"
+          set +e
           R CMD INSTALL --preclean --install-tests \
-            --library="${RUNNER_TEMP}/sanitizer-library" .
+            --library="${RUNNER_TEMP}/sanitizer-library" . \
+            2>&1 | tee "${RUNNER_TEMP}/sanitizer-install.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          if [[ ${status} -ne 0 ]]; then
+            grep -E 'runtime error:|SUMMARY:|Sanitizer|Error|ERROR|failed|failure' \
+              "${RUNNER_TEMP}/sanitizer-install.log" | tail -n 25 | \
+              while IFS= read -r line; do
+                echo "::error title=Sanitizer install failure::${line}"
+              done
+            exit "${status}"
+          fi
 
       - name: Run complete test suite under ${{ matrix.label }}
         shell: bash
         run: |
-          if [[ "${{ matrix.preload_asan }}" == "true" ]]; then
-            export LD_PRELOAD="${ASAN_RUNTIME}"
-          fi
+          export LD_PRELOAD="${SANITIZER_RUNTIME}"
+          set +e
           R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
-            Rscript -e 'library(testthat); library(IntegMultiReg); test_check("IntegMultiReg")'
+            Rscript -e 'library(testthat); library(IntegMultiReg); test_check("IntegMultiReg")' \
+            2>&1 | tee "${RUNNER_TEMP}/sanitizer-tests.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          if [[ ${status} -ne 0 ]]; then
+            grep -E 'runtime error:|SUMMARY:|Sanitizer|Error|ERROR|FAIL|Failure' \
+              "${RUNNER_TEMP}/sanitizer-tests.log" | tail -n 25 | \
+              while IFS= read -r line; do
+                echo "::error title=Sanitizer test failure::${line}"
+              done
+            exit "${status}"
+          fi
