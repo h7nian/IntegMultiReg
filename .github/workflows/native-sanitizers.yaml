@@ -107,7 +107,7 @@ jobs:
           export LD_PRELOAD="${SANITIZER_RUNTIME}"
           set +e
           R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
-            Rscript -e 'library(testthat); library(IntegMultiReg); test_check("IntegMultiReg")' \
+            Rscript -e 'library(testthat); library(IntegMultiReg); test_package("IntegMultiReg")' \
             2>&1 | tee "${RUNNER_TEMP}/sanitizer-tests.log"
           status=${PIPESTATUS[0]}
           set -e
