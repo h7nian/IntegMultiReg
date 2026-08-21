@@ -1,4 +1,4 @@
-name: Native sanitizer checks
+name: macOS ARM sanitizer check
 
 on:
   push:
@@ -11,30 +11,14 @@ permissions:
   contents: read
 
 jobs:
-  sanitizers:
-    name: R-devel / ${{ matrix.compiler }} / ${{ matrix.label }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - compiler: gcc
-            flags: undefined
-            label: UBSAN
-            preload_asan: false
-          - compiler: clang
-            flags: undefined
-            label: UBSAN
-            preload_asan: false
-          - compiler: clang
-            flags: address,undefined
-            label: ASAN+UBSAN
-            preload_asan: true
-
+  macos-arm-sanitizers:
+    name: R-devel / macOS 26 arm64 / ASAN+UBSAN
+    runs-on: macos-26
+    timeout-minutes: 60
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      MallocNanoZone: 0
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
       ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
 
@@ -46,52 +30,52 @@ jobs:
           r-version: devel
           use-public-rspm: true
 
-      - name: Install system dependencies
+      - name: Verify Oxford M1-SAN-like platform
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes clang gcc libgsl-dev
+          sw_vers
+          uname -a
+          xcrun clang --version
+          test "$(uname -m)" = "arm64"
+
+      - name: Install system dependencies
+        run: brew install gsl
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::testthat
           needs: check
 
-      - name: Configure ${{ matrix.compiler }} with ${{ matrix.label }}
+      - name: Configure Apple clang with ASAN and UBSAN
         shell: bash
         run: |
           makevars="${RUNNER_TEMP}/Makevars.sanitizer"
           {
-            echo "CC = ${{ matrix.compiler }}"
-            echo "CFLAGS = -g -O1 -fsanitize=${{ matrix.flags }} -fno-sanitize-recover=undefined -fno-omit-frame-pointer"
-            echo "LDFLAGS = -fsanitize=${{ matrix.flags }}"
+            echo "CC = clang"
+            echo "CFLAGS = -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer"
+            echo "LDFLAGS = -fsanitize=address,undefined"
           } > "${makevars}"
           echo "R_MAKEVARS_USER=${makevars}" >> "${GITHUB_ENV}"
 
-          if [[ "${{ matrix.compiler }}" == "gcc" ]]; then
-            sanitizer_runtime="$(gcc -print-file-name=libubsan.so)"
-          elif [[ "${{ matrix.preload_asan }}" == "true" ]]; then
-            asan_runtime="$(clang -print-file-name=libclang_rt.asan-x86_64.so)"
-            ubsan_runtime="$(clang -print-file-name=libclang_rt.ubsan_standalone-x86_64.so)"
-            test -f "${asan_runtime}"
-            test -f "${ubsan_runtime}"
-            sanitizer_runtime="${asan_runtime}:${ubsan_runtime}"
-          else
-            sanitizer_runtime="$(clang -print-file-name=libclang_rt.ubsan_standalone-x86_64.so)"
-          fi
-          test -f "${sanitizer_runtime%%:*}"
-          echo "SANITIZER_RUNTIME=${sanitizer_runtime}" >> "${GITHUB_ENV}"
+          resource_dir="$(xcrun clang -print-resource-dir)"
+          asan_runtime="${resource_dir}/lib/darwin/libclang_rt.asan_osx_dynamic.dylib"
+          ubsan_runtime="${resource_dir}/lib/darwin/libclang_rt.ubsan_osx_dynamic.dylib"
+          test -f "${asan_runtime}"
+          test -f "${ubsan_runtime}"
+          echo "SANITIZER_RUNTIME=${asan_runtime}:${ubsan_runtime}" >> "${GITHUB_ENV}"
 
       - name: Install instrumented package and tests
         shell: bash
         run: |
           mkdir -p "${RUNNER_TEMP}/sanitizer-library"
-          export LD_PRELOAD="${SANITIZER_RUNTIME}"
+          export DYLD_INSERT_LIBRARIES="${SANITIZER_RUNTIME}"
           set +e
           R CMD INSTALL --preclean --install-tests \
             --library="${RUNNER_TEMP}/sanitizer-library" . \
             2>&1 | tee "${RUNNER_TEMP}/sanitizer-install.log"
           status=${PIPESTATUS[0]}
           set -e
+
           sanitizer_status=0
           if grep -Eq 'runtime error:|ERROR: AddressSanitizer|SUMMARY: (AddressSanitizer|UndefinedBehaviorSanitizer)|UndefinedBehaviorSanitizer:' \
             "${RUNNER_TEMP}/sanitizer-install.log"; then
@@ -106,16 +90,17 @@ jobs:
             exit 1
           fi
 
-      - name: Run complete test suite under ${{ matrix.label }}
+      - name: Run the same installed testthat entry point as M1-SAN
         shell: bash
         run: |
-          export LD_PRELOAD="${SANITIZER_RUNTIME}"
+          export DYLD_INSERT_LIBRARIES="${SANITIZER_RUNTIME}"
           set +e
           R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
-            Rscript -e 'library(testthat); library(IntegMultiReg); test_package("IntegMultiReg")' \
+            Rscript -e 'library(testthat); library(IntegMultiReg); test_check("IntegMultiReg")' \
             2>&1 | tee "${RUNNER_TEMP}/sanitizer-tests.log"
           status=${PIPESTATUS[0]}
           set -e
+
           sanitizer_status=0
           if grep -Eq 'runtime error:|ERROR: AddressSanitizer|SUMMARY: (AddressSanitizer|UndefinedBehaviorSanitizer)|UndefinedBehaviorSanitizer:' \
             "${RUNNER_TEMP}/sanitizer-tests.log"; then
@@ -129,3 +114,11 @@ jobs:
           if [[ ${status} -ne 0 || ${sanitizer_status} -ne 0 ]]; then
             exit 1
           fi
+
+      - name: Upload sanitizer logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-26-arm64-sanitizer-logs
+          path: ${{ runner.temp }}/sanitizer-*.log
+          if-no-files-found: ignore
