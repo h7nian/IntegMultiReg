@@ -68,9 +68,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p "${RUNNER_TEMP}/sanitizer-library"
-          export DYLD_INSERT_LIBRARIES="${SANITIZER_RUNTIME}"
           set +e
-          R CMD INSTALL --preclean --install-tests \
+          R CMD INSTALL --preclean --install-tests --no-test-load \
             --library="${RUNNER_TEMP}/sanitizer-library" . \
             2>&1 | tee "${RUNNER_TEMP}/sanitizer-install.log"
           status=${PIPESTATUS[0]}
@@ -90,13 +89,20 @@ jobs:
             exit 1
           fi
 
-      - name: Run the same installed testthat entry point as M1-SAN
+      # R CMD INSTALL is a shell wrapper, and macOS strips DYLD_* variables
+      # when protected system shells launch children.  Run the R executable
+      # directly so ASAN is loaded before the instrumented package DLL.
+      - name: Run the installed tests/testthat.R file as M1-SAN does
         shell: bash
         run: |
-          export DYLD_INSERT_LIBRARIES="${SANITIZER_RUNTIME}"
+          r_home="$(R RHOME)"
+          tests_dir="${RUNNER_TEMP}/sanitizer-library/IntegMultiReg/tests"
           set +e
-          R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
-            Rscript -e 'library(testthat); library(IntegMultiReg); test_check("IntegMultiReg")' \
+          cd "${tests_dir}"
+          R_HOME="${r_home}" \
+            DYLD_INSERT_LIBRARIES="${SANITIZER_RUNTIME}" \
+            R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
+            "${r_home}/bin/exec/R" --vanilla --no-save < testthat.R \
             2>&1 | tee "${RUNNER_TEMP}/sanitizer-tests.log"
           status=${PIPESTATUS[0]}
           set -e
@@ -117,7 +123,7 @@ jobs:
 
       - name: Upload sanitizer logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: macos-26-arm64-sanitizer-logs
           path: ${{ runner.temp }}/sanitizer-*.log
