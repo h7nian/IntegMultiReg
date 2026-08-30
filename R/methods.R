@@ -238,15 +238,25 @@ print.summary.imr <- function(x, ...) {
 #'   \item{`"theta"`}{Heatmap of the posterior mean MRF interaction parameters
 #'     between availability subgroups, one panel per platform.}
 #'   \item{`"trace"`}{Trace plot of the log-posterior across MCMC iterations.}
+#'   \item{`"theta_trace"`}{Trace plot for one retained MRF interaction
+#'     parameter, selected by `platform` and `parameter`.}
+#'   \item{`"selection_trace"`}{Trace plot for one retained selection
+#'     indicator, selected by `platform`, `subgroup` and `feature`.}
 #' }
 #' See [plot_top_features()] and [plot_subgroup_sizes()] for two further ready
 #' made displays.
 #'
 #' @param x A fitted object of class `"imr"`.
-#' @param type Character; one of `"selection"` (default), `"theta"` or
-#'   `"trace"`.
+#' @param type Character; one of `"selection"` (default), `"theta"`,
+#'   `"trace"`, `"theta_trace"` or `"selection_trace"`.
 #' @param platform Optional integer vector selecting which platforms to display
 #'   for the `"selection"` and `"theta"` plots; defaults to all platforms.
+#' @param parameter Positive integer selecting a theta-pair column for
+#'   `type = "theta_trace"`.
+#' @param subgroup Positive integer selecting a platform-specific subgroup row
+#'   for `type = "selection_trace"`.
+#' @param feature Positive integer selecting a feature column for
+#'   `type = "selection_trace"`.
 #' @param base_cex Overall text-size multiplier. The `cex_*` arguments default
 #'   to values derived from this multiplier (default `1`).
 #' @param cex_axis Axis-label size multiplier. If `NULL`, a plot-specific
@@ -271,12 +281,14 @@ print.summary.imr <- function(x, ...) {
 #' @return `NULL`, invisibly; called for the side effect of producing a plot.
 #' @seealso [imr()], [plot_top_features()], [plot_subgroup_sizes()]
 #' @export
-plot.imr <- function(x, type = c("selection", "theta", "trace"),
+plot.imr <- function(x, type = c("selection", "theta", "trace",
+                                 "theta_trace", "selection_trace"),
                      platform = NULL, base_cex = 1, cex_axis = NULL,
                      cex_lab = NULL, cex_main = NULL, col = NULL,
                      palette = NULL,
                      legend = TRUE, legend_width = 0.28,
-                     mar = NULL, mgp = NULL, ...) {
+                     mar = NULL, mgp = NULL, parameter = 1L,
+                     subgroup = 1L, feature = 1L, ...) {
   if (!inherits(x, "imr")) {
     .imr_abort("`x` must be an `imr` object returned by `imr()`.")
   }
@@ -332,6 +344,54 @@ plot.imr <- function(x, type = c("selection", "theta", "trace"),
       cex.lab = cex_lab, cex.main = cex_main, col = trace_col
     ), dots))
     graphics::abline(v = x$sample_mcmc[["burnin"]], lty = 2, col = "grey50")
+    return(invisible(NULL))
+  }
+
+  if (type %in% c("theta_trace", "selection_trace")) {
+    if (is.null(platform)) platform <- 1L
+    platform <- .imr_check_integer_scalar(
+      platform, "platform", min = 1L, max = x$n_platform
+    )
+    pp <- .imr_plot_par(mar, mgp, default_mar = c(4.8, 4.8, 3, 1))
+    graphics::par(mar = pp$mar, mgp = pp$mgp)
+    trace_col <- if (is.null(col)) .imr_plot_trace_colour() else col
+    if (type == "theta_trace") {
+      samples <- x$theta_sample[[platform]]
+      if (is.null(samples) || ncol(samples) == 0L) {
+        .imr_abort("The selected platform has no sampled theta interactions.")
+      }
+      parameter <- .imr_check_integer_scalar(
+        parameter, "parameter", min = 1L, max = ncol(samples)
+      )
+      values <- samples[, parameter]
+      title <- sprintf("Theta trace: %s, pair %d",
+                       x$platform_names[platform], parameter)
+      ylab <- "Theta"
+    } else {
+      template <- .imr_mpip(x, platform)
+      subgroup <- .imr_check_integer_scalar(
+        subgroup, "subgroup", min = 1L, max = nrow(template)
+      )
+      feature <- .imr_check_integer_scalar(
+        feature, "feature", min = 1L, max = ncol(template)
+      )
+      values <- vapply(
+        x$gam_sample,
+        function(draw) as.numeric(draw[[platform]][subgroup, feature]),
+        numeric(1L)
+      )
+      title <- sprintf(
+        "Selection trace: %s / %s / %s", x$platform_names[platform],
+        rownames(template)[subgroup], colnames(template)[feature]
+      )
+      ylab <- "Selection indicator"
+    }
+    do.call(graphics::plot, c(list(
+      x = seq_along(values), y = values, type = "l",
+      xlab = "Retained MCMC draw", ylab = ylab, main = title,
+      cex.axis = cex_axis, cex.lab = cex_lab, cex.main = cex_main,
+      col = trace_col
+    ), dots))
     return(invisible(NULL))
   }
 

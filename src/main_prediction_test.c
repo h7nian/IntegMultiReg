@@ -170,7 +170,6 @@ SEXP main_function_prediction_test(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_
     }
     SEXP Ypred_R = PROTECT(array_to_r_list(ypredT, n_subgroups, samplesize_test));
     protect_count++;
-    UNPROTECT(protect_count);
 
     free_r_list_list_matrix_to_c(XX, n_subgroups, X1_filtered);
     XX = NULL;
@@ -232,5 +231,8 @@ SEXP main_function_prediction_test(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_
     free(n_model_platforms_c);
     free(h);
     free(mrf);
+    /* No allocating R API calls may occur after this point: unprotect the
+     * result immediately before returning it to R. */
+    UNPROTECT(protect_count);
     return Ypred_R;
 }

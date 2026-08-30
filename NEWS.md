@@ -1,24 +1,23 @@
-# IntegMultiReg 0.1.1
+# IntegMultiReg 0.1.2
 
-* Fixed undefined behavior in the MRF theta summary when a platform occurs in
-  only one availability subgroup (zero pairwise theta parameters).
+## Native-code reliability
 
-# IntegMultiReg 0.1.0
+- Fixed premature unprotection of R return objects in the fitting and
+  prediction entry points.
+- Fixed an allocation leak in binary cross-validation prediction.
+- Initialized cross-validation work arrays and moved input-sized buffers off
+  the C stack.
+- Added dedicated valgrind CI and macOS ARM vignette checks under ASAN/UBSAN.
 
-* First release of the integrative multi-regression (IMR) model of Chekouo et
-  al. (2017), extended to continuous (Gaussian) and binary (probit) outcomes in
-  addition to right-censored survival.
-* `imr()` fits the model and returns an object of class `"imr"` with `print()`,
-  `summary()`, `coef()`, `plot()` and `predict()` methods.
-* `cv_imr()` evaluates predictive accuracy by repeated fold splits using the
-  fitted MCMC samples (AUC, concordance index or mean squared error depending on
-  the outcome type), and `predict()` predicts new subjects (routing each to its
-  availability subgroup; `platform_names` defaults to the training order).
-* `plot()` shows the inclusion-probability and MRF-interaction heatmaps and the
-  log-posterior trace; `plot_top_features()` and `plot_subgroup_sizes()` add a
-  ranked-biomarker bar chart and a subgroup-size bar chart.
-* Ships a simulated example data set, `simIMR`, and a getting-started vignette.
-* All native routines are registered, GSL errors no longer abort the R session,
-  and the MCMC sampler is quiet by default (use `verbose = TRUE` for progress).
-* The sampler's seed defaults to `NULL` and is then drawn from R's RNG, so runs
-  follow `set.seed()` like other modelling functions.
+## User interface
+
+- Added the validated `imr_data` class for training and prediction inputs.
+- Added an `imr()` formula/data method while preserving the original interface.
+- Added fitted-object validation, fit comparison, posterior uncertainty
+  summaries, credible intervals and parameter-specific trace plots.
+- `predict.imr()` now returns values at full numeric precision.
+
+## Reproducibility
+
+- Expanded the standalone replication script to execute every R command shown
+  in the manuscript and to fail when full-run reference results drift.

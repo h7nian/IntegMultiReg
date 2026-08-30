@@ -2,9 +2,14 @@
 % Please edit documentation in R/fit.R
 \name{imr}
 \alias{imr}
+\alias{imr.default}
+\alias{imr.formula}
+\alias{imr.imr_data}
 \title{Fit the Integrative Bayesian Multi-Platform Regression Model}
 \usage{
-imr(
+imr(platform_data_list = NULL, ..., formula = NULL)
+
+\method{imr}{default}(
   platform_data_list,
   outcome,
   cov = NULL,
@@ -18,8 +23,20 @@ imr(
   thet_alph_bet = c(40, 10),
   sample_mcmc = c(2000, 1000),
   seed = NULL,
-  verbose = FALSE
+  verbose = FALSE,
+  ...
 )
+
+\method{imr}{formula}(
+  platform_data_list,
+  data,
+  platforms,
+  id = "id",
+  type_outcome = c("right.censored", "binary", "continuous"),
+  ...
+)
+
+\method{imr}{imr_data}(platform_data_list, ...)
 }
 \arguments{
 \item{platform_data_list}{A list of data frames, one per platform.  Each
@@ -28,6 +45,12 @@ the first column); the remaining columns are finite numeric features
 measured on that platform.  Subject identifiers must be unique within each
 data frame.  The `id` column links subjects across platforms and to the
 outcome and covariate data.}
+
+\item{...}{Additional fitting arguments passed from the formula or
+`imr_data` method to the default method. Unused arguments are rejected.}
+
+\item{formula}{A model formula. This named argument is equivalent to passing
+the formula as the first argument.}
 
 \item{outcome}{A data frame containing an `id` column and the response.  For
 `type_outcome = "right.censored"` it must also contain the event/censoring
@@ -83,6 +106,13 @@ whenever [set.seed()] is called beforehand or an explicit `seed` is passed.}
 
 \item{verbose}{Logical; if `TRUE`, print the sampler's progress and
 diagnostics to the console.  Defaults to `FALSE` (quiet).}
+
+\item{data}{A data frame used with the formula interface.}
+
+\item{platforms}{A list of platform data frames used with the formula
+interface.}
+
+\item{id}{Name of the identifier column in `data` and `platforms`.}
 }
 \value{
 An object of class `"imr"`: a list with components

@@ -20,7 +20,9 @@ predict_imr(object, newdata, ...)
 \arguments{
 \item{object}{A fitted object of class `"imr"` returned by [imr()].}
 
-\item{newdata}{A list of data frames with the new platform measurements.
+\item{newdata}{A list of data frames with the new platform measurements, or
+an [imr_data()] object created for prediction. When an `imr_data` object is
+supplied, its covariates are used automatically.
 Each data frame must include `id` as the first column, followed by finite
 numeric feature columns matching the corresponding training platform.}
 
@@ -44,7 +46,7 @@ Defaults to `FALSE`.}
 \value{
 A named list with one data frame per active availability subgroup
   model. Each data frame has columns `id` (subject identifier) and `predict`
-  (predicted value or probability, rounded to three decimals).
+  (predicted value or probability at full numeric precision).
 }
 \description{
 `predict()` method for objects of class `"imr"` produced by [imr()].  New

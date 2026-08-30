@@ -130,7 +130,9 @@ SEXP main_function_prediction(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SE
     int N = 0;
     for (int l = 0; l < n_subgroups; l++)
         N += sample_size_ptr[l];
-    double Cidx[n_subgroups + 1], CidxT[n_subgroups + 1], sdCidx[n_subgroups + 1];
+    double *Cidx = calloc((size_t)n_subgroups + 1, sizeof(double));
+    double *CidxT = calloc((size_t)n_subgroups + 1, sizeof(double));
+    double *sdCidx = calloc((size_t)n_subgroups + 1, sizeof(double));
     double **ypredT = malloc((n_subgroups + 1) * sizeof(double *));
     double **yT;
     _Bool **yTb;
@@ -140,7 +142,7 @@ SEXP main_function_prediction(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SE
         yT = malloc((n_subgroups + 1) * sizeof(double *));
 
     _Bool **delT = malloc((n_subgroups + 1) * sizeof(_Bool *));
-    int jt[n_subgroups + 1];
+    int *jt = calloc((size_t)n_subgroups + 1, sizeof(int));
     for (int m = 0; m < n_subgroups + 1; m++)
     {
         if (m < n_subgroups)
@@ -191,7 +193,7 @@ SEXP main_function_prediction(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SE
     long seed = (long)REAL(seed_R)[0];
     gsl_rng *r = gsl_rng_alloc(gsl_rng_rand48);
     gsl_rng_set(r, seed);
-    int n_uncensored[n_subgroups];
+    int *n_uncensored = calloc((size_t)n_subgroups, sizeof(int));
     int **uncensored_index = malloc(n_subgroups * sizeof(int *));
     for (int m = 0; m < n_subgroups; m++)
     {
@@ -238,8 +240,9 @@ SEXP main_function_prediction(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SE
                 int test_sample_size;
                 _Bool *ytestb;
                 double *ytest;
-                _Bool deltatest[sample_size_ptr[m]];
-                int test_index[sample_size_ptr[m]], train_index[sample_size_ptr[m]];
+                _Bool *deltatest = calloc((size_t)sample_size_ptr[m], sizeof(_Bool));
+                int *test_index = calloc((size_t)sample_size_ptr[m], sizeof(int));
+                int *train_index = calloc((size_t)sample_size_ptr[m], sizeof(int));
                 make_cv_partition(fold, n_folds, sample_size_ptr[m], &test_sample_size, censored_index[m], n_censored[m],
                           uncensored_index[m], test_index, train_index);
 
@@ -301,6 +304,9 @@ SEXP main_function_prediction(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SE
                 else
                     free(ytest);
                 free(ypred);
+                free(deltatest);
+                free(test_index);
+                free(train_index);
             }
             for (int i = 0; i < j; i++)
             {
@@ -415,6 +421,7 @@ SEXP main_function_prediction(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SE
         free(Delta[m]);
     }
     free(n_censored);
+    free(n_uncensored);
     free(censored_index);
     free(uncensored_index);
     free(Delta);
@@ -485,13 +492,18 @@ SEXP main_function_prediction(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SE
     free(c_index_list);
     free(total_c_index_list);
     free(mrf);
-
-    UNPROTECT(protect_count);
+    free(Cidx);
+    free(CidxT);
+    free(sdCidx);
+    free(jt);
 
     t = clock() - t;
     double time_taken = ((double)t) / CLOCKS_PER_SEC; // in seconds
     Rprintf("\n\nTime taken for assessing prediction in seconds is %f\n", time_taken);
     Rprintf("\nTime taken for assessing prediction in minutes is %f\n", time_taken / 60);
     Rprintf("\nTime taken for assessing prediction in hours is %f\n", time_taken / 3600);
+    /* Rprintf() may allocate, so keep the return object protected until all
+     * reporting is complete. */
+    UNPROTECT(protect_count);
     return list;
 }

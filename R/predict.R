@@ -8,7 +8,9 @@
 #' factors before Bayesian model averaging.
 #'
 #' @param object A fitted object of class `"imr"` returned by [imr()].
-#' @param newdata A list of data frames with the new platform measurements.
+#' @param newdata A list of data frames with the new platform measurements, or
+#'   an [imr_data()] object created for prediction. When an `imr_data` object is
+#'   supplied, its covariates are used automatically.
 #'   Each data frame must include `id` as the first column, followed by finite
 #'   numeric feature columns matching the corresponding training platform.
 #' @param platform_names A character vector giving, for each element of
@@ -33,7 +35,7 @@
 #'
 #' @return A named list with one data frame per active availability subgroup
 #'   model. Each data frame has columns `id` (subject identifier) and `predict`
-#'   (predicted value or probability, rounded to three decimals).
+#'   (predicted value or probability at full numeric precision).
 #'
 #' @seealso [imr()], [cv_imr()]
 #'
@@ -66,6 +68,27 @@ predict.imr <- function(object, newdata, platform_names = NULL,
   if (is.null(method)) method <- "IMR"
   n_platform <- as.integer(object$data1[[1]])
   n_cov <- as.integer(object$data1[[7]])
+
+  if (inherits(newdata, "imr_data")) {
+    validate_imr_data(newdata)
+    if (!is.null(covariates)) {
+      .imr_abort(
+        "Supply covariates either inside `newdata` or through `covariates`, not both."
+      )
+    }
+    covariates <- newdata$covariates
+    if (is.null(platform_names)) {
+      matched <- match(names(newdata$platforms), object$platform_names)
+      if (anyNA(matched) || anyDuplicated(matched)) {
+        .imr_abort(paste0(
+          "Platform names in `newdata` must uniquely match the fitted model: ",
+          paste(object$platform_names, collapse = ", "), "."
+        ))
+      }
+      platform_names <- as.character(matched)
+    }
+    newdata <- newdata$platforms
+  }
 
   if (!is.list(newdata) || length(newdata) == 0L) {
     .imr_abort("`newdata` must be a non-empty list of data frames.")
@@ -298,7 +321,7 @@ predict.imr <- function(object, newdata, platform_names = NULL,
     res <- mapply(function(x, y) {
       data.frame(
         id = x,
-        predict = round(pnorm(y), digits = 3),
+        predict = pnorm(y),
         row.names = NULL,
         stringsAsFactors = FALSE
       )
@@ -307,7 +330,7 @@ predict.imr <- function(object, newdata, platform_names = NULL,
     res <- mapply(function(x, y) {
       data.frame(
         id = x,
-        predict = round(y, digits = 3),
+        predict = y,
         row.names = NULL,
         stringsAsFactors = FALSE
       )

@@ -100,7 +100,8 @@ void initialize_sampler_state(int type_out, double **Y, double ***newCC, double 
     int rr = 1;
     int k = 1 + K + total_selected_features;
     double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG);
-    double precision_copy[k * k];
+    double *precision_copy = malloc((size_t) k * k * sizeof(double));
+    if (!precision_copy) Rf_error("malloc failed for precision_copy");
     for (int i = 0; i < k; i++)
       for (int j = 0; j <= i; j++)
         precision_copy[i * k + j] = precision_copy[j * k + i] = precision[i * k + j];
@@ -109,6 +110,7 @@ void initialize_sampler_state(int type_out, double **Y, double ***newCC, double 
     double *beta_mode = malloc(k * sizeof(double));
     log_likelihood[m] = log_likelihood_nonlocal(k, K, n_selected_features[0], N, alpha, psi, Y[m], PG, precision_copy, &m11.matrix, beta_mode, rr, h[m], h1, h0, hg, maxiter, stop, 0);
     free(precision);
+    free(precision_copy);
     free(beta_mode);
 
     for (int i = 0; i < N; i++)

@@ -42,6 +42,7 @@ Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
 
 Authors:
 \itemize{
+  \item Thierry Chekouo \email{tchekouo@umn.edu} (\href{https://orcid.org/0000-0002-3594-9182}{ORCID})
   \item Sinian Zhang \email{zhan9381@umn.edu}
   \item Jianfeng Wang \email{wan01188@umn.edu}
 }

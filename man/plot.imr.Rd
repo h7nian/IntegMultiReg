@@ -7,7 +7,7 @@
 \usage{
 \method{plot}{imr}(
   x,
-  type = c("selection", "theta", "trace"),
+  type = c("selection", "theta", "trace", "theta_trace", "selection_trace"),
   platform = NULL,
   base_cex = 1,
   cex_axis = NULL,
@@ -19,6 +19,9 @@
   legend_width = 0.28,
   mar = NULL,
   mgp = NULL,
+  parameter = 1L,
+  subgroup = 1L,
+  feature = 1L,
   ...
 )
 
@@ -27,8 +30,8 @@ plot_imr(x, ...)
 \arguments{
 \item{x}{A fitted object of class `"imr"`.}
 
-\item{type}{Character; one of `"selection"` (default), `"theta"` or
-`"trace"`.}
+\item{type}{Character; one of `"selection"` (default), `"theta"`,
+`"trace"`, `"theta_trace"` or `"selection_trace"`.}
 
 \item{platform}{Optional integer vector selecting which platforms to display
 for the `"selection"` and `"theta"` plots; defaults to all platforms.}
@@ -61,6 +64,15 @@ legend be drawn (default `TRUE`)?}
 \item{mar, mgp}{Optional graphical margin and axis-title placement vectors
 passed to [graphics::par()] for finer layout control.}
 
+\item{parameter}{Positive integer selecting a theta-pair column for
+`type = "theta_trace"`.}
+
+\item{subgroup}{Positive integer selecting a platform-specific subgroup row
+for `type = "selection_trace"`.}
+
+\item{feature}{Positive integer selecting a feature column for
+`type = "selection_trace"`.}
+
 \item{...}{Further graphical parameters passed to the underlying plotting
 functions.}
 }
@@ -77,6 +89,10 @@ Visualizes a fitted `"imr"` object.  Three plot types are available:
   \item{`"theta"`}{Heatmap of the posterior mean MRF interaction parameters
     between availability subgroups, one panel per platform.}
   \item{`"trace"`}{Trace plot of the log-posterior across MCMC iterations.}
+  \item{`"theta_trace"`}{Trace plot for one retained MRF interaction
+    parameter, selected by `platform` and `parameter`.}
+  \item{`"selection_trace"`}{Trace plot for one retained selection
+    indicator, selected by `platform`, `subgroup` and `feature`.}
 }
 See [plot_top_features()] and [plot_subgroup_sizes()] for two further ready
 made displays.

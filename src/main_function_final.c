@@ -39,6 +39,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
                   SEXP sample, SEXP burnin)
 {
     clock_t t = clock();
+    int protect_count = 0;
     /* platform_models_R maps each platform to the subgroups using it;
      * model_platforms_R is the inverse mapping from subgroup to platforms. */
 
@@ -52,19 +53,30 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     long seed = (long)REAL(seed_R)[0];
 
     PROTECT(method1_R);
+    protect_count++;
     strncpy(sampler_method, CHAR(STRING_ELT(method1_R, 0)), sizeof(sampler_method) - 1);
     sampler_method[sizeof(sampler_method) - 1] = '\0';
 
     PROTECT(n_platforms_R);
+    protect_count++;
     PROTECT(platform_models_R);
+    protect_count++;
     PROTECT(model_platforms_R);
+    protect_count++;
     PROTECT(n_subgroups_R);
+    protect_count++;
     PROTECT(sample_size);
+    protect_count++;
     PROTECT(nbr_features);
+    protect_count++;
     PROTECT(nbr_cov);
+    protect_count++;
     PROTECT(X1_filtered);
+    protect_count++;
     PROTECT(newYY_list);
+    protect_count++;
     PROTECT(newCC_list);
+    protect_count++;
 
 
     int K = asInteger(nbr_cov);
@@ -513,6 +525,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     // export gamma_sample to R
     SEXP gamma_sample_R;
     PROTECT(gamma_sample_R = allocVector(VECSXP, sample_c));
+    protect_count++;
     for (int s = 0; s < sample_c; s++)
     {
         SEXP GamS_R;
@@ -530,6 +543,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     // export gamma_mean
     SEXP GamMean_R;
     PROTECT(GamMean_R = allocVector(VECSXP, n_platforms));
+    protect_count++;
     /// return gamma_mean
     for (int l = 0; l < n_platforms; l++)
     {
@@ -569,6 +583,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     // return ThetaMean
     SEXP thetaMean_R;
     PROTECT(thetaMean_R = allocVector(VECSXP, n_platforms));
+    protect_count++;
     for (int l = 0; l < n_platforms; l++)
     {
         SEXP thetaMatrix = PROTECT(c_array_to_r_matrix(theta[l], n_platform_models_c[l], n_platform_models_c[l]));
@@ -583,6 +598,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     // dereferencing freed memory.
     SEXP thetaSampleMatrix_R;
     PROTECT(thetaSampleMatrix_R = allocVector(VECSXP, n_platforms));
+    protect_count++;
     for (int l = 0; (l < n_platforms) && (!thetaFreed); l++)
     {
         SEXP thetaSampleMatrix;
@@ -610,9 +626,11 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     }
     // We convert ymean to an R subject
     SEXP YMean_R = PROTECT(array_to_r_list(ymean, n_subgroups, sample_size_ptr));
+    protect_count++;
 
     SEXP logposterior_R;
     PROTECT(logposterior_R = allocVector(REALSXP, burnin_c + sample_c));
+    protect_count++;
     for (int s = 0; s < burnin_c + sample_c; s++)
         REAL(logposterior_R)
     [s] = log_posterior_sample[s];
@@ -621,6 +639,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     SEXP list;
     SEXP listNames;
     PROTECT(list = allocVector(VECSXP, listSize));
+    protect_count++;
 
     // Add common elements
     SET_VECTOR_ELT(list, 0, GamMean_R);
@@ -631,6 +650,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     SET_VECTOR_ELT(list, 5, thetaSampleMatrix_R);
 
     PROTECT(listNames = allocVector(STRSXP, listSize));
+    protect_count++;
     SET_STRING_ELT(listNames, 0, mkChar("gam_mean"));
     SET_STRING_ELT(listNames, 1, mkChar("theta_mean"));
     SET_STRING_ELT(listNames, 2, mkChar("estimate_latent_y"));
@@ -741,13 +761,14 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     free(h);
     free(log_posterior_sample);
 
-    int protect_count = 19; // Base protect count
-    UNPROTECT(protect_count);
-PutRNGstate();
+    PutRNGstate();
     Rprintf("\n");
     clock_t t1 = clock() - t;
     double time_taken = ((double)t1) / CLOCKS_PER_SEC; // in seconds
     Rprintf("\nTime taken in minutes before prediction is %f\n", time_taken / 60);
     Rprintf("\nTime taken in hours before prediction is  %f\n", time_taken / 3600);
+    /* Keep the return value and all of its components protected across
+     * PutRNGstate() and Rprintf(), both of which may allocate and trigger GC. */
+    UNPROTECT(protect_count);
     return list;
 }

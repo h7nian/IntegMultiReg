@@ -66,6 +66,8 @@
 #'   whenever [set.seed()] is called beforehand or an explicit `seed` is passed.
 #' @param verbose Logical; if `TRUE`, print the sampler's progress and
 #'   diagnostics to the console.  Defaults to `FALSE` (quiet).
+#' @param ... Additional fitting arguments passed from the formula or
+#'   `imr_data` method to the default method. Unused arguments are rejected.
 #'
 #' @details
 #' All feature and covariate data are standardized internally (mean 0, standard
@@ -118,7 +120,24 @@
 #' fit
 #' }
 #' @export
-imr <- function(platform_data_list,
+imr <- function(platform_data_list = NULL, ..., formula = NULL) {
+  if (!is.null(formula)) {
+    if (!is.null(platform_data_list)) {
+      .imr_abort("Supply either `formula` or `platform_data_list`, not both.")
+    }
+    fit <- imr.formula(formula, ...)
+    fit$call <- match.call()
+    return(fit)
+  }
+  if (is.null(platform_data_list)) {
+    .imr_abort("Supply model inputs or a `formula`.")
+  }
+  UseMethod("imr")
+}
+
+#' @rdname imr
+#' @export
+imr.default <- function(platform_data_list,
                                            outcome,
                                            cov = NULL,
                                            type_outcome = c("right.censored", "binary", "continuous"),
@@ -131,53 +150,27 @@ imr <- function(platform_data_list,
                                            thet_alph_bet = c(40, 10),
                                            sample_mcmc = c(2000, 1000),
                                            seed = NULL,
-                                           verbose = FALSE) {
+                                           verbose = FALSE,
+                                           ...) {
+  dots <- list(...)
+  if (length(dots) > 0L) {
+    .imr_abort(sprintf("Unused argument: `%s`.", names(dots)[1L]))
+  }
   cl <- match.call()
   type_outcome <- match.arg(type_outcome)
   method <- match.arg(method)
 
   .imr_check_flag(verbose, "verbose")
-  if (!is.list(platform_data_list) || length(platform_data_list) == 0L) {
-    .imr_abort("`platform_data_list` must be a non-empty list of data frames.")
-  }
+  validated <- imr_data(
+    platforms = platform_data_list,
+    outcome = outcome,
+    covariates = cov,
+    type_outcome = type_outcome
+  )
+  platform_data_list <- validated$platforms
+  outcome <- validated$outcome
+  cov <- validated$covariates
   n_platform <- length(platform_data_list)
-  for (i in seq_along(platform_data_list)) {
-    arg <- sprintf("platform_data_list[[%d]]", i)
-    .imr_check_id_frame(platform_data_list[[i]], arg)
-    .imr_check_numeric_columns(platform_data_list[[i]], arg)
-  }
-
-  .imr_check_id_frame(outcome, "outcome")
-  if (type_outcome %in% c("binary", "continuous")) {
-    if (ncol(outcome) != 2L) {
-      .imr_abort(
-        "`outcome` must have exactly two columns: `id` and the response."
-      )
-    }
-    .imr_check_numeric_columns(outcome, "outcome", names(outcome)[2])
-    if (type_outcome == "binary" && !all(outcome[[2]] %in% c(0, 1))) {
-      .imr_abort("For `type_outcome = \"binary\"`, the response must be coded 0/1.")
-    }
-  } else if (type_outcome == "right.censored") {
-    if (ncol(outcome) != 3L) {
-      .imr_abort(
-        paste0("`outcome` must have exactly three columns for right-censored ",
-               "data: `id`, time and status.")
-      )
-    }
-    .imr_check_numeric_columns(outcome, "outcome", names(outcome)[2:3])
-    if (any(outcome[[2]] <= 0)) {
-      .imr_abort("Right-censored event times in `outcome` must be positive.")
-    }
-    if (!all(outcome[[3]] %in% c(0, 1))) {
-      .imr_abort("Right-censored status values in `outcome` must be coded 0/1.")
-    }
-  }
-
-  if (!is.null(cov)) {
-    .imr_check_id_frame(cov, "cov")
-    .imr_check_numeric_columns(cov, "cov")
-  }
 
   ssize <- .imr_check_integer_scalar(ssize, "ssize", min = 0)
   nu <- .imr_check_numeric_vector(nu, "nu", length = n_platform)
@@ -465,9 +458,105 @@ imr <- function(platform_data_list,
   results$nu <- nu
   results$ssize <- ssize
   results$sample_mcmc <- c(total = n_sample, burnin = n_burnin)
+  results$input_data <- validated
 
   class(results) <- "imr"
   return(results)
+}
+
+
+#' @rdname imr
+#' @param formula A model formula. This named argument is equivalent to passing
+#'   the formula as the first argument.
+#' @param data A data frame used with the formula interface.
+#' @param platforms A list of platform data frames used with the formula
+#'   interface.
+#' @param id Name of the identifier column in `data` and `platforms`.
+#' @export
+imr.formula <- function(platform_data_list, data, platforms, id = "id",
+                        type_outcome = c("right.censored", "binary", "continuous"),
+                        ...) {
+  formula <- platform_data_list
+  type_outcome <- match.arg(type_outcome)
+  if (!inherits(formula, "formula")) {
+    .imr_abort("The first argument must be a formula.")
+  }
+  if (!is.data.frame(data)) {
+    .imr_abort("`data` must be a data frame for the formula interface.")
+  }
+  if (!id %in% names(data)) {
+    .imr_abort(sprintf("`data` must contain the identifier column `%s`.", id))
+  }
+  if (anyNA(data[[id]]) || anyDuplicated(data[[id]])) {
+    .imr_abort("The identifier column in `data` must be complete and unique.")
+  }
+
+  mf <- stats::model.frame(formula, data = data, na.action = stats::na.fail)
+  response <- stats::model.response(mf)
+  terms_object <- stats::terms(mf)
+  model_matrix <- stats::model.matrix(terms_object, mf)
+  keep <- attr(model_matrix, "assign") != 0L
+  model_matrix <- model_matrix[, keep, drop = FALSE]
+
+  response_matrix <- if (is.matrix(response) || is.data.frame(response)) {
+    as.matrix(response)
+  } else {
+    matrix(response, ncol = 1L)
+  }
+  expected_response_columns <- if (type_outcome == "right.censored") 2L else 1L
+  if (ncol(response_matrix) != expected_response_columns) {
+    .imr_abort(sprintf(
+      "The formula response must produce %d column(s) for `%s` outcomes.",
+      expected_response_columns, type_outcome
+    ))
+  }
+  outcome <- data.frame(
+    id = data[[id]], response_matrix,
+    check.names = FALSE, row.names = NULL
+  )
+  names(outcome)[1L] <- id
+  names(outcome) <- c(
+    id, if (type_outcome == "right.censored") c("time", "status") else "response"
+  )
+  covariates <- if (ncol(model_matrix) == 0L) {
+    NULL
+  } else {
+    data.frame(
+      id = data[[id]], model_matrix,
+      check.names = FALSE, row.names = NULL
+    )
+  }
+  if (!is.null(covariates)) names(covariates)[1L] <- id
+  dat <- imr_data(
+    platforms = platforms, outcome = outcome, covariates = covariates,
+    type_outcome = type_outcome, id = id
+  )
+  fit <- imr.imr_data(dat, ...)
+  fit$call <- match.call()
+  fit$formula <- formula
+  fit$terms <- terms_object
+  fit$contrasts <- attr(model_matrix, "contrasts")
+  fit
+}
+
+
+#' @rdname imr
+#' @export
+imr.imr_data <- function(platform_data_list, ...) {
+  validate_imr_data(platform_data_list)
+  if (is.null(platform_data_list$outcome)) {
+    .imr_abort("An `imr_data` object used for fitting must contain an outcome.")
+  }
+  fit <- imr.default(
+    platform_data_list = platform_data_list$platforms,
+    outcome = platform_data_list$outcome,
+    cov = platform_data_list$covariates,
+    type_outcome = platform_data_list$type_outcome,
+    ...
+  )
+  fit$call <- match.call()
+  fit$input_data <- platform_data_list
+  fit
 }
 
 

@@ -110,7 +110,9 @@ void sample_gamma_indicators(
         double new_log_likelihood = 0;
         if (strcmp(likelihood_type, "Local") == 0)
         {
-            double Sigma[sample_size * sample_size];
+            double *Sigma = malloc(
+                (size_t) sample_size * sample_size * sizeof(double));
+            if (!Sigma) Rf_error("malloc failed for Sigma");
             int total_selected_features = 0;
             for (int t = 0; t < n_selected_platforms; t++)
             {
@@ -140,6 +142,7 @@ void sample_gamma_indicators(
                 gsl_sf_lngamma(alpha) - 0.5 * new_logdet -
                 ((sample_size / 2.0) + alpha) *
                     log(1 + new_quadratic_form / (2 * psi));
+            free(Sigma);
         }
         else
         {
@@ -157,7 +160,8 @@ void sample_gamma_indicators(
                 k_val, n_covariates, n_selected_features[0], sample_size,
                 slab_scale, covariate_scale, intercept_scale,
                 first_platform_scale, proposed_design);
-            double precision_copy[k_val * k_val];
+            double *precision_copy = malloc((size_t) k_val * k_val * sizeof(double));
+            if (!precision_copy) Rf_error("malloc failed for precision_copy");
             for (int m = 0; m < k_val; m++)
             {
                 for (int j = 0; j <= m; j++)
@@ -176,6 +180,7 @@ void sample_gamma_indicators(
                 covariate_scale, intercept_scale, first_platform_scale,
                 max_iter, tolerance, 0);
             free(precision);
+            free(precision_copy);
             free(beta_mode);
         }
         for (int row = 0; row < sample_size; row++)

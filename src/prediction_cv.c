@@ -29,6 +29,14 @@ double *predict_cv_fold(int type_out, int model, int K, int n_selected_platforms
   for (i = 0; i < test_sample_size; i++)
     yhat[i] = 0;
   double **yh = dmatrix(0, max_models - 1, 0, test_sample_size - 1);
+  /* dmatrix() uses malloc(), so initialize every candidate-model prediction.
+   * This also keeps a failed Cholesky factorization from leaving values that
+   * are later inspected while its model weight is zero. */
+  for (l = 0; l < max_models; l++)
+  {
+    for (i = 0; i < test_sample_size; i++)
+      yh[l][i] = 0.0;
+  }
   for (l = 0; l < max_models; l++)
   {
     int l0 = high_model_index[l];
@@ -249,6 +257,9 @@ double *predict_cv_fold(int type_out, int model, int K, int n_selected_platforms
   }
   else 
   {
+    /* Binary predictions are returned through probtest; yhat was allocated
+     * before the outcome branch and is otherwise lost on this path. */
+    free(yhat);
     return probtest;
   }
 }
@@ -482,7 +493,8 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int samp
       if (strcmp(likelihood_type, "Local") == 0)
       {
         double a;
-        double Sigma[N * N];
+        double *Sigma = malloc((size_t) N * N * sizeof(double));
+        if (!Sigma) Rf_error("malloc failed for Sigma");
         for (int i = 0; i < N; i++)
         {
           for (int j = 0; j <= i; j++)
@@ -499,6 +511,7 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int samp
         double logdet = 0;
         double scal = cholesky_quadratic_form(N, Sigma, y[m], &logdet);
         loglik[m] = -(N / 2.0) * log(IMR_PI * 2 * alpha) + gsl_sf_lngamma(N / 2.0 + alpha) - gsl_sf_lngamma(alpha) - 0.5 * logdet - ((N / 2.0) + alpha) * log(1 + scal / (2 * psi));
+        free(Sigma);
       }
       else
       {
@@ -507,7 +520,8 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int samp
         int rr = 1;
         int k = 1 + K + total_selected_features;
         double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG);
-        double precision_copy[k * k];
+        double *precision_copy = malloc((size_t) k * k * sizeof(double));
+        if (!precision_copy) Rf_error("malloc failed for precision_copy");
         for (int i = 0; i < k; i++)
         {
           for (int j = 0; j <= i; j++)
@@ -521,6 +535,7 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int samp
 	        loglik[m] = log_likelihood_nonlocal(k, K, n_selected_features[0], N, alpha, psi, y[m], PG, precision_copy, &m11.matrix,
 	                                   beta[l][m], rr, h[m], h1, h0, hg, maxiter, stop, 0);
 	        free(precision);
+	        free(precision_copy);
 	      }
       for (int i = 0; i < N; i++)
         free(PG[i]);

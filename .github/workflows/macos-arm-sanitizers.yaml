@@ -43,7 +43,7 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::testthat
+          extra-packages: any::testthat, any::knitr, any::rmarkdown
           needs: check
 
       - name: Configure Apple clang with ASAN and UBSAN
@@ -115,6 +115,37 @@ jobs:
               "${RUNNER_TEMP}/sanitizer-tests.log" | tail -n 25 | \
               while IFS= read -r line; do
                 echo "::error title=Sanitizer test failure::${line}"
+              done
+          fi
+          if [[ ${status} -ne 0 || ${sanitizer_status} -ne 0 ]]; then
+            exit 1
+          fi
+
+      # The Oxford M1-SAN failure was triggered while rebuilding the package
+      # vignette rather than by testthat, so exercise that path explicitly in
+      # the same instrumented R process.
+      - name: Rebuild vignettes under ASAN and UBSAN
+        shell: bash
+        run: |
+          r_home="$(R RHOME)"
+          set +e
+          R_HOME="${r_home}" \
+            DYLD_INSERT_LIBRARIES="${SANITIZER_RUNTIME}" \
+            R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
+            "${r_home}/bin/exec/R" --vanilla --no-save \
+              -e 'setwd(Sys.getenv("GITHUB_WORKSPACE")); tools::buildVignettes(dir = ".")' \
+            2>&1 | tee "${RUNNER_TEMP}/sanitizer-vignettes.log"
+          status=${PIPESTATUS[0]}
+          set -e
+
+          sanitizer_status=0
+          if grep -Eq 'runtime error:|ERROR: AddressSanitizer|SUMMARY: (AddressSanitizer|UndefinedBehaviorSanitizer)|UndefinedBehaviorSanitizer:' \
+            "${RUNNER_TEMP}/sanitizer-vignettes.log"; then
+            sanitizer_status=1
+            grep -E 'runtime error:|ERROR: AddressSanitizer|SUMMARY: (AddressSanitizer|UndefinedBehaviorSanitizer)|UndefinedBehaviorSanitizer:' \
+              "${RUNNER_TEMP}/sanitizer-vignettes.log" | tail -n 25 | \
+              while IFS= read -r line; do
+                echo "::error title=Sanitizer vignette failure::${line}"
               done
           fi
           if [[ ${status} -ne 0 || ${sanitizer_status} -ne 0 ]]; then

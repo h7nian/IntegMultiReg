@@ -65,13 +65,15 @@ void sample_binary_latent_response(int model, int n_platforms, int *selected_pla
     double tolerance = pow(10, -3);
     int moment_order = 1;
     double *precision = build_posterior_precision(k_val, n_covariates, n_selected_features[0], n_subjects, slab_scale, covariate_scale, intercept_scale, first_platform_scale, design);
-    double precision_copy[k_val * k_val];
+    double *precision_copy = malloc((size_t) k_val * k_val * sizeof(double));
+    if (!precision_copy) Rf_error("malloc failed for precision_copy");
     for (i = 0; i < k_val; i++)
         for (j = 0; j <= i; j++)
             precision_copy[i * k_val + j] = precision_copy[j * k_val + i] = precision[i * k_val + j];
     gsl_matrix_view m = gsl_matrix_view_array(precision, k_val, k_val);
     gsl_linalg_cholesky_decomp(&m.matrix);
-    double ynew[n_subjects];
+    double *ynew = malloc((size_t) n_subjects * sizeof(double));
+    if (!ynew) Rf_error("malloc failed for ynew");
     for (i = 0; i < n_subjects; i++)
         ynew[i] = latent_y[i];
     for (i = 0; i < sample_size; i++)
@@ -104,6 +106,8 @@ void sample_binary_latent_response(int model, int n_platforms, int *selected_pla
         ynew[i] = latent_y[i];
     }
     free(precision);
+    free(precision_copy);
+    free(ynew);
 
     for (i = 0; i < n_subjects; i++)
         free(design[i]);
