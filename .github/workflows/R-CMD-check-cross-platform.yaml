@@ -25,6 +25,8 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      # Use R's portable LaTeX driver with TinyTeX, including makeindex.
+      R_TEXI2DVICMD: emulation
 
     steps:
       - uses: actions/checkout@v6
@@ -43,8 +45,10 @@ jobs:
       - name: Install PDF manual font dependencies
         if: runner.os != 'Windows'
         run: |
-          tlmgr install courier
+          tlmgr install courier makeindex
           kpsewhich pcrr8t.tfm
+          command -v pdflatex
+          command -v makeindex
 
       - name: Install Linux system and CRAN check dependencies
         if: runner.os == 'Linux'
