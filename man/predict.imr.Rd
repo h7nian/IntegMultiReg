@@ -33,7 +33,12 @@ to be in the same order as the platforms supplied to [imr()].}
 
 \item{covariates}{An optional data frame of clinical covariates for the test
 subjects, including `id` as the first column.  Required when the model was
-fitted with covariates and ignored with a warning when it was not.}
+fitted with covariates and ignored with a warning when it was not.
+For a formula fit, supply the original predictor columns (including factors
+and variables used in transformations). The training terms, factor levels
+and contrasts are reused. The training identifier name is also accepted.
+Alternatively, an already encoded numeric model matrix may be supplied as
+a data frame with `id` and exactly the fitted covariate column names.}
 
 \item{max_models}{Integer; the maximum number of distinct selection models
 (gamma configurations) used for Bayesian model averaging.  Default `100`.}

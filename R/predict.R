@@ -20,6 +20,11 @@
 #' @param covariates An optional data frame of clinical covariates for the test
 #'   subjects, including `id` as the first column.  Required when the model was
 #'   fitted with covariates and ignored with a warning when it was not.
+#'   For a formula fit, supply the original predictor columns (including factors
+#'   and variables used in transformations). The training terms, factor levels
+#'   and contrasts are reused. The training identifier name is also accepted.
+#'   Alternatively, an already encoded numeric model matrix may be supplied as
+#'   a data frame with `id` and exactly the fitted covariate column names.
 #' @param max_models Integer; the maximum number of distinct selection models
 #'   (gamma configurations) used for Bayesian model averaging.  Default `100`.
 #' @param verbose Logical; if `TRUE`, print the C routine's diagnostics.
@@ -151,6 +156,9 @@ predict.imr <- function(object, newdata, platform_names = NULL,
     covariates <- NULL
   }
   if (!is.null(covariates)) {
+    if (!is.null(object$terms)) {
+      covariates <- .imr_prediction_covariates(object, covariates)
+    }
     .imr_check_id_frame(covariates, "covariates", require_rows = FALSE)
     .imr_check_numeric_columns(covariates, "covariates")
     if (ncol(covariates) - 1L != n_cov) {
@@ -339,4 +347,39 @@ predict.imr <- function(object, newdata, platform_names = NULL,
 
   names(res) <- paste("model:", model_names, sep = "")
   return(res)
+}
+
+#' @keywords internal
+#' @noRd
+.imr_prediction_covariates <- function(object, covariates) {
+  if (!is.data.frame(covariates)) {
+    .imr_abort("`covariates` must be a data frame.")
+  }
+  id <- if ("id" %in% names(covariates)) "id" else object$formula_id
+  if (is.null(id) || !id %in% names(covariates)) {
+    .imr_abort("`covariates` must contain the subject identifier column.")
+  }
+  ids <- covariates[[id]]
+  .imr_check_id_frame(data.frame(id = ids), "covariates",
+                      require_rows = FALSE, require_features = FALSE)
+  tt <- stats::delete.response(object$terms)
+  variables <- all.vars(tt)
+  if (!all(variables %in% names(covariates))) {
+    # Preserve the component-wise interface for explicitly encoded matrices.
+    if (identical(setdiff(names(covariates), id), object$covariate_names)) {
+      names(covariates)[names(covariates) == id] <- "id"
+      return(covariates[, c("id", object$covariate_names), drop = FALSE])
+    }
+    .imr_abort(sprintf("`covariates` is missing formula variable(s): %s.",
+                       paste(setdiff(variables, names(covariates)), collapse = ", ")))
+  }
+  mf <- stats::model.frame(tt, data = covariates, na.action = stats::na.fail,
+                            xlev = object$xlevels)
+  mm <- stats::model.matrix(tt, mf, contrasts.arg = object$contrasts)
+  mm <- mm[, attr(mm, "assign") != 0L, drop = FALSE]
+  if (nrow(mm) != length(ids) ||
+      !identical(colnames(mm), object$covariate_names)) {
+    .imr_abort("Formula covariates do not match the training model matrix.")
+  }
+  data.frame(id = ids, mm, check.names = FALSE, row.names = NULL)
 }

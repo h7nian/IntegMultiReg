@@ -468,6 +468,8 @@ imr.default <- function(platform_data_list,
 #' @rdname imr
 #' @param formula A model formula. This named argument is equivalent to passing
 #'   the formula as the first argument.
+#'   The model always includes an intercept: `0`/`-1` and `offset()` terms are
+#'   rejected. The identifier column is excluded when expanding `.`.
 #' @param data A data frame used with the formula interface.
 #' @param platforms A list of platform data frames used with the formula
 #'   interface.
@@ -491,10 +493,21 @@ imr.formula <- function(platform_data_list, data, platforms, id = "id",
     .imr_abort("The identifier column in `data` must be complete and unique.")
   }
 
-  mf <- stats::model.frame(formula, data = data, na.action = stats::na.fail)
+  # The identifier aligns subjects; it must not become a predictor via `.`.
+  formula_data <- data[, setdiff(names(data), id), drop = FALSE]
+  mf <- stats::model.frame(formula, data = formula_data,
+                           na.action = stats::na.fail)
   response <- stats::model.response(mf)
   terms_object <- stats::terms(mf)
+  if (attr(terms_object, "intercept") != 1L) {
+    .imr_abort("IMR requires an intercept; formulas with `0` or `-1` are not supported.")
+  }
+  if (length(attr(terms_object, "offset")) > 0L) {
+    .imr_abort("IMR does not support `offset()` terms in formulas.")
+  }
   model_matrix <- stats::model.matrix(terms_object, mf)
+  contrasts <- attr(model_matrix, "contrasts")
+  xlevels <- stats::.getXlevels(terms_object, mf)
   keep <- attr(model_matrix, "assign") != 0L
   model_matrix <- model_matrix[, keep, drop = FALSE]
 
@@ -535,7 +548,9 @@ imr.formula <- function(platform_data_list, data, platforms, id = "id",
   fit$call <- match.call()
   fit$formula <- formula
   fit$terms <- terms_object
-  fit$contrasts <- attr(model_matrix, "contrasts")
+  fit$contrasts <- contrasts
+  fit$xlevels <- xlevels
+  fit$formula_id <- id
   fit
 }
 

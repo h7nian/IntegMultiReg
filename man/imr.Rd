@@ -50,7 +50,9 @@ outcome and covariate data.}
 `imr_data` method to the default method. Unused arguments are rejected.}
 
 \item{formula}{A model formula. This named argument is equivalent to passing
-the formula as the first argument.}
+the formula as the first argument.
+The model always includes an intercept: `0`/`-1` and `offset()` terms are
+rejected. The identifier column is excluded when expanding `.`.}
 
 \item{outcome}{A data frame containing an `id` column and the response.  For
 `type_outcome = "right.censored"` it must also contain the event/censoring

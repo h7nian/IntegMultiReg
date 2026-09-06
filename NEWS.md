@@ -13,6 +13,10 @@
 
 - Added the validated `imr_data` class for training and prediction inputs.
 - Added an `imr()` formula/data method while preserving the original interface.
+- Formula predictions reuse training transformations, factor levels and
+  contrasts; subject IDs are excluded from dot-formula expansion.
+- Unsupported no-intercept and offset formulas now fail explicitly instead
+  of silently fitting a different model.
 - Added fitted-object validation, fit comparison, posterior uncertainty
   summaries, credible intervals and parameter-specific trace plots.
 - `predict.imr()` now returns values at full numeric precision.
