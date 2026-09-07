@@ -15,6 +15,7 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
       R_TEXI2DVICMD: emulation
+      _R_CHECK_ALWAYS_LOG_VIGNETTE_OUTPUT_: "true"
       VALGRIND_OPTS: --tool=memcheck --leak-check=full --show-leak-kinds=definite,indirect,possible --errors-for-leak-kinds=definite,indirect,possible --track-origins=yes --error-exitcode=97
     steps:
       - uses: actions/checkout@v6
@@ -29,9 +30,24 @@ jobs:
             libnode-dev texinfo tidy qpdf devscripts
           mkdir -p "${RUNNER_TEMP}/strict-evidence" "${RUNNER_TEMP}/strict-library"
           echo "R_LIBS_USER=${RUNNER_TEMP}/strict-library" >> "${GITHUB_ENV}"
+      - uses: actions/cache/restore@v4
+        id: runtime-cache
+        with:
+          path: ${{ runner.temp }}/strict-runtime
+          key: strict-runtime-${{ runner.os }}-${{ hashFiles('.github/strict/build-runtime.sh') }}
       - name: Build Valgrind 3.27.1 and instrumented R-devel
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
         shell: bash
         run: bash .github/strict/build-runtime.sh
+      - name: Activate the audited runtime and retain provenance
+        run: |
+          echo "${RUNNER_TEMP}/strict-runtime/bin" >> "${GITHUB_PATH}"
+          cp "${RUNNER_TEMP}/strict-runtime/provenance/"* "${RUNNER_TEMP}/strict-evidence/"
+      - uses: actions/cache/save@v4
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/strict-runtime
+          key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::rcmdcheck, any::V8

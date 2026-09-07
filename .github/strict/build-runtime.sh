@@ -18,7 +18,9 @@ cd "${work}"
 tar -xf R-devel.tar.gz
 mkdir R-build
 cd R-build
-CPPFLAGS="-I${prefix}/include" CFLAGS='-g -O2' \
+CPPFLAGS="-I${prefix}/include" CFLAGS='-g -O2 -Wall -pedantic -mtune=native' \
+  CXXFLAGS='-g -O2 -Wall -pedantic -mtune=native' \
+  FFLAGS='-g -O2 -mtune=native' FCFLAGS='-g -O2 -mtune=native' \
   ../R-devel/configure --prefix="${prefix}" --with-x=no \
     --enable-R-shlib --with-blas=no --with-lapack=no \
     --with-valgrind-instrumentation=2 > "${evidence}/R-configure.log" 2>&1
@@ -27,4 +29,6 @@ grep -E '^#define (HAVE_VALGRIND_MEMCHECK_H|VALGRIND_LEVEL)' src/include/config.
 grep -Eq '^#define VALGRIND_LEVEL 2$' src/include/config.h
 make -j2 > "${evidence}/R-build.log" 2>&1
 make install >> "${evidence}/R-build.log" 2>&1
-echo "${prefix}/bin" >> "${GITHUB_PATH}"
+mkdir -p "${prefix}/provenance"
+cp "${evidence}/runtime-source-SHA256SUMS.txt" "${evidence}/instrumentation.txt" \
+  "${evidence}/R-configure.log" "${evidence}/valgrind-configure.log" "${prefix}/provenance/"
