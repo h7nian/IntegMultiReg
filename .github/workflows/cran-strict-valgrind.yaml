@@ -23,7 +23,7 @@ jobs:
       - name: Install build and check dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential gfortran pkg-config \
+          sudo apt-get install --yes build-essential gfortran pkg-config libc6-dbg \
             libreadline-dev libpcre2-dev liblzma-dev libbz2-dev zlib1g-dev \
             libcurl4-openssl-dev libssl-dev libicu-dev libgsl-dev \
             libpng-dev libjpeg-dev libtiff-dev libcairo2-dev \
