@@ -4,6 +4,7 @@ check = base/'candidate/IntegMultiReg.Rcheck'
 log = (check/'00check.log').read_text()
 assert not re.search(r'\b(?:ERROR|WARNING)\b',log), 'Package check has ERROR/WARNING'
 assert (base/'candidate-exit-status.txt').read_text().strip() == '0'
+assert not re.search(r'(?im)\b(?:warning|error):', (check/'00install.out').read_text()), 'Compiler diagnostics remain'
 for label in ('checking examples','checking tests','checking re-building of vignette outputs'):
     blocks = re.split(r'(?m)^\* ', log)
     matches = [block for block in blocks if block.startswith(label)]

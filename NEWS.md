@@ -1,5 +1,7 @@
 # IntegMultiReg 0.1.3
 
+* Explicitly initialize conditional outcome pointers for strict compiler diagnostics.
+
 - Corrected survival preprocessing to log positive event/censoring times once,
   matching the original supplementary C code. Survival fits must be rerun;
   `survival_scale = "identity"` explicitly reproduces the historical raw-time

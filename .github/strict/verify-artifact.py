@@ -3,7 +3,7 @@ root = pathlib.Path('.')
 fixtures = root / '.github/strict/fixtures'
 expected = {
  'IntegMultiReg_0.1.1.tar.gz': '6e5c82096a9d0cc62161a810683ccbb6f3c5a748bf89b13432b1ec8976d07745',
- 'IntegMultiReg_0.1.3.tar.gz': 'f9551e573c6b09af31877436c4a50773231bd508653df4527007586537f2ca1f'
+ 'IntegMultiReg_0.1.3.tar.gz': '46212e3a011986bf9b0e4cc81e75af137f95db3e731218558d1b9a5e6bca3c3b'
 }
 for name, digest in expected.items():
     assert hashlib.sha256((fixtures/name).read_bytes()).hexdigest() == digest, name
