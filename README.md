@@ -36,7 +36,7 @@ install.packages("IntegMultiReg")
 Alternatively, install a local source tarball:
 
 ```r
-install.packages("IntegMultiReg_0.1.2.tar.gz", repos = NULL, type = "source")
+install.packages("IntegMultiReg_0.1.3.tar.gz", repos = NULL, type = "source")
 ```
 
 The CRAN checking tools `checkbashisms` and `qpdf` are not runtime
@@ -110,3 +110,41 @@ Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
 
 When using `kircIMR`, please also acknowledge TCGA, the National Cancer
 Institute Genomic Data Commons, and UCSC Xena as the public data sources.
+
+## Coefficient and predictive uncertainty (0.1.3)
+
+After fitting, `posterior_draws(fit)` adds conditional pMOM coefficient and
+variance draws to the retained selection models. `summary(draws)` and
+`confint(draws)` report coefficient intervals including point mass at zero for
+inactive molecular features. Clinical covariates remain always included.
+
+```r
+# Use an adequately explored fit and inspect both stages of diagnostics.
+draws <- posterior_draws(fit, seed = 2)
+draws$diagnostics
+confint(draws)
+predict(draws, simIMR$platforms, covariates = simIMR$covariates,
+        type = "mean")       # uncertainty in the conditional response mean
+predict(draws, simIMR$platforms, covariates = simIMR$covariates,
+        type = "response")   # uncertainty in a future outcome
+```
+
+These are approximate model-averaged intervals: selection weights retain the
+original Laplace approximation. Conditional split R-hat does not assess the
+original selection chain; increase simulation effort when diagnostics are poor.
+Coefficients use subgroup-standardized predictor scales. Binary probability
+intervals use `type = "mean"`; binary response intervals are discrete.
+
+## Survival migration from 0.1.2
+
+Version 0.1.3 logs positive event and censoring times once, matching the original
+Biometrics supplementary code. Supply raw times, including positive times below
+one; refit previous survival models. The optional `survival_scale = "identity"`
+reproduces the historical raw-time implementation. CV partitioning is unchanged.
+
+For log-time fits, `predict(fit, ...)` returns a log-time point prediction.
+`predict(draws, ...)` returns time-scale intervals and median point summaries.
+The time-scale posterior mean need not exist under the variance mixture; it is
+not estimated by averaging exponentiated draws. With `type = "mean"` the interval
+summarizes conditional mean time, whereas `type = "response"` includes future
+outcome variability. The censoring process for future observations is not modeled.

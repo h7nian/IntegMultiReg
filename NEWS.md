@@ -1,3 +1,20 @@
+# IntegMultiReg 0.1.3
+
+- Corrected survival preprocessing to log positive event/censoring times once,
+  matching the original supplementary C code. Survival fits must be rerun;
+  `survival_scale = "identity"` explicitly reproduces the historical raw-time
+  implementation. The CV partitioning and selection sampler order are unchanged.
+- Added optional `posterior_draws()` with subgroup coefficient intervals and
+  posterior predictive intervals. All active coefficients, including intercepts
+  and clinical effects, use the original pMOM prior. Clinical effects remain
+  always included; automatic clinical variable selection is not implemented.
+- Conditional sampling reaugments binary and censored responses and reports
+  classical split R-hat. Model averaging retains the fitted selection sampler's
+  Laplace approximation; it is not an exact model-weight calculation.
+- Survival posterior prediction uses time-scale medians as point summaries
+  because inverse-gamma variance mixtures need not have finite time-scale means.
+- Added independent analytic/integration checks and survival-scale regressions.
+
 # IntegMultiReg 0.1.2
 
 ## Native-code reliability

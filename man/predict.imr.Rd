@@ -65,7 +65,10 @@ Predictions are only produced for subjects observed on at least one platform
 (and, when `covariates` is supplied, with covariate data).  For `"binary"`
 outcomes the returned `predict` column is a probability obtained through the
 probit link (`pnorm`); for `"continuous"` and `"right.censored"` outcomes it
-is the predicted (latent) response.
+is the predicted working response. For default log-time survival fits it is
+on the log-time scale; exponentiating gives a transformed point prediction,
+not a posterior mean survival time. Old and identity-scale fits retain their
+historical response scale.
 }
 \examples{
 \donttest{
