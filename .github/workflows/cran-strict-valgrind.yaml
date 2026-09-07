@@ -29,7 +29,7 @@ jobs:
           sudo apt-get install --yes build-essential gfortran pkg-config libc6-dbg \
             libreadline-dev libpcre2-dev liblzma-dev libbz2-dev zlib1g-dev \
             libcurl4-openssl-dev libssl-dev libicu-dev libgsl-dev \
-            libpng-dev libjpeg-dev libtiff-dev libcairo2-dev \
+            libpng-dev libjpeg-dev libtiff-dev libcairo2-dev libpango1.0-dev \
             libnode-dev texinfo tidy qpdf devscripts
           mkdir -p "${RUNNER_TEMP}/strict-evidence" "${RUNNER_TEMP}/strict-library"
           echo "R_LIBS_USER=${RUNNER_TEMP}/strict-library" >> "${GITHUB_ENV}"
@@ -38,6 +38,20 @@ jobs:
         with:
           path: ${{ runner.temp }}/strict-runtime
           key: strict-runtime-${{ runner.os }}-${{ hashFiles('.github/strict/build-runtime.sh') }}
+          restore-keys: strict-runtime-${{ runner.os }}-
+      - name: Record graphics behavior of a restored non-Pango runtime
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          runtime="${RUNNER_TEMP}/strict-runtime"
+          evidence="${RUNNER_TEMP}/strict-evidence"
+          if test -x "${runtime}/bin/R"; then
+            set +e
+            "${runtime}/bin/R" -d "${runtime}/bin/valgrind ${VALGRIND_OPTS}" \
+              --vanilla -f .github/strict/graphics-control.R > "${evidence}/graphics-before.log" 2>&1
+            echo "$?" > "${evidence}/graphics-before-exit-status.txt"
+            set -e
+          fi
       - name: Build Valgrind 3.27.1 and instrumented R-devel
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         shell: bash
@@ -64,6 +78,8 @@ jobs:
           R --version | tee "${RUNNER_TEMP}/strict-evidence/R-version.txt"
           valgrind --version | tee "${RUNNER_TEMP}/strict-evidence/valgrind-version.txt"
           Rscript -e 'writeLines(capture.output(sessionInfo()), file.path(Sys.getenv("RUNNER_TEMP"), "strict-evidence", "sessionInfo.txt"))'
+          R -d "valgrind ${VALGRIND_OPTS}" --vanilla -f .github/strict/graphics-control.R \
+            > "${RUNNER_TEMP}/strict-evidence/graphics-after.log" 2>&1
       - name: Verify R heap detection and characterize the old release
         shell: bash
         run: bash .github/strict/negative-control.sh

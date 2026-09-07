@@ -1,0 +1,7 @@
+stopifnot(!"IntegMultiReg" %in% loadedNamespaces())
+for (i in seq_len(3)) print(grDevices::grSoftVersion())
+grDevices::png(tempfile(fileext = ".png"), type = "cairo")
+graphics::plot(1:3, main = "Base R graphics control")
+grDevices::dev.off()
+gc()
+stopifnot(!"IntegMultiReg" %in% loadedNamespaces())
