@@ -60,7 +60,7 @@ jobs:
         run: |
           echo "${RUNNER_TEMP}/strict-runtime/bin" >> "${GITHUB_PATH}"
           cp "${RUNNER_TEMP}/strict-runtime/provenance/"* "${RUNNER_TEMP}/strict-evidence/"
-          echo "VALGRIND_OPTS=${VALGRIND_OPTS} --suppressions=${GITHUB_WORKSPACE}/.github/strict/upstream/pango.supp --suppressions=${GITHUB_WORKSPACE}/.github/strict/upstream/glib.supp" >> "${GITHUB_ENV}"
+          echo "VALGRIND_OPTS=${VALGRIND_OPTS} --suppressions=${GITHUB_WORKSPACE}/.github/strict/upstream/pango.supp --suppressions=${GITHUB_WORKSPACE}/.github/strict/upstream/glib.supp --suppressions=${GITHUB_WORKSPACE}/.github/strict/upstream/ubuntu-font-baseline.supp" >> "${GITHUB_ENV}"
           cp .github/strict/upstream/* "${RUNNER_TEMP}/strict-evidence/"
       - uses: actions/cache/save@v4
         if: steps.runtime-cache.outputs.cache-hit != 'true'
