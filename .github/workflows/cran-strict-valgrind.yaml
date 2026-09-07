@@ -19,7 +19,7 @@ jobs:
       # cli's optional progress timer otherwise retains TLS memory at exit.
       # Upstream switch: https://github.com/r-lib/cli/blob/main/src/thread.c
       CLI_NO_THREAD: "1"
-      VALGRIND_OPTS: --tool=memcheck --leak-check=full --show-leak-kinds=definite,indirect,possible --errors-for-leak-kinds=definite,indirect,possible --track-origins=yes --error-exitcode=97
+      VALGRIND_OPTS: --tool=memcheck --leak-check=full --show-leak-kinds=definite,indirect,possible --errors-for-leak-kinds=definite,possible --num-callers=40 --track-origins=yes --error-exitcode=97
     steps:
       - uses: actions/checkout@v6
       - uses: r-lib/actions/setup-pandoc@v2
@@ -60,11 +60,17 @@ jobs:
         run: |
           echo "${RUNNER_TEMP}/strict-runtime/bin" >> "${GITHUB_PATH}"
           cp "${RUNNER_TEMP}/strict-runtime/provenance/"* "${RUNNER_TEMP}/strict-evidence/"
+          echo "VALGRIND_OPTS=${VALGRIND_OPTS} --suppressions=${GITHUB_WORKSPACE}/.github/strict/upstream/pango.supp --suppressions=${GITHUB_WORKSPACE}/.github/strict/upstream/glib.supp" >> "${GITHUB_ENV}"
+          cp .github/strict/upstream/* "${RUNNER_TEMP}/strict-evidence/"
       - uses: actions/cache/save@v4
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         with:
           path: ${{ runner.temp }}/strict-runtime
           key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
+      - name: Validate base graphics with upstream system-library rules
+        run: |
+          R -d "valgrind ${VALGRIND_OPTS}" --vanilla -f .github/strict/graphics-control.R \
+            > "${RUNNER_TEMP}/strict-evidence/graphics-after.log" 2>&1
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::rcmdcheck, any::V8
@@ -78,8 +84,6 @@ jobs:
           R --version | tee "${RUNNER_TEMP}/strict-evidence/R-version.txt"
           valgrind --version | tee "${RUNNER_TEMP}/strict-evidence/valgrind-version.txt"
           Rscript -e 'writeLines(capture.output(sessionInfo()), file.path(Sys.getenv("RUNNER_TEMP"), "strict-evidence", "sessionInfo.txt"))'
-          R -d "valgrind ${VALGRIND_OPTS}" --vanilla -f .github/strict/graphics-control.R \
-            > "${RUNNER_TEMP}/strict-evidence/graphics-after.log" 2>&1
       - name: Verify R heap detection and characterize the old release
         shell: bash
         run: bash .github/strict/negative-control.sh
