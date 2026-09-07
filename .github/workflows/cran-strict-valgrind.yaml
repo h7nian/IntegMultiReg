@@ -1,0 +1,72 @@
+name: CRAN instrumented Valgrind release check
+
+# A release audit of the pinned source artifact, in addition to per-push CI.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  strict:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      R_TEXI2DVICMD: emulation
+      VALGRIND_OPTS: --tool=memcheck --leak-check=full --show-leak-kinds=definite,indirect,possible --errors-for-leak-kinds=definite,indirect,possible --track-origins=yes --error-exitcode=97
+    steps:
+      - uses: actions/checkout@v6
+      - uses: r-lib/actions/setup-pandoc@v2
+      - name: Install build and check dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential gfortran pkg-config \
+            libreadline-dev libpcre2-dev liblzma-dev libbz2-dev zlib1g-dev \
+            libcurl4-openssl-dev libssl-dev libicu-dev libgsl-dev \
+            libpng-dev libjpeg-dev libtiff-dev libcairo2-dev \
+            libnode-dev texinfo tidy qpdf devscripts
+          mkdir -p "${RUNNER_TEMP}/strict-evidence" "${RUNNER_TEMP}/strict-library"
+          echo "R_LIBS_USER=${RUNNER_TEMP}/strict-library" >> "${GITHUB_ENV}"
+      - name: Build Valgrind 3.27.1 and instrumented R-devel
+        shell: bash
+        run: bash .github/strict/build-runtime.sh
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rcmdcheck, any::V8
+          needs: check
+      - uses: r-lib/actions/setup-tinytex@v2
+      - name: Install manual font dependencies
+        run: tlmgr install courier makeindex
+      - name: Verify exact release artifact and record runtime
+        run: |
+          python3 .github/strict/verify-artifact.py
+          R --version | tee "${RUNNER_TEMP}/strict-evidence/R-version.txt"
+          valgrind --version | tee "${RUNNER_TEMP}/strict-evidence/valgrind-version.txt"
+          Rscript -e 'writeLines(capture.output(sessionInfo()), file.path(Sys.getenv("RUNNER_TEMP"), "strict-evidence", "sessionInfo.txt"))'
+      - name: Prove the old release triggers both known failures
+        shell: bash
+        run: bash .github/strict/negative-control.sh
+      - name: Check the exact candidate including examples tests and vignettes
+        shell: bash
+        run: |
+          evidence="${RUNNER_TEMP}/strict-evidence"
+          mkdir -p "${evidence}/candidate"
+          set +e
+          R CMD check --as-cran --use-valgrind --run-donttest \
+            --output="${evidence}/candidate" \
+            .github/strict/fixtures/IntegMultiReg_0.1.3.tar.gz \
+            2>&1 | tee "${evidence}/candidate-console.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "${status}" > "${evidence}/candidate-exit-status.txt"
+          python3 .github/strict/verify-check.py "${evidence}"
+          exit "${status}"
+      - name: Upload all audit evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: cran-instrumented-valgrind-evidence
+          path: ${{ runner.temp }}/strict-evidence
+          if-no-files-found: error
