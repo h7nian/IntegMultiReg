@@ -10,9 +10,18 @@ source and R-devel r90498 with level-2 instrumentation and reference BLAS.
 It checks the exact 0.1.3 submission tarball, including `--run-donttest` examples,
 tests, vignette code/rebuilds and the PDF manual. No package suppression is used.
 
-The archived CRAN 0.1.1 tarball is the negative control. The workflow must detect
-both its uninitialized-memory path and definite allocation leak before accepting
-the candidate result. A random failure or missing dependency does not count.
+The archived CRAN 0.1.1 tarball must reproduce its exact 7,200-byte/60-block
+allocation leak. Its historical uninitialized-read report did not reproduce
+with the Ubuntu compiler; this limitation is recorded explicitly, not reported
+as reproduced. A separate deliberately invalid R-heap read verifies level-2
+detection capability, but does not reproduce that package call stack. A random
+failure or missing dependency does not count as a successful control.
+
+CLI_NO_THREAD=1 disables the test dependency cli's optional progress timer,
+using its upstream switch, to avoid a 336-byte loader/TLS allocation at exit.
+This does not disable package computation or filter Valgrind diagnostics.
+The initial controls and their unsuccessful acceptance are retained in the
+audit report. Candidate acceptance remains zero errors across all stages.
 
 Fixtures are excluded from CRAN source packages by the existing `.Rbuildignore`
 rule for `.github`. SHA-256 pins both fixtures and the Valgrind download. The

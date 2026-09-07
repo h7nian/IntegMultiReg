@@ -16,6 +16,9 @@ jobs:
       R_KEEP_PKG_SOURCE: yes
       R_TEXI2DVICMD: emulation
       _R_CHECK_ALWAYS_LOG_VIGNETTE_OUTPUT_: "true"
+      # cli's optional progress timer otherwise retains TLS memory at exit.
+      # Upstream switch: https://github.com/r-lib/cli/blob/main/src/thread.c
+      CLI_NO_THREAD: "1"
       VALGRIND_OPTS: --tool=memcheck --leak-check=full --show-leak-kinds=definite,indirect,possible --errors-for-leak-kinds=definite,indirect,possible --track-origins=yes --error-exitcode=97
     steps:
       - uses: actions/checkout@v6
@@ -61,7 +64,7 @@ jobs:
           R --version | tee "${RUNNER_TEMP}/strict-evidence/R-version.txt"
           valgrind --version | tee "${RUNNER_TEMP}/strict-evidence/valgrind-version.txt"
           Rscript -e 'writeLines(capture.output(sessionInfo()), file.path(Sys.getenv("RUNNER_TEMP"), "strict-evidence", "sessionInfo.txt"))'
-      - name: Prove the old release triggers both known failures
+      - name: Verify R heap detection and characterize the old release
         shell: bash
         run: bash .github/strict/negative-control.sh
       - name: Check the exact candidate including examples tests and vignettes
