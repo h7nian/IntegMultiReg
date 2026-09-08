@@ -1,6 +1,6 @@
 # Run from the package root. Report executed source expressions, not branch or
 # statistical coverage; preserve the native/R split and the public API audit.
-out <- Sys.getenv("IMR_COVERAGE_DIR", "coverage")
+out <- Sys.getenv("IMR_COVERAGE_DIR", file.path(Sys.getenv("RUNNER_TEMP", tempdir()), "imr-coverage"))
 dir.create(out, recursive = TRUE, showWarnings = FALSE)
 coverage <- covr::package_coverage(type = "tests", quiet = FALSE)
 saveRDS(coverage, file.path(out, "coverage.rds"))
@@ -20,7 +20,7 @@ summary <- vapply(list(overall = lines, R = lines[grepl("^R/", lines$filename), 
                       C = lines[grepl("^src/", lines$filename), ]),
                   function(x) 100 * mean(x$value > 0), numeric(1))
 # covr merges multiple expressions on the same line for percent_coverage().
-capture.output(print(coverage), file = file.path(out, "summary.txt"))
+capture.output(print(coverage), file = file.path(out, "summary.txt"), type = "message")
 write.csv(data.frame(scope = names(summary), expression_percent = summary),
           file.path(out, "expression-summary.csv"), row.names = FALSE)
 print(coverage)
