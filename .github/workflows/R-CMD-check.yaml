@@ -32,11 +32,11 @@ jobs:
       - name: Install system and CRAN check dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes devscripts libgsl-dev qpdf
+          sudo apt-get install --yes devscripts libgsl-dev qpdf tidy
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck
+          extra-packages: any::rcmdcheck, any::V8
           needs: check
 
       - uses: r-lib/actions/check-r-package@v2

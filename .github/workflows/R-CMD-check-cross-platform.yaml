@@ -54,15 +54,17 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes autoconf automake devscripts libgsl-dev qpdf
+          sudo apt-get install --yes autoconf automake devscripts libgsl-dev qpdf tidy
 
       - name: Install macOS system and CRAN check dependencies
         if: runner.os == 'macOS'
-        run: brew install autoconf automake checkbashisms gsl qpdf
+        run: |
+          brew install autoconf automake checkbashisms gsl qpdf tidy-html5
+          echo "$(brew --prefix tidy-html5)/bin" >> "$GITHUB_PATH"
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck
+          extra-packages: any::rcmdcheck, any::V8
           needs: check
 
       # The PDF manual is checked on Linux and macOS. On Windows, focus on
