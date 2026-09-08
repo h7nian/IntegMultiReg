@@ -35,7 +35,7 @@
 #' Predictions are only produced for subjects observed on at least one platform
 #' (and, when `covariates` is supplied, with covariate data).  For `"binary"`
 #' outcomes the returned `predict` column is a probability obtained through the
-#' probit link (`pnorm`); for `"continuous"` and `"right.censored"` outcomes it
+#' probit link (`pnorm`) within each model before averaging; for `"continuous"` and `"right.censored"` outcomes it
 #' is the predicted working response. For default log-time survival fits it is
 #' on the log-time scale; exponentiating gives a transformed point prediction,
 #' not a posterior mean survival time. Old and identity-scale fits retain their
@@ -107,28 +107,13 @@ predict.imr <- function(object, newdata, platform_names = NULL,
     x_test = x_test,
     c_test = cova_test,
     samplesize_test_c = as.integer(samplesize_test),
-    max_models_pred = as.integer(max_models)
+    max_models_pred = as.integer(max_models),
+    type_outcome = as.integer(match(type_outcome, c("right.censored", "binary", "continuous")))
   ))
   names(results) <- model_names
-  if (type_outcome == "binary") {
-    res <- mapply(function(x, y) {
-      data.frame(
-        id = x,
-        predict = pnorm(y),
-        row.names = NULL,
-        stringsAsFactors = FALSE
-      )
-    }, sample_ids, results, SIMPLIFY = FALSE)
-  } else {
-    res <- mapply(function(x, y) {
-      data.frame(
-        id = x,
-        predict = y,
-        row.names = NULL,
-        stringsAsFactors = FALSE
-      )
-    }, sample_ids, results, SIMPLIFY = FALSE)
-  }
+  res <- mapply(function(x, y) {
+    data.frame(id = x, predict = y, row.names = NULL, stringsAsFactors = FALSE)
+  }, sample_ids, results, SIMPLIFY = FALSE)
 
   names(res) <- paste("model:", model_names, sep = "")
   return(res)

@@ -10,291 +10,46 @@
 #include <gsl/gsl_sf.h>
 #include "my_header.h"
 #include "utils.h"
-
-/*
- * Predict one held-out fold by refitting coefficients for the highest-posterior
- * variable-selection models and averaging their fold predictions.
- */
-double *predict_cv_fold(int type_out, int model, int K, int n_selected_platforms, int *selected_platforms,
-                int *n_platform_models, int **platform_models, int *G,
-                int model_sample_size, int test_sample_size, int *test_index, int *train_index,
-                double *y, double **C, double ***X, _Bool ****gamma_sample, double alpha, double psi,
-                int max_models, int *model_index, int *high_model_index, int sample)
-{
-
-  int l, i, j, j1, in, i1, i2;
-  double *weight = malloc(max_models * sizeof(double));
-  // yhat=predicted survival time
-  double *yhat = dvector(0, test_sample_size - 1);
-  for (i = 0; i < test_sample_size; i++)
-    yhat[i] = 0;
-  double **yh = dmatrix(0, max_models - 1, 0, test_sample_size - 1);
-  /* dmatrix() uses malloc(), so initialize every candidate-model prediction.
-   * This also keeps a failed Cholesky factorization from leaving values that
-   * are later inspected while its model weight is zero. */
-  for (l = 0; l < max_models; l++)
-  {
-    for (i = 0; i < test_sample_size; i++)
-      yh[l][i] = 0.0;
-  }
-  for (l = 0; l < max_models; l++)
-  {
-    int l0 = high_model_index[l];
-    int l1 = model_index[l0];
-
-    int **selected_feature_index = malloc(n_selected_platforms * sizeof(int *));
-    int n_selected_features[n_selected_platforms];
-    for (int i = 0; i < n_selected_platforms; i++)
-    {
-      int platform_index = selected_platforms[i];
-      int platform_model_index = -1;
-      for (int ss = 0; ss < n_platform_models[platform_index]; ss++)
-      {
-        if (platform_models[platform_index][ss] == model)
-        {
-          platform_model_index = ss;
-          break;
-        }
-      }
-      if (platform_model_index == -1)
-      {
-        Rf_error("Subgroup %d not found for platform %d\n", 1 + model, 1 + platform_index);
-      }
-      selected_feature_index[i] = malloc(G[platform_index] * sizeof(int));
-      if (!selected_feature_index[i])
-      {
-        Rf_error("malloc failed for selected_feature_index[%d]\n", i);
-      }
-      n_selected_features[i] = 0;
-      find_indices_not_equal(G[platform_index], gamma_sample[sample - 1 - l1][platform_index][platform_model_index], 0, selected_feature_index[i], &n_selected_features[i]);
-    }
-
-    double **PG = build_design_matrix(K, n_selected_platforms, n_selected_features, selected_feature_index, C, X, selected_platforms, model_sample_size);
-
-    int train_sample_size = model_sample_size - test_sample_size;
-    int total_nx = 0;
-    for (int p = 0; p < n_selected_platforms; p++)
-    {
-      total_nx += n_selected_features[p];
-    }
-    int k = 1 + K + total_nx;
-
-    double *precision = malloc(k * k * sizeof(double));
-    for (j = 0; j < k; j++)
-    {
-      for (j1 = 0; j1 <= j; j1++)
-      {
-        double a = 0;
-        if ((j == 0) && (j1 == 0))
-        {
-          a = train_sample_size;
-        }
-        else if (j1 == 0)
-        {
-          for (i2 = 0; i2 < train_sample_size; i2++)
-          {
-            i1 = train_index[i2];
-            a += PG[i1][j - 1];
-          }
-        }
-        else if ((j != 0) && (j1 != 0))
-        {
-          for (i2 = 0; i2 < train_sample_size; i2++)
-          {
-            i1 = train_index[i2];
-            a += PG[i1][j - 1] * PG[i1][j1 - 1];
-          }
-        }
-        if (j == j1)
-          a += .001; // To always make the matrix positive definite
-        precision[j * k + j1] = precision[j1 * k + j] = a;
-      }
-    }
-
-    double *xty = calloc(k, sizeof(double));
-    for (j = 0; j < k; j++)
-    {
-      double a1 = 0;
-      for (i2 = 0; i2 < train_sample_size; i2++)
-      {
-        i1 = train_index[i2];
-        if (j == 0)
-          a1 += y[i1];
-        else
-          a1 += PG[i1][j - 1] * y[i1];
-      }
-      xty[j] = a1;
-    }
-    gsl_vector_view b = gsl_vector_view_array(xty, k);
-
-    gsl_vector *x = gsl_vector_alloc(k);
-    gsl_matrix_view Aip = gsl_matrix_view_array(precision, k, k);
-    int status = gsl_linalg_cholesky_decomp(&Aip.matrix);
-    if (status)
-    {
-      Rprintf("Cholesky failed (subgroup %d): %s\n", model, gsl_strerror(status));
-      weight[l] = -INFINITY;
-      gsl_vector_free(x);
-      free(xty);
-      free(precision);
-      for (i = 0; i < model_sample_size; i++)
-        free(PG[i]);
-      free(PG);
-      for (int platform = 0; platform < n_selected_platforms; platform++)
-        free(selected_feature_index[platform]);
-      free(selected_feature_index);
-      continue;
-    }
-
-    gsl_linalg_cholesky_solve(&Aip.matrix, &b.vector, x);
-
-    double *beta = malloc(k * sizeof(double));
-    for (j = 0; j < k; j++)
-    {
-      beta[j] = gsl_vector_get(x, j);
-    }
-    gsl_vector_free(x);
-    double xxy = 0;
-    for (in = 0; in < test_sample_size; in++)
-    {
-      yh[l][in] = 0;
-      i = test_index[in];
-      for (j = 0; j < k; j++)
-      {
-        if (j == 0)
-          yh[l][in] += beta[0];
-        else
-          yh[l][in] += PG[i][j - 1] * beta[j];
-      }
-      xxy += pow(y[i] - yh[l][in], 2);
-    }
-    double xx = 0;
-    double *yht = malloc(train_sample_size * sizeof(double));
-    for (in = 0; in < train_sample_size; in++)
-    {
-      yht[in] = 0;
-      i = train_index[in];
-      for (j = 0; j < k; j++)
-      {
-        if (j == 0)
-          yht[in] += beta[0];
-        else
-          yht[in] += PG[i][j - 1] * beta[j];
-      }
-      xx += pow(y[i] - yht[in], 2);
-    }
-    free(beta);
-    free(yht);
-    free(xty);
-    int nutest = 2 * alpha + train_sample_size;
-    double sigm2 = (psi + xx) / nutest;
-    weight[l] = (test_sample_size / 2.0) * log(sigm2) + 0.5 * (2 * alpha + model_sample_size) * log(1 + xxy / (nutest * sigm2));
-    for (i = 0; i < model_sample_size; i++)
-      free(PG[i]);
-    free(PG);
-    free(precision);
-    for (int i = 0; i < n_selected_platforms; i++)
-    {
-      free(selected_feature_index[i]);
-    }
-    free(selected_feature_index);
-  }
-  double wmax = max(max_models, weight);
-  double sumw = 0;
-  for (l = 0; l < max_models; l++)
-  {
-    weight[l] = exp(weight[l] - wmax);
-    sumw += weight[l];
-  }
-  double *probtest = NULL;
-  if (type_out == 2) // binary outcome
-  {
-    // Normalize the model-averaging weights once (not inside the per-test-point
-    // loop, which would repeatedly divide the shared weights by sumw).
-    for (l = 0; l < max_models; l++)
-    {
-      weight[l] = weight[l] / sumw;
-    }
-    probtest = malloc(test_sample_size * sizeof(double));
-    for (i = 0; i < test_sample_size; i++)
-    {
-      probtest[i] = 0.0; // must be initialized before accumulating below
-      double *log_prob = malloc(max_models * sizeof(double));
-
-      for (l = 0; l < max_models; l++)
-      {
-        log_prob[l] = -log(2) + gsl_sf_log_erfc(-yh[l][i] / sqrt(2));
-      }
-      double logprobmax = max(max_models, log_prob);
-      for (l = 0; l < max_models; l++)
-      {
-        probtest[i] += weight[l] * exp(log_prob[l] - logprobmax);
-      }
-      probtest[i] = probtest[i] * exp(logprobmax);
-      free(log_prob);
-    }
-  }
-  else if ((type_out == 1)||(type_out==3)) // survival outcome
-  {
-    for (in = 0; in < test_sample_size; in++)
-    {
-      double a = 0;
-      for (l = 0; l < max_models; l++)
-      {
-        a += yh[l][in] * weight[l];
-      }
-      yhat[in] = a / sumw;
-    }
-  }
-
-  free(weight);
-
-  free_dmatrix(yh, 0, max_models - 1, 0, test_sample_size - 1);
-
-  if ((type_out == 1) || (type_out == 3)) // survival outcome or continuous  
-  {
-    return yhat;
-  }
-  else 
-  {
-    /* Binary predictions are returned through probtest; yhat was allocated
-     * before the outcome branch and is otherwise lost on this path. */
-    free(yhat);
-    return probtest;
-  }
-}
+#include <Rmath.h>
 
 /* Harrell-style concordance index for censored survival predictions. */
 double concordance_index(int n, double *prediction, double *observed_time, _Bool *event)
 {
-  int i, j;
-  double concordance_denominator = 0;
-  double concordance_numerator = 0;
-  double time1, time2, prediction1, prediction2;
-  for (i = 0; i < n; i++)
-  {
-    time1 = observed_time[i];
-    prediction1 = prediction[i];
-    for (j = 0; j < n; j++)
-    {
-      if (i != j)
-      {
-        time2 = observed_time[j];
-        prediction2 = prediction[j];
-        concordance_numerator +=
-            (prediction2 > prediction1) * (time2 > time1) * (event[i] == 1) +
-            (prediction2 < prediction1) * (time2 < time1) * (event[j] == 1) +
-            0.5 * ((prediction2 == prediction1) || (time2 == time1)) * (event[i] == 1) * (event[j] == 0) +
-            0.5 * ((prediction2 == prediction1) || (time2 == time1)) * (event[j] == 1) * (event[i] == 0);
-        concordance_denominator +=
-            (time2 > time1) * (event[i] == 1) +
-            (time2 < time1) * (event[j] == 1) +
-            (time2 == time1) * (event[i] == 1) * (event[j] == 0) +
-            (time2 == time1) * (event[i] == 0) * (event[j] == 1);
+  double comparable = 0.0, concordant = 0.0;
+  for (int i = 0; i < n; i++) {
+    for (int j = i + 1; j < n; j++) {
+      int early = -1, late = -1;
+      if (event[i] && (observed_time[i] < observed_time[j] ||
+          (observed_time[i] == observed_time[j] && !event[j]))) {
+        early = i; late = j;
+      } else if (event[j] && (observed_time[j] < observed_time[i] ||
+          (observed_time[j] == observed_time[i] && !event[i]))) {
+        early = j; late = i;
       }
+      if (early < 0) continue;
+      comparable += 1.0;
+      concordant += prediction[early] < prediction[late] ? 1.0 :
+                    prediction[early] == prediction[late] ? 0.5 : 0.0;
     }
   }
-  return concordance_numerator / concordance_denominator;
+  return comparable > 0 ? concordant / comparable : NA_REAL;
+}
+
+/* Internal metric entry point shared by CV and numerical regression tests. */
+SEXP imr_concordance(SEXP prediction, SEXP time, SEXP status)
+{
+  int n = LENGTH(prediction);
+  if (!isReal(prediction) || !isReal(time) || !isInteger(status) ||
+      LENGTH(time) != n || LENGTH(status) != n)
+    Rf_error("Invalid concordance inputs");
+  _Bool *event = (_Bool *) R_alloc(n, sizeof(_Bool));
+  for (int i = 0; i < n; i++) {
+    if (!R_FINITE(REAL(prediction)[i]) || !R_FINITE(REAL(time)[i]) ||
+        (INTEGER(status)[i] != 0 && INTEGER(status)[i] != 1))
+      Rf_error("Non-finite or invalid concordance inputs");
+    event[i] = INTEGER(status)[i];
+  }
+  return ScalarReal(concordance_index(n, REAL(prediction), REAL(time), event));
 }
 
 /*
@@ -305,7 +60,7 @@ double *predict_bma(int model, int K, int n_selected_platforms, int sample_size,
                  int *n_platform_models, int **platform_models, int *G,
                  double **C, double ***X, _Bool ****gamma_sample,
                  double ***beta, double *post, int max_models,
-                 int *model_index, int *high_model_index, int sample)
+                 int *model_index, int *high_model_index, int sample, int type_out)
 {
   int l, i, j;
   double *yhat = dvector(0, sample_size - 1);
@@ -360,7 +115,7 @@ double *predict_bma(int model, int K, int n_selected_platforms, int sample_size,
         else
           yh += PG[i][j - 1] * beta[l0][model][j];
       }
-      yhat[i] += yh * post[l];
+      yhat[i] += (type_out == 2 ? pnorm5(yh, 0.0, 1.0, 1, 0) : yh) * post[l];
     }
     for (i = 0; i < sample_size; i++)
       free(PG[i]);
@@ -564,43 +319,4 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int samp
 	    post[l] = post[l] / sum_post;
 	}
   return beta;
-}
-
-/*
- * Build one CV fold while preserving the censored/uncensored composition.
- */
-void make_cv_partition(int fold, int n_folds, int model_sample_size, int *test_sample_size, int *censored_index, int n_censored, int *uncensored_index, int *test_index, int *train_index)
-{
-  int n_uncensored = model_sample_size - n_censored;
-  int i = 0;
-  int i1 = 0;
-  int i2 = 0;
-
-  for (i = 0; i < n_censored; i++)
-  {
-    if ((fold * n_censored / n_folds > i) || ((fold + 1) * n_censored / n_folds <= i))
-    {
-      train_index[i1] = censored_index[i];
-      i1++;
-    }
-    else
-    {
-      test_index[i2] = censored_index[i];
-      i2++;
-    }
-  }
-  for (i = 0; i < n_uncensored; i++)
-  {
-    if ((fold * n_uncensored / n_folds > i) || ((fold + 1) * n_uncensored / n_folds <= i))
-    {
-      train_index[i1] = uncensored_index[i];
-      i1++;
-    }
-    else
-    {
-      test_index[i2] = uncensored_index[i];
-      i2++;
-    }
-  }
-  *test_sample_size = i2;
 }

@@ -21,16 +21,15 @@ validate_imr <- function(object) {
     .imr_abort(sprintf("The fitted object is missing `%s`.", missing[1L]))
   }
   if (!is.numeric(object$n_platform) || length(object$n_platform) != 1L ||
-      is.na(object$n_platform) || !is.finite(object$n_platform) ||
-      object$n_platform < 1L || object$n_platform != as.integer(object$n_platform)) {
+      !.imr_is_integerish(object$n_platform) || object$n_platform < 1L) {
     .imr_abort("`n_platform` must be one positive integer.")
   }
   if (!is.numeric(object$sample_mcmc) || length(object$sample_mcmc) != 2L ||
       !all(c("total", "burnin") %in% names(object$sample_mcmc)) ||
-      any(!is.finite(object$sample_mcmc)) ||
+      !.imr_is_integerish(object$sample_mcmc) ||
       object$sample_mcmc[["total"]] < 1L ||
       object$sample_mcmc[["burnin"]] < 0L ||
-      any(object$sample_mcmc != as.integer(object$sample_mcmc))) {
+      sum(as.double(object$sample_mcmc)) > .Machine$integer.max) {
     .imr_abort("`sample_mcmc` must contain integer `total` and `burnin` counts.")
   }
   if (!is.list(object$platform_models) ||
@@ -45,6 +44,12 @@ validate_imr <- function(object) {
     m <- object$gam_mean[[l]]
     if (!is.matrix(m) || any(!is.finite(m)) || any(m < 0 | m > 1)) {
       .imr_abort(sprintf("`gam_mean[[%d]]` must be a finite matrix in [0, 1].", l))
+    }
+    models <- object$platform_models[[l]]
+    if (!.imr_is_integerish(models) || anyDuplicated(models) ||
+        any(models < 1L | models > length(object$model_bitstrings)) ||
+        nrow(m) != length(models)) {
+      .imr_abort(sprintf("`platform_models[[%d]]` has invalid subgroup indices.", l))
     }
     if (ncol(m) != length(object$feature_names[[l]])) {
       .imr_abort(sprintf("Feature names do not match `gam_mean[[%d]]`.", l))
@@ -93,8 +98,9 @@ validate_imr <- function(object) {
     }
   }
   if (!is.numeric(object$log_posterior) ||
-      any(!is.finite(object$log_posterior))) {
-    .imr_abort("`log_posterior` must be finite and numeric.")
+      any(!is.finite(object$log_posterior)) ||
+      length(object$log_posterior) != sum(object$sample_mcmc)) {
+    .imr_abort("`log_posterior` must be finite and numeric with one entry per iteration.")
   }
   if (length(object$model_bitstrings) != length(object$sample_size)) {
     .imr_abort("Subgroup labels and sample sizes have inconsistent lengths.")
@@ -166,7 +172,8 @@ posterior_summary.imr <- function(object, level = 0.95, ...) {
       ))
     }
     subgroup_names <- object$model_bitstrings[object$platform_models[[l]]]
-    pairs <- utils::combn(seq_along(subgroup_names), 2L)
+    pairs <- do.call(cbind, lapply(seq.int(2L, length(subgroup_names)),
+      function(i) rbind(seq_len(i - 1L), i)))
     rows <- lapply(seq_len(ncol(samples)), function(j) {
       draws <- samples[, j]
       qs <- stats::quantile(draws, probs = probs, names = FALSE, type = 8)

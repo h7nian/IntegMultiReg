@@ -193,6 +193,9 @@ imr.default <- function(platform_data_list,
   sample_mcmc <- .imr_check_integer_vector(
     sample_mcmc, "sample_mcmc", length = 2, min = 0
   )
+  if (sum(as.double(sample_mcmc)) > .Machine$integer.max) {
+    .imr_abort("The sum of `sample_mcmc` must not exceed the native integer limit.")
+  }
   if (sample_mcmc[1] <= 0L) {
     .imr_abort("`sample_mcmc[1]` (retained draws) must be positive.")
   }
@@ -563,6 +566,7 @@ imr.formula <- function(platform_data_list, data, platforms, id = "id",
   )
   fit <- imr.imr_data(dat, ...)
   fit$call <- match.call()
+  fit$formula_data <- data
   fit$formula <- formula
   fit$terms <- terms_object
   fit$contrasts <- contrasts

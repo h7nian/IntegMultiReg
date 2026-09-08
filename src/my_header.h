@@ -13,7 +13,7 @@
 /*
  * Internal C naming convention:
  *   - exported R registration strings keep their historical names
- *     ("mainFunction", "mainFunctionPrediction", ...);
+ *     ("mainFunction", "mainFunctionPredictionTest", ...);
  *   - C identifiers use snake_case;
  *   - variable-selection indicators are called gamma/gam in comments and
  *     code because they match the notation in the model.
@@ -116,23 +116,8 @@ double *predict_bma(
     int *selected_platforms, int *n_platform_models, int **platform_models,
     int *n_features, double **covariates, double ***features,
     _Bool ****gamma_sample, double ***beta, double *posterior_weight,
-    int max_models, int *model_index, int *high_model_index, int n_samples);
-
-double *predict_cv_fold(
-    int outcome_type, int subgroup, int n_covariates, int n_selected_platforms,
-    int *selected_platforms, int *n_platform_models, int **platform_models,
-    int *n_features, int model_sample_size, int test_sample_size,
-    int *test_index, int *train_index, double *latent_y, double **covariates,
-    double ***features, _Bool ****gamma_sample, double alpha, double psi,
-    int max_models, int *model_index, int *high_model_index, int n_samples);
-
-double concordance_index(
-    int n, double *prediction, double *observed_time, _Bool *event);
-
-void make_cv_partition(
-    int fold, int n_folds, int sample_size, int *test_size,
-    int *censored_index, int n_censored, int *uncensored_index,
-    int *test_index, int *train_index);
+    int max_models, int *model_index, int *high_model_index, int n_samples,
+    int outcome_type);
 
 /* Small numerical utilities shared by sampler and prediction code. */
 void find_indices_not_equal(int n, _Bool *values, int excluded_value,

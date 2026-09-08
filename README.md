@@ -36,7 +36,7 @@ install.packages("IntegMultiReg")
 Alternatively, install a local source tarball:
 
 ```r
-install.packages("IntegMultiReg_0.1.3.tar.gz", repos = NULL, type = "source")
+install.packages("IntegMultiReg_0.1.4.tar.gz", repos = NULL, type = "source")
 ```
 
 The CRAN checking tools `checkbashisms` and `qpdf` are not runtime
@@ -148,3 +148,14 @@ The time-scale posterior mean need not exist under the variance mixture; it is
 not estimated by averaging exponentiated draws. With `type = "mean"` the interval
 summarizes conditional mean time, whereas `type = "response"` includes future
 outcome variability. The censoring process for future observations is not modeled.
+
+## Cross-validation correction (0.1.4)
+
+`cv_imr()` now independently refits preprocessing, selection MCMC and model
+weights in every training fold. It never weights models using held-out
+responses. This costs approximately `k * rounds` full fits. The original
+hyperparameters remain fixed; data-driven tuning needs another validation layer.
+Use `attr(cv, "predictions")` to inspect subject-level out-of-fold predictions.
+Old post-fitting CV tables are historical results and must be regenerated.
+Binary prediction now applies the probit link within each model before averaging, and
+survival concordance correctly scores tied predictions and comparable pairs.

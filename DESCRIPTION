@@ -1,6 +1,6 @@
 Package: IntegMultiReg
 Title: Integrative Bayesian Multiple Regression for Multi-Platform Biomarkers
-Version: 0.1.3
+Version: 0.1.4
 Authors@R: c(
     person("Sinian", "Zhang", email = "zhan9381@umn.edu",
            role = "aut"),
@@ -35,6 +35,7 @@ Imports:
 Suggests:
     knitr,
     rmarkdown,
+    survival,
     testthat (>= 3.0.0)
 SystemRequirements: GSL (>= 2.0)
 VignetteBuilder: knitr

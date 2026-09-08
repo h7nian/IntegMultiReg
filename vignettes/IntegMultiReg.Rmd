@@ -168,11 +168,14 @@ head(pred[["model:011"]])
 
 # Assessing predictive performance
 
-`cv_imr()` runs repeated $K$-fold splits using the fitted MCMC samples and
-reports the accuracy measure appropriate to the outcome type (AUC for binary,
-the concordance index for survival, mean squared error for continuous), overall
-and within each availability subgroup.  The MCMC sampler is not re-run inside
-each fold; to compare IMR with BMS, fit a separate `method = "BMS"` object.
+`cv_imr()` refits the model independently within each training fold, including
+standardization, selection MCMC and model weights. It reports AUC for binary
+outcomes, concordance for survival and MSE for continuous outcomes, overall
+and within each retained availability subgroup. Formula transformations are
+also rebuilt on training rows. Runtime scales with folds times rounds; use
+short chains for a code-path check and increase them for final analysis.
+To compare IMR with BMS, fit a separate `method = "BMS"` object. The original
+hyperparameters are treated as fixed; tuning requires another validation layer.
 
 ```{r cv}
 cv <- cv_imr(fit, k = 5, rounds = 3)
