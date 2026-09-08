@@ -43,6 +43,8 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
+          # R-devel may advance before the prebuilt pak repository catches up.
+          pak-version: repo
           extra-packages: any::testthat, any::knitr, any::rmarkdown
           needs: check
 
