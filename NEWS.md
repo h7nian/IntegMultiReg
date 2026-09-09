@@ -1,5 +1,8 @@
 # IntegMultiReg 0.1.4
 
+* Reject platform names `id` and `subgroup` in data construction and validation
+  to prevent collisions with availability metadata and misleading CV errors.
+
 * Add a runnable paired-CV and nested formula-selection example, with saved
   subject/fold assignments and repeatability checks in CI.
 

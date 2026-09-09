@@ -14,6 +14,8 @@ imr_data(
 }
 \arguments{
 \item{platforms}{A non-empty named list of data frames, one per platform.
+Platform names must be unique and cannot be \code{id} or \code{subgroup}, which are
+reserved for availability metadata.
 Every data frame must contain the subject identifier and at least one
 finite numeric feature.}
 
