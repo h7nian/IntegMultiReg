@@ -44,6 +44,18 @@ jobs:
           args: c("--as-cran")
           error-on: '"warning"'
 
+      - name: Install package for the complete covariate-selection example
+        run: R CMD INSTALL .
+
+      - name: Reproduce paired and nested covariate comparison twice
+        run: Rscript .github/scripts/verify-covariate-comparison.R
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: covariate-comparison-evidence
+          path: ${{ runner.temp }}/covariate-comparison-evidence
+
   coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 30

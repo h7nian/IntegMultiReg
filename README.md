@@ -159,3 +159,22 @@ Use `attr(cv, "predictions")` to inspect subject-level out-of-fold predictions.
 Old post-fitting CV tables are historical results and must be regenerated.
 Binary prediction now applies the probit link within each model before averaging, and
 survival concordance correctly scores tied predictions and comparable pairs.
+
+
+### Compare prespecified covariate formulas
+
+A runnable example compares two formulas on identical subject/fold assignments,
+then uses nested cross-validation to evaluate formula selection using only
+inner training data. Clinical terms remain forced within each candidate model.
+Required adjustment terms must appear in every candidate; the example is not
+causal confounder selection.
+
+```r
+source(system.file("examples", "compare-covariates.R", package = "IntegMultiReg"))
+comparison <- run_covariate_comparison()
+comparison$paired_summary
+comparison$nested_summary
+```
+
+The full example uses synthetic data, writes fold-level audit records and is
+repeated in CI. Use `quick = TRUE` only for a smoke run.

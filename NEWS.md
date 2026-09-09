@@ -1,5 +1,8 @@
 # IntegMultiReg 0.1.4
 
+* Add a runnable paired-CV and nested formula-selection example, with saved
+  subject/fold assignments and repeatability checks in CI.
+
 * Reject overflowing integer controls, ambiguous data-frame column names, and
   corrupted saved-fit iteration counts or subgroup mappings before computation.
 * Add public API execution auditing and boundary regressions; CI retains coverage
