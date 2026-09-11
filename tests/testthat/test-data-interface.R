@@ -14,6 +14,32 @@ test_that("imr_data validates and summarizes multi-platform inputs", {
   expect_output(print(dat), "Validated IMR")
 })
 
+test_that("reserved platform names are rejected before availability routing", {
+  x <- data.frame(id = 1:20, marker = sin(1:20))
+  y <- data.frame(id = 1:20, y = cos(1:20))
+  dat <- imr_data(list(assay = x), y, type_outcome = "continuous")
+  fit <- imr(dat, ssize = 1, h0 = 1, sample_mcmc = c(10, 5), seed = 1)
+  cv <- cv_imr(fit, k = 2, rounds = 1)
+  expect_setequal(attr(cv, "predictions")$id, x$id)
+  expect_true(all(is.finite(cv$total_cindex)))
+
+  for (reserved in c("id", "subgroup")) {
+    pattern <- paste0("reserved availability metadata names: `", reserved, "`")
+    expect_error(imr_data(setNames(list(x), reserved)), pattern)
+    expect_error(imr_data(setNames(list(x), reserved), y,
+                          type_outcome = "continuous"), pattern)
+    # Mimic a saved object whose presence column collides with metadata.
+    corrupt <- dat
+    names(corrupt$platforms) <- reserved
+    names(corrupt$availability)[2L] <- reserved
+    expect_error(validate_imr_data(corrupt), pattern)
+    changed_fit <- fit
+    changed_fit$input_data <- corrupt
+    expect_error(cv_imr(changed_fit, k = 2, rounds = 1), pattern)
+    expect_error(predict(fit, corrupt), pattern)
+  }
+})
+
 test_that("imr_data detects corrupted availability metadata", {
   dat <- imr_data(simIMR$platforms)
   dat$availability$subgroup[1L] <- "000"

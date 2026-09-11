@@ -129,3 +129,9 @@ jobs:
           if [[ ${status} -ne 0 || ${sanitizer_status} -ne 0 ]]; then
             exit 1
           fi
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-${{ matrix.compiler }}-${{ matrix.label }}
+          path: ${{ runner.temp }}/sanitizer-*.log

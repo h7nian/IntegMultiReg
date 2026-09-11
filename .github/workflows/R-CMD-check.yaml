@@ -32,14 +32,49 @@ jobs:
       - name: Install system and CRAN check dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes devscripts libgsl-dev qpdf
+          sudo apt-get install --yes devscripts libgsl-dev qpdf tidy
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck
+          extra-packages: any::rcmdcheck, any::V8
           needs: check
 
       - uses: r-lib/actions/check-r-package@v2
         with:
           args: c("--as-cran")
           error-on: '"warning"'
+
+      - name: Install package for the complete covariate-selection example
+        run: R CMD INSTALL .
+
+      - name: Reproduce paired and nested covariate comparison twice
+        run: Rscript .github/scripts/verify-covariate-comparison.R
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: covariate-comparison-evidence
+          path: ${{ runner.temp }}/covariate-comparison-evidence
+
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+      - run: sudo apt-get update && sudo apt-get install --yes libgsl-dev
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::covr
+          needs: check
+      - name: Measure tests and check every public entry point
+        run: Rscript .github/scripts/coverage.R
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-coverage-and-api
+          path: ${{ runner.temp }}/imr-coverage

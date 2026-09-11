@@ -1,3 +1,30 @@
+# IntegMultiReg 0.1.4
+
+* Reject platform names `id` and `subgroup` in data construction and validation
+  to prevent collisions with availability metadata and misleading CV errors.
+
+* Add a runnable paired-CV and nested formula-selection example, with saved
+  subject/fold assignments and repeatability checks in CI.
+
+* Reject overflowing integer controls, ambiguous data-frame column names, and
+  corrupted saved-fit iteration counts or subgroup mappings before computation.
+* Add public API execution auditing and boundary regressions; CI retains coverage
+  and native sanitizer logs as downloadable artifacts.
+
+- Replaced the post-fitting CV approximation with independent training-fold
+  MCMC fits, preprocessing and model weights. Removed the native CV path that
+  used held-out responses and assigned increasing weight to larger errors.
+  Runtime now scales with folds times rounds; old prediction tables must be
+  regenerated. CV preserves the caller's RNG and exposes out-of-fold records.
+- Formula fits retain raw formula data so CV can rebuild transformations using
+  only training subjects. Older formula fits require refitting for CV.
+- Corrected survival concordance for tied predictions and incomparable pairs;
+  undefined fold metrics return NA.
+- Binary point prediction now averages model-specific probit probabilities.
+- Corrected theta interval labels when a platform appears in four or more groups.
+- Added deterministic leakage, probability-averaging and pair-order regressions,
+  with concordance comparisons against survival when available.
+
 # IntegMultiReg 0.1.3
 
 * Explicitly initialize conditional outcome pointers for strict compiler diagnostics.

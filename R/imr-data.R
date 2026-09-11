@@ -6,6 +6,8 @@
 #' before the MCMC sampler is called.
 #'
 #' @param platforms A non-empty named list of data frames, one per platform.
+#'   Platform names must be unique and cannot be `id` or `subgroup`, which are
+#'   reserved for availability metadata.
 #'   Every data frame must contain the subject identifier and at least one
 #'   finite numeric feature.
 #' @param outcome Optional outcome data frame. It is required when the object is
@@ -51,6 +53,7 @@ imr_data <- function(platforms, outcome = NULL, covariates = NULL,
       .imr_abort("Platform names must be unique after unnamed elements are labelled.")
     }
   }
+  .imr_check_reserved_platform_names(platform_names)
   platforms <- lapply(seq_along(platforms), function(i) {
     .imr_standardize_id_frame(
       platforms[[i]], id, sprintf("platforms[[%d]]", i),
@@ -141,10 +144,12 @@ validate_imr_data <- function(x) {
   if (!is.list(x$platforms) || length(x$platforms) == 0L) {
     .imr_abort("`x$platforms` must be a non-empty list.")
   }
-  if (is.null(names(x$platforms)) || any(!nzchar(names(x$platforms))) ||
+  if (is.null(names(x$platforms)) || anyNA(names(x$platforms)) ||
+      any(!nzchar(names(x$platforms))) ||
       anyDuplicated(names(x$platforms))) {
     .imr_abort("`x$platforms` must have complete, unique names.")
   }
+  .imr_check_reserved_platform_names(names(x$platforms))
   for (i in seq_along(x$platforms)) {
     arg <- sprintf("x$platforms[[%d]]", i)
     .imr_check_id_frame(x$platforms[[i]], arg)
@@ -180,6 +185,17 @@ validate_imr_data <- function(x) {
       !identical(x$n_platform_subjects, length(platform_ids)) ||
       !identical(x$excluded_ids, setdiff(platform_ids, all_ids))) {
     .imr_abort("Availability metadata does not match the platform data.")
+  }
+  invisible(TRUE)
+}
+
+.imr_check_reserved_platform_names <- function(platform_names) {
+  reserved <- intersect(platform_names, c("id", "subgroup"))
+  if (length(reserved)) {
+    .imr_abort(sprintf(
+      "Platform names cannot use reserved availability metadata names: %s.",
+      paste(sprintf("`%s`", reserved), collapse = ", ")
+    ))
   }
   invisible(TRUE)
 }
@@ -264,6 +280,10 @@ print.summary.imr_data <- function(x, ...) {
 .imr_standardize_id_frame <- function(x, id, arg, require_features = TRUE) {
   if (!is.data.frame(x)) {
     .imr_abort(sprintf("`%s` must be a data frame.", arg))
+  }
+  .imr_check_column_names(x, arg)
+  if (!identical(id, "id") && "id" %in% names(x)) {
+    .imr_abort("A non-identifier column named `id` conflicts with the standardized identifier.")
   }
   if (!id %in% names(x)) {
     if (identical(id, "id")) {

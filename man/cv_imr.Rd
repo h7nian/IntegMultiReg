@@ -30,7 +30,7 @@ fit or vice versa.}
 \item{max_models}{Integer maximum number of selection models used for
 Bayesian model averaging (default `100`).  Must be positive.}
 
-\item{verbose}{Logical; if `TRUE`, print the C routine's cross-validation
+\item{verbose}{Logical; if `TRUE`, print fold progress and sampler
 diagnostics.  Defaults to `FALSE`.}
 }
 \value{
@@ -43,16 +43,29 @@ A list with two numeric matrices, each of dimension
   \item{subset_cindex}{Accuracy computed fold-by-fold within each
     availability subgroup.}
   The accuracy metric (`"C-index"`, `"AUC"` or `"MSE"`) is recorded in the
-  `"metric"` attribute of the returned list.
+  `"metric"` attribute of the returned list. The `"predictions"` attribute
+contains subject IDs, subgroups, rounds, folds and out-of-fold predictions.
+Undefined AUCs (single class) and C-indices (no comparable pairs) are `NA`.
 }
 \description{
 `cv_imr()` evaluates predictive accuracy of a model fitted with [imr()] using
-repeated \eqn{K}-fold splits and Bayesian model averaging over the fitted
-MCMC samples.  The sampler is not re-run inside each training fold; fit a
-separate object with `method = "BMS"` if a no-borrowing comparison is needed.
+repeated \eqn{K}-fold splits. Each training fold independently standardizes
+predictors, runs the MCMC sampler and estimates model-averaging weights.
+The original fit supplies model settings and raw data, not posterior draws.
+Fit a separate object with `method = "BMS"` for a no-borrowing comparison.
 The accuracy measure depends on the outcome type: the concordance index
 (C-index) for right-censored outcomes, the area under the ROC curve (AUC) for
 binary outcomes, and the mean squared error (MSE) for continuous outcomes.
+}
+\details{
+Only subgroups retained in `object` are evaluated. Their training subsets
+remain included even when they are smaller than the original `ssize`.
+Formula transformations are rebuilt using the training rows. Raw formula
+data must be stored in the fit; older formula fits must be refitted.
+Each fold uses the original prior and MCMC settings, so runtime is roughly
+`k * rounds` full fits. Folds and sampler seeds are reproducible from the
+fitted seed, and the caller's R RNG state is restored. Hyperparameters are
+treated as fixed; tuning them requires an additional validation layer.
 }
 \examples{
 \donttest{

@@ -15,7 +15,8 @@
 #' @keywords internal
 #' @noRd
 .imr_is_integerish <- function(x) {
-  is.numeric(x) && all(is.finite(x)) && all(x == as.integer(x))
+  is.numeric(x) && all(is.finite(x)) &&
+    all(abs(x) <= .Machine$integer.max) && all(x == trunc(x))
 }
 
 #' @keywords internal
@@ -92,6 +93,7 @@
   if (!is.data.frame(x)) {
     .imr_abort(sprintf("`%s` must be a data frame.", arg))
   }
+  .imr_check_column_names(x, arg)
   if (!identical(names(x)[1], "id")) {
     .imr_abort(sprintf("`%s` must have `id` as its first column.", arg))
   }
@@ -163,4 +165,13 @@
   env <- parent.frame()
   utils::capture.output(value <- eval(expr, env))
   value
+}
+
+# Reject ambiguous names before name-based subsetting can silently drop columns.
+.imr_check_column_names <- function(x, arg) {
+  nm <- names(x)
+  if (anyNA(nm) || any(!nzchar(nm)) || anyDuplicated(nm)) {
+    .imr_abort(sprintf("`%s` must have complete, unique column names.", arg))
+  }
+  invisible(x)
 }

@@ -17,8 +17,8 @@
 /*
  * External test-set prediction entry point called from R.
  *
- * This mirrors main_function_prediction() up to posterior-model inference, then
- * applies Bayesian model averaging to the supplied test covariates/features.
+ * Infer posterior models from training data, then apply Bayesian model
+ * averaging to test predictors. Binary outcomes are averaged as probabilities.
  */
 SEXP main_function_prediction_test(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, 
                                 SEXP alpha0_R, SEXP beta0_R,
@@ -29,7 +29,7 @@ SEXP main_function_prediction_test(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_
                                 SEXP sample_size, SEXP nbr_features, SEXP nbr_cov,
                                 SEXP X1_filtered, SEXP newCC_list,
                                 SEXP sample, SEXP X1test, SEXP C_test, 
-                                SEXP samplesize_test_R, SEXP max_models_R)
+                                SEXP samplesize_test_R, SEXP max_models_R, SEXP type_outcome_R)
 {
     int protect_count = 0;
     PROTECT(h0_R);
@@ -160,7 +160,7 @@ SEXP main_function_prediction_test(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_
             tmp = predict_bma(m, K, n_model_platforms_c[m], samplesize_test[m],
                            model_platforms_c[m], n_platform_models_c, platform_models_c, G,
                            CCtest[m], XXtest[m], gamma_sample, beta, post, max_models,
-                           model_index, high_model_index, sample_c);
+                           model_index, high_model_index, sample_c, asInteger(type_outcome_R));
         }
         else if (samplesize_test[m] == 0)
         {
