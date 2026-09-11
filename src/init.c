@@ -18,7 +18,7 @@
 #include <gsl/gsl_errno.h>
 
 /* Entry points implemented in the package's C sources. */
-extern SEXP main_function(
+extern SEXP imr_fit(
     SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP beta0_R,
     SEXP seed_R, SEXP nu_R, SEXP method1_R, SEXP n_platforms_R,
     SEXP platform_models_R, SEXP model_platforms_R, SEXP n_subgroups_R, SEXP sample_size,
@@ -27,7 +27,7 @@ extern SEXP main_function(
 
 extern SEXP imr_concordance(SEXP prediction, SEXP time, SEXP status);
 
-extern SEXP main_function_prediction_test(
+extern SEXP imr_predict(
     SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP beta0_R,
     SEXP seed_R, SEXP nu_R, SEXP latent_y_R, SEXP gamma_sample_R, SEXP Theta_R,
     SEXP method1_R, SEXP n_platforms_R, SEXP platform_models_R, SEXP model_platforms_R,
@@ -36,9 +36,9 @@ extern SEXP main_function_prediction_test(
     SEXP samplesize_test_R, SEXP max_models_R, SEXP type_outcome_R);
 
 static const R_CallMethodDef CallEntries[] = {
-    {"imr_fit",         (DL_FUNC) &main_function,                 22},
+    {"imr_fit",         (DL_FUNC) &imr_fit,                      22},
     {"imr_concordance", (DL_FUNC) &imr_concordance,                3},
-    {"imr_predict",     (DL_FUNC) &main_function_prediction_test, 27},
+    {"imr_predict",     (DL_FUNC) &imr_predict,                  27},
     {NULL, NULL, 0}
 };
 

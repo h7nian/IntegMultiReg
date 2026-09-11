@@ -29,7 +29,7 @@ static double ***newCC = NULL;
  * the latent responses and selection state, runs the MCMC updates, and returns
  * posterior samples/summaries in the historical R list layout.
  */
-SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP beta0_R,
+SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP beta0_R,
                   SEXP seed_R, SEXP nu_R,
                   SEXP method1_R, SEXP n_platforms_R,
                   SEXP platform_models_R, SEXP model_platforms_R, SEXP n_subgroups_R,

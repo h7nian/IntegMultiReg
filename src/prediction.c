@@ -20,7 +20,7 @@
  * Infer posterior models from training data, then apply Bayesian model
  * averaging to test predictors. Binary outcomes are averaged as probabilities.
  */
-SEXP main_function_prediction_test(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, 
+SEXP imr_predict(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, 
                                 SEXP alpha0_R, SEXP beta0_R,
                                 SEXP seed_R, SEXP nu_R,
                                 SEXP latent_y_R, SEXP gamma_sample_R, SEXP Theta_R,
