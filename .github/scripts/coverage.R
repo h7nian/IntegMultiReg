@@ -13,7 +13,8 @@ methods <- sub("^S3method\\((.*),(.*)\\)$", "\\1.\\2",
 api <- data.frame(kind = c(rep("export", length(exports)), rep("S3", length(methods))),
                   function_name = c(exports, methods))
 api$executed <- vapply(api$function_name, function(fn) {
-  any(lines$functions == fn & lines$value > 0)
+  # Unattributed expressions must not turn a missing API hit into NA.
+  any(lines$functions == fn & lines$value > 0, na.rm = TRUE)
 }, logical(1))
 write.csv(api, file.path(out, "public-api.csv"), row.names = FALSE)
 summary <- vapply(list(overall = lines, R = lines[grepl("^R/", lines$filename), ],

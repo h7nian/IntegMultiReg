@@ -89,3 +89,8 @@ test_that("data summary printing preserves the summary and reports actual dimens
     length(simIMR$platforms)), printed, fixed = TRUE)))
   expect_identical(s$feature_counts, vapply(simIMR$platforms, ncol, integer(1)) - 1L)
 })
+
+test_that("the default fit method rejects unsupported input classes", {
+  expect_error(imr(1), "`x` must be a platform list, formula, or `imr_data` object",
+               fixed = TRUE)
+})

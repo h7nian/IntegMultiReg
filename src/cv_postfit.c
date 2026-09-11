@@ -213,7 +213,7 @@ static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covari
     weight[l] = exp(weight[l] - max_log_weight);
     weight_sum += weight[l];
   }
-  double *probability;
+  double *probability = NULL;
   if (outcome_type == IMR_OUTCOME_BINARY) // binary outcome
   {
     // Normalize the model-averaging weights once (not inside the per-test-point
@@ -538,8 +538,8 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
     protect_count += 2;
     double fold_score_sum[n_subgroups + 1], pooled_score[n_subgroups + 1];
     double **round_predictions = malloc((n_subgroups + 1) * sizeof(double *));
-    double **round_response;
-    _Bool **round_binary;
+    double **round_response = NULL;
+    _Bool **round_binary = NULL;
     if (outcome_type == IMR_OUTCOME_BINARY)
         round_binary = malloc((n_subgroups + 1) * sizeof(_Bool *));
     else
@@ -626,8 +626,8 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
         for (fold = 0; fold < n_folds; fold++)
         {
             int j = 0;
-            double *fold_response;
-            _Bool *fold_binary;
+            double *fold_response = NULL;
+            _Bool *fold_binary = NULL;
             if ((outcome_type == IMR_OUTCOME_SURVIVAL) || (outcome_type == IMR_OUTCOME_CONTINUOUS)) // survival outcome or continuous
                 fold_response = dvector(0, n_subjects - 1);
             else // binary outcome
@@ -639,8 +639,8 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
             for (int m = 0; m < n_subgroups; m++)
             {
                 int test_sample_size;
-                _Bool *test_binary;
-                double *test_response;
+                _Bool *test_binary = NULL;
+                double *test_response = NULL;
                 _Bool test_event[sample_size_ptr[m]];
                 int test_index[sample_size_ptr[m]], train_index[sample_size_ptr[m]];
                 postfit_partition(fold, n_folds, sample_size_ptr[m], &test_sample_size, censored_index[m], n_censored[m],
@@ -654,10 +654,13 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
                                         latent_response[m], covariates[m], features[m], gamma_sample, residual_shape, residual_rate,
                                         max_models, model_index, high_model_index, n_draws, importance);
 
+                /* A fold cannot exceed its validated subgroup size. Allocate
+                 * that capacity so allocation does not depend on GCC's range
+                 * inference for the partition helper's signed output. */
                 if (outcome_type == IMR_OUTCOME_BINARY) // binary outcome
-                    test_binary = calloc(test_sample_size, sizeof(_Bool));
+                    test_binary = calloc(sample_size_ptr[m], sizeof(_Bool));
                 else
-                    test_response = calloc(test_sample_size, sizeof(double));
+                    test_response = calloc(sample_size_ptr[m], sizeof(double));
 
                 for (int i = 0; i < test_sample_size; i++)
                 {

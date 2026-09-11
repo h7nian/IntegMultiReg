@@ -23,6 +23,10 @@ jobs:
             flags: undefined
             label: UBSAN
             preload_asan: false
+          - compiler: gcc
+            flags: address,undefined
+            label: ASAN+UBSAN
+            preload_asan: true
           - compiler: clang
             flags: undefined
             label: UBSAN
@@ -69,6 +73,10 @@ jobs:
 
           if [[ "${{ matrix.compiler }}" == "gcc" ]]; then
             sanitizer_runtime="$(gcc -print-file-name=libubsan.so)"
+            test -f "${sanitizer_runtime}"
+            if [[ "${{ matrix.preload_asan }}" == "true" ]]; then
+              sanitizer_runtime="$(gcc -print-file-name=libasan.so):${sanitizer_runtime}"
+            fi
           elif [[ "${{ matrix.preload_asan }}" == "true" ]]; then
             asan_runtime="$(clang -print-file-name=libclang_rt.asan-x86_64.so)"
             ubsan_runtime="$(clang -print-file-name=libclang_rt.ubsan_standalone-x86_64.so)"
