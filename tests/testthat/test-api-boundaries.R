@@ -74,9 +74,9 @@ test_that("undefined validation scores do not report artificial performance", {
   expect_true(is.na(accuracy("right.censored", 1:2,
     data.frame(id = 1:2, time = 1:2, status = c(0, 0)))))
   expect_true(is.na(accuracy("continuous", numeric(), data.frame(id = integer(), y = numeric()))))
-  expect_error(cv_imr(fit_bin, k = min(fit_bin$model$sample_sizes) + 1), "sample size")
+  expect_error(cv_imr(cv_method = "refit", fit_bin, k = min(fit_bin$model$sample_sizes) + 1), "sample size")
   damaged <- fit_bin; damaged$preprocessing$input_data <- NULL
-  expect_error(cv_imr(damaged), "raw inputs|Preprocessed|missing `input_data`")
+  expect_error(cv_imr(cv_method = "refit", damaged), "raw inputs|Preprocessed|missing `input_data`")
 })
 
 test_that("data summary printing preserves the summary and reports actual dimensions", {

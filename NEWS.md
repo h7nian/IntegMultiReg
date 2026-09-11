@@ -1,5 +1,13 @@
 # IntegMultiReg 0.2.0
 
+* Add `cv_method = c("legacy", "refit", "importance")`, defaulting to
+  `"legacy"`. The legacy mode preserves historical post-fit computation;
+  `"refit"` retains the 0.1.4 workflow. The paper-derived importance mode
+  retains empirical MCMC state multiplicities and fractional predictive degrees
+  of freedom. Both post-fit modes condition on full-fit latent summaries.
+  `validation` identifies the selected mode; examples that require independent
+  training-fold fitting now request `cv_method = "refit"` explicitly.
+
 ## Breaking API cleanup
 
 * `imr()` is now an S3 generic with list, formula, and `imr_data` methods. Its
@@ -44,8 +52,9 @@ See `inst/MIGRATION.md` for a complete old-to-new API table.
   and native sanitizer logs as downloadable artifacts.
 
 - Replaced the post-fitting CV approximation with independent training-fold
-  MCMC fits, preprocessing and model weights. Removed the native CV path that
-  used held-out responses and assigned increasing weight to larger errors.
+  MCMC fits, preprocessing and model weights. The previous inverse-density
+  weights followed an importance-sampling correction; their use of held-out
+  responses alone does not establish an implementation error.
   Runtime now scales with folds times rounds; old prediction tables must be
   regenerated. CV preserves the caller's RNG and exposes out-of-fold records.
 - Formula fits retain raw formula data so CV can rebuild transformations using

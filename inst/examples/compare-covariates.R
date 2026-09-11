@@ -32,7 +32,8 @@ run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = F
     nu = c(-4, -3, -4), draws = draws[1], burnin = draws[2], seed = seed)
   fit_set <- function(ids, seed) lapply(formulas, fit_candidate, ids = ids, seed = seed)
   evaluate <- function(fits, rounds) {
-    cv <- lapply(fits, IntegMultiReg::cv_imr, k = k, rounds = rounds)
+    cv <- lapply(fits, IntegMultiReg::cv_imr, k = k, rounds = rounds,
+                 cv_method = "refit")
     keys <- lapply(cv, function(x) x$predictions[, c("round", "id", "subgroup", "fold")])
     # Identical seeds alone are not evidence of paired folds: check the actual assignments.
     stopifnot(identical(keys[[1]], keys[[2]]))

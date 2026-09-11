@@ -149,16 +149,26 @@ not estimated by averaging exponentiated draws. With `type = "mean"` the interva
 summarizes conditional mean time, whereas `type = "response"` includes future
 outcome variability. The censoring process for future observations is not modeled.
 
-## Cross-validation correction (0.1.4)
+## Cross-validation algorithms
 
-`cv_imr()` now independently refits preprocessing, selection MCMC and model
-weights in every training fold. It never weights models using held-out
-responses. This costs approximately `k * rounds` full fits. The original
-hyperparameters remain fixed; data-driven tuning needs another validation layer.
-Use `cv$predictions` to inspect subject-level out-of-fold predictions.
-Old post-fitting CV tables are historical results and must be regenerated.
-Binary prediction now applies the probit link within each model before averaging, and
-survival concordance correctly scores tied predictions and comparable pairs.
+`cv_imr(fit, cv_method = "legacy")` is the default. It restores the 0.1.0
+post-fit algorithm using ranked distinct selection models and historical
+scoring. Historical numerical reproduction also requires the original fit.
+
+Use `cv_method = "refit"` for the 0.1.4 procedure: preprocessing, selection
+MCMC and prediction weights are recomputed within each training fold. This
+costs approximately `k * rounds` full fits.
+
+Use `cv_method = "importance"` for a paper-derived importance average over
+all retained states, preserving their empirical multiplicities. It conditions
+on full-fit preprocessing and augmented response means, and retains ridge
+stabilization. Its use of held-out responses in inverse-density weights is
+an importance correction, not by itself evidence of an implementation error.
+It is an approximate procedure, not an exact reproduction of the original study.
+
+`cv$validation` identifies the algorithm; `cv$predictions` records actual folds
+and predictions. The post-fit GSL and refit R generators produce different
+partitions, even with the same seed. Data-driven tuning requires outer validation.
 
 
 ### Compare prespecified covariate formulas

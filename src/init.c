@@ -35,7 +35,14 @@ extern SEXP imr_predict(
     SEXP X1_filtered, SEXP newCC_list, SEXP draws_R, SEXP X1test, SEXP C_test,
     SEXP samplesize_test_R, SEXP max_models_R, SEXP type_outcome_R);
 
+extern SEXP imr_cv_postfit(
+    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
+    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
+    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
+    SEXP, SEXP, SEXP);
+
 static const R_CallMethodDef CallEntries[] = {
+    {"imr_cv_postfit", (DL_FUNC) &imr_cv_postfit,                27},
     {"imr_fit",         (DL_FUNC) &imr_fit,                      22},
     {"imr_concordance", (DL_FUNC) &imr_concordance,                3},
     {"imr_predict",     (DL_FUNC) &imr_predict,                  27},

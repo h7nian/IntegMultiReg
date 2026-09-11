@@ -10,7 +10,8 @@ cv_imr(
   rounds = 2,
   method = NULL,
   max_models = 100,
-  verbose = FALSE
+  verbose = FALSE,
+  cv_method = c("legacy", "refit", "importance")
 )
 }
 \arguments{
@@ -28,10 +29,15 @@ the method stored in `object`; `cv_imr()` cannot turn an IMR fit into a BMS
 fit or vice versa.}
 
 \item{max_models}{Integer maximum number of selection models used for
-Bayesian model averaging (default `100`).  Must be positive.}
+Bayesian model averaging in legacy and refit modes (default `100`). Must
+be positive. Importance mode uses every retained draw, including repeated
+states, and does not truncate using this argument.}
 
 \item{verbose}{Logical; if `TRUE`, print fold progress and sampler
 diagnostics.  Defaults to `FALSE`.}
+
+\item{cv_method}{Validation algorithm: `"legacy"` (default), `"refit"`,
+or `"importance"`. This is independent of the fitted IMR/BMS `method`.}
 }
 \value{
 A named list. `pooled` and `fold_mean` are numeric matrices of dimension
@@ -44,14 +50,14 @@ A named list. `pooled` and `fold_mean` are numeric matrices of dimension
     availability subgroup.}
   `predictions` contains subject IDs, subgroups, rounds, folds and out-of-fold
   predictions. `metric` names the accuracy measure and `validation` records
-  that each fold was independently refitted.
+  the selected `cv_method` as a character string.
   Undefined AUCs (single class) and C-indices (no comparable pairs) are `NA`.
 }
 \description{
 `cv_imr()` evaluates predictive accuracy of a model fitted with [imr()] using
-repeated \eqn{K}-fold splits. Each training fold independently standardizes
-predictors, runs the MCMC sampler and estimates model-averaging weights.
-The original fit supplies model settings and raw data, not posterior draws.
+repeated \eqn{K}-fold splits. `cv_method` selects historical post-fit
+validation (`"legacy"`, the default), training-fold refitting (`"refit"`),
+or a paper-derived importance average over retained draws (`"importance"`).
 Fit a separate object with `method = "bms"` for a no-borrowing comparison.
 The accuracy measure depends on the outcome type: the concordance index
 (C-index) for right-censored outcomes, the area under the ROC curve (AUC) for
@@ -61,12 +67,31 @@ binary outcomes, and the mean squared error (MSE) for continuous outcomes.
 Only subgroups retained in `object` are evaluated. Their training subsets
 remain included even when they are smaller than the original
 `min_subgroup_size`.
-Formula transformations are rebuilt using the training rows. Raw formula
-data must be stored in the fit; older formula fits must be refitted.
-Each fold uses the original prior and MCMC settings, so runtime is roughly
-`k * rounds` full fits. Folds and sampler seeds are reproducible from the
-fitted seed, and the caller's R RNG state is restored. Hyperparameters are
-treated as fixed; tuning them requires an additional validation layer.
+In refit mode, preprocessing, formula transformations, selection MCMC and
+prediction weights are recomputed on training rows. Runtime is roughly
+`k * rounds` full fits. This is the algorithm used by version 0.1.4.
+
+Legacy mode restores the post-fit CV algorithm from version 0.1.0: ranked
+distinct full-fit selection models, full-fit standardization and augmented
+response means, fold-specific ridge coefficient estimates (penalty 0.001),
+inverse predictive-density weights and historical AUC/concordance scoring.
+It uses the supplied fit; reproducing a 0.1.0 run also requires its original
+fit and preprocessing. Undefined metrics return NA instead of NaN.
+
+Importance mode follows the empirical importance average in equations 6--7
+of Chekouo et al. (2017), retaining MCMC state multiplicities rather than
+selecting equally weighted distinct models. It uses fractional predictive
+degrees of freedom and the current scoring definitions. The full-fit
+augmented response plug-in and 0.001 ridge stabilization remain
+approximations; this mode is not an exact reproduction of the original
+application. Binary and continuous outcomes extend the survival procedure.
+
+Both post-fit modes use the historical GSL fold generator, stratified by
+event status for survival. Refit uses R's generator and additionally
+stratifies binary outcomes by class. Identical seeds therefore do not give
+identical partitions across refit and post-fit modes. Within each mode,
+results are reproducible and the caller's R RNG state is preserved.
+Hyperparameters are fixed; data-driven tuning needs an outer validation layer.
 }
 \examples{
 \donttest{
@@ -77,7 +102,7 @@ fit <- imr(
   nu = c(-4, -3, -4), draws = 200, burnin = 100,
   min_subgroup_size = 5, seed = 1
 )
-cv <- cv_imr(fit, k = 5, rounds = 2)
+cv <- cv_imr(fit, k = 5, rounds = 2, cv_method = "legacy")
 cv$pooled
 }
 }

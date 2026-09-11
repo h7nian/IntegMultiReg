@@ -26,7 +26,7 @@ test_that("CV refits without using held-out responses or full-fit posterior draw
              forced_prior_scale = 1, draws = 20, burnin = 10, seed = 72)
   set.seed(123)
   rng <- .Random.seed
-  base <- cv_imr(fit, k = 2, rounds = 1)
+  base <- cv_imr(cv_method = "refit", fit, k = 2, rounds = 1)
   expect_identical(.Random.seed, rng)
   records <- base$predictions
   expect_setequal(records$id, x$id)
@@ -36,10 +36,10 @@ test_that("CV refits without using held-out responses or full-fit posterior draw
   changed$preprocessing$input_data$outcome$y[changed$preprocessing$input_data$outcome$id %in% heldout] <- 1000
   changed$posterior$latent_response_mean <- lapply(changed$posterior$latent_response_mean, function(y) y + 100)
   changed$posterior$selection_draws <- lapply(changed$posterior$selection_draws, function(s) lapply(s, function(g) 1 - g))
-  altered <- cv_imr(changed, k = 2, rounds = 1)$predictions
+  altered <- cv_imr(cv_method = "refit", changed, k = 2, rounds = 1)$predictions
   expect_identical(records$fold, altered$fold)
   expect_equal(records$prediction[records$fold == 1], altered$prediction[altered$fold == 1])
-  expect_identical(base$validation, "training-fold refits")
+  expect_identical(base$validation, "refit")
   train_ids <- records$id[records$fold != 1]
   changed$preprocessing$input_data$platforms[[1]]$marker[changed$preprocessing$input_data$platforms[[1]]$id %in% heldout] <- 1e6
   refit1 <- IntegMultiReg:::.imr_cv_refit(fit, train_ids, 42)
@@ -65,10 +65,10 @@ test_that("CV balances small strata and preserves formula preprocessing", {
   expect_equal(refit$preprocessing$formula_data$subject, 1:12)
   expect_equal(unname(as.matrix(refit$preprocessing$input_data$covariates[, -1])),
                unname(poly(1:12, 2)), ignore_attr = TRUE)
-  expect_true(all(is.finite(cv_imr(fit, k = 2, rounds = 1)$pooled)))
+  expect_true(all(is.finite(cv_imr(cv_method = "refit", fit, k = 2, rounds = 1)$pooled)))
   old <- fit
   old$preprocessing$formula_data <- NULL
-  expect_error(cv_imr(old, k = 2), "raw formula data|missing `formula_data`")
+  expect_error(cv_imr(cv_method = "refit", old, k = 2), "raw formula data|missing `formula_data`")
 })
 
 test_that("theta uncertainty labels follow the native pair ordering", {

@@ -168,17 +168,22 @@ head(pred[["model:011"]])
 
 # Assessing predictive performance
 
-`cv_imr()` refits the model independently within each training fold, including
+`cv_imr()` defaults to `cv_method = "legacy"`, the historical post-fit
+algorithm. `cv_method = "importance"` uses all retained draws in a paper-derived
+importance average; both post-fit modes reuse full-fit preprocessing and latent
+response summaries. Neither promises reproduction of the original study's numbers.
+
+This example explicitly uses `cv_method = "refit"` to refit each training fold, including
 standardization, selection MCMC and model weights. It reports AUC for binary
 outcomes, concordance for survival and MSE for continuous outcomes, overall
 and within each retained availability subgroup. Formula transformations are
 also rebuilt on training rows. Runtime scales with folds times rounds; use
 short chains for a code-path check and increase them for final analysis.
-To compare IMR with BMS, fit a separate `method = "BMS"` object. The original
+To compare IMR with BMS, fit a separate `method = "bms"` object. The original
 hyperparameters are treated as fixed; tuning requires another validation layer.
 
 ```{r cv}
-cv <- cv_imr(fit, k = 5, rounds = 3)
+cv <- cv_imr(fit, k = 5, rounds = 3, cv_method = "refit")
 cv$metric
 round(colMeans(cv$pooled), 3)
 ```

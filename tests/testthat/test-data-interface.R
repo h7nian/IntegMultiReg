@@ -19,7 +19,7 @@ test_that("reserved platform names are rejected before availability routing", {
   y <- data.frame(id = 1:20, y = cos(1:20))
   dat <- imr_data(list(assay = x), y, outcome_type = "continuous")
   fit <- imr(dat, min_subgroup_size = 1, forced_prior_scale = 1, draws = 10, burnin = 5, seed = 1)
-  cv <- cv_imr(fit, k = 2, rounds = 1)
+  cv <- cv_imr(cv_method = "refit", fit, k = 2, rounds = 1)
   expect_setequal(cv$predictions$id, x$id)
   expect_true(all(is.finite(cv$pooled)))
 
@@ -35,7 +35,7 @@ test_that("reserved platform names are rejected before availability routing", {
     expect_error(validate_imr_data(corrupt), pattern)
     changed_fit <- fit
     changed_fit$preprocessing$input_data <- corrupt
-    expect_error(cv_imr(changed_fit, k = 2, rounds = 1), pattern)
+    expect_error(cv_imr(cv_method = "refit", changed_fit, k = 2, rounds = 1), pattern)
     expect_error(predict(fit, corrupt), pattern)
   }
 })

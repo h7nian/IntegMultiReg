@@ -1,6 +1,34 @@
 ## The only R functions that know the native argument layout. Public methods
 ## validate and prepare named data, then hand it to these narrow adapters.
 
+.imr_call_cv_postfit_native <- function(object, k, rounds, max_models,
+                                        verbose, importance) {
+  control <- object$control
+  model <- object$model
+  preprocessing <- object$preprocessing
+  posterior <- object$posterior
+  priors <- control$priors
+  .quietly(verbose, .Call(
+    "imr_cv_postfit",
+    as.double(priors$forced_scale), as.double(priors$molecular_scale),
+    as.double(priors$residual[["shape"]]), as.double(priors$residual[["rate"]]),
+    as.double(priors$interaction[["shape"]]), as.double(priors$interaction[["rate"]]),
+    as.double(control$seed), as.double(priors$nu),
+    posterior$latent_response_mean, posterior$selection_draws,
+    posterior$interaction_means,
+    as.integer(model$n_platforms),
+    lapply(model$platform_subgroups, function(i) as.integer(i - 1L)),
+    lapply(model$subgroup_platforms, function(i) as.integer(i - 1L)),
+    as.integer(length(model$subgroup_names)), as.integer(model$sample_sizes),
+    as.integer(lengths(model$feature_names)), as.integer(length(model$covariate_names)),
+    preprocessing$features, preprocessing$response, preprocessing$covariates,
+    as.integer(match(control$outcome_type,
+                     c("right.censored", "binary", "continuous"))),
+    as.integer(control$mcmc$draws), as.integer(k), as.integer(rounds),
+    as.integer(max_models), importance, PACKAGE = "IntegMultiReg"
+  ))
+}
+
 .imr_call_fit_native <- function(priors, seed, nu, method, n_platforms,
                                  platform_subgroups, subgroup_platforms,
                                  sample_sizes, n_features, n_covariates,

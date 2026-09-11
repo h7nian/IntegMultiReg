@@ -52,7 +52,7 @@ test_that("outcome_type and method are matched against their choices", {
 })
 
 test_that("downstream functions reject non-imr input", {
-  expect_error(cv_imr(list(1)), "imr")
+  expect_error(cv_imr(cv_method = "refit", list(1)), "imr")
   expect_error(IntegMultiReg:::predict.imr(list(1), newdata = list()), "imr")
 })
 

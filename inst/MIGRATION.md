@@ -22,6 +22,11 @@ Version 0.2.0 deliberately removes the old aliases. Update calls as follows:
 
 Cross-validation results now expose ordinary named fields:
 
+`cv_method = "legacy"` is the default. Use `cv_method = "refit"` to keep
+the 0.1.4 training-fold refitting workflow, or `cv_method = "importance"`
+for the paper-derived empirical importance average. See `?cv_imr` for scope,
+scoring and partition differences. `validation` records the selected method.
+
 ```r
 cv <- cv_imr(fit)
 cv$pooled
