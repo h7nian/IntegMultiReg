@@ -80,36 +80,13 @@ predict.imr <- function(object, newdata, platform_names = NULL,
   model <- object$model
   prep <- object$preprocessing
   posterior <- object$posterior
-  priors <- control$priors
-  results <- .quietly(verbose, .Call("imr_predict",
-    h0_c = as.double(priors$forced_scale),
-    hh_c = as.double(priors$molecular_scale),
-    alpha_c = as.double(priors$residual[["shape"]]),
-    psi_c = as.double(priors$residual[["rate"]]),
-    alpha0_c = as.double(priors$interaction[["shape"]]),
-    beta0_c = as.double(priors$interaction[["rate"]]),
-    seed_c = as.double(control$seed),
-    nu_c = as.double(priors$nu),
-    y_latent = posterior$latent_response_mean,
-    gam_sample_c = posterior$selection_draws,
-    theta_c = posterior$interaction_means,
-    method_c = toupper(control$method),
-    n_platform_c = as.integer(n_platforms),
-    platform_models_c = lapply(model$platform_subgroups, function(index) as.integer(index - 1L)),
-    model_platforms_c = lapply(model$subgroup_platforms, function(index) as.integer(index - 1L)),
-    n_models = as.integer(length(model$subgroup_names)),
-    sample_size = as.integer(model$sample_sizes),
-    n_features = as.integer(lengths(model$feature_names)),
-    n_cov = as.integer(length(model$covariate_names)),
-    x_filtered = x_train,
-    cov_list = prep$covariates,
-    sample = as.integer(control$mcmc$draws),
-    x_test = x_test,
-    c_test = cova_test,
-    samplesize_test_c = as.integer(samplesize_test),
-    max_models_pred = as.integer(max_models),
-    outcome_type = as.integer(match(control$outcome_type, c("right.censored", "binary", "continuous")))
-  ))
+  results <- .imr_call_predict_native(
+    control = control, model = model, posterior = posterior,
+    features = x_train, covariates = prep$covariates,
+    test_features = x_test, test_covariates = cova_test,
+    test_sample_sizes = samplesize_test, max_models = max_models,
+    verbose = verbose
+  )
   names(results) <- model_names
   res <- mapply(function(x, y) {
     data.frame(id = x, prediction = y, row.names = NULL, stringsAsFactors = FALSE)

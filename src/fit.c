@@ -15,7 +15,6 @@
 #include <Rmath.h>
 #include <Rinternals.h>
 
-int *sample_size_ptr = NULL;
 static char sampler_method[256];
 
 static double ****X1 = NULL;
@@ -137,7 +136,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         Rprintf("\n");
     }
 
-    sample_size_ptr = INTEGER(sample_size);
+    int *sample_size_ptr = INTEGER(sample_size);
 
     Rprintf("\nSample sizes for each selected subgroup:\n");
     for (int i = 0; i < n_subgroups; i++)

@@ -118,6 +118,19 @@ imr.default <- function(x, ...) {
   .imr_abort("`x` must be a platform list, formula, or `imr_data` object.")
 }
 
+.imr_new_fit <- function(control, model, preprocessing, posterior) {
+  structure(
+    list(
+      schema_version = 2L,
+      control = control,
+      model = model,
+      preprocessing = preprocessing,
+      posterior = posterior
+    ),
+    class = "imr"
+  )
+}
+
 #' @rdname imr
 #' @export
 imr.list <- function(x, outcome, covariates = NULL,
@@ -181,7 +194,6 @@ imr.list <- function(x, outcome, covariates = NULL,
   } else {
     set.seed(seed)
   }
-  outcome_code <- match(outcome_type, c("right.censored", "binary", "continuous"))
 
   ## Record human-readable platform and feature names (the first column of each
   ## platform is the 'id' and is dropped before modelling).
@@ -218,8 +230,6 @@ imr.list <- function(x, outcome, covariates = NULL,
   storage.mode(alpha0_c) <- "double"
   storage.mode(beta0_c) <- "double"
   storage.mode(seed_c) <- "double"
-
-  method_c <- toupper(method)
 
   #################################################################
   # Process the platform data and extract subgroup id vectors.
@@ -384,20 +394,19 @@ imr.list <- function(x, outcome, covariates = NULL,
   ###########################################
   # Call the compiled MCMC sampler.
   ###########################################
-  results <- .quietly(verbose, .Call("imr_fit", h0_c, hh_c, alpha_c, psi_c,
-    alpha0_c, beta0_c, seed_c, nu_c, method_c,
-    n_platform_c = as.integer(n_platform_c),
-    platform_models_c = platform_models_c, model_platforms_c = model_platforms_c,
-    n_models = as.integer(n_models),
-    sample_size = as.integer(sample_size),
-    n_features = as.integer(n_features),
-    n_cov = as.integer(n_cov),
-    x_filtered = x_filtered, y_list = y_list,
-    outcome_type = as.integer(outcome_code),
-    cov_list = cov_list,
-    sample = as.integer(draws),
-    burnin = as.integer(burnin)
-  ))
+  effective_priors <- list(
+    forced_scale = h0_c, molecular_scale = hh_c,
+    residual = c(shape = alpha_c, rate = psi_c),
+    interaction = c(shape = alpha0_c, rate = beta0_c)
+  )
+  results <- .imr_call_fit_native(
+    priors = effective_priors, seed = seed_c, nu = nu_c, method = method,
+    n_platforms = n_platform_c, platform_subgroups = platform_models_c,
+    subgroup_platforms = model_platforms_c, sample_sizes = sample_size,
+    n_features = n_features, n_covariates = n_cov, features = x_filtered,
+    response = y_list, outcome_type = outcome_type, covariates = cov_list,
+    draws = draws, burnin = burnin, verbose = verbose
+  )
 
   ## Guard against tiny floating-point drift in the running averages so that
   ## the reported inclusion probabilities are exactly within [0, 1].
@@ -408,8 +417,7 @@ imr.list <- function(x, outcome, covariates = NULL,
   })
 
   subgroup_names <- names(x_filtered)
-  fit <- list(
-    schema_version = 2L,
+  fit <- .imr_new_fit(
     control = list(
       call = call, outcome_type = outcome_type,
       response_scale = if (outcome_type == "right.censored") survival_scale else
@@ -446,7 +454,7 @@ imr.list <- function(x, outcome, covariates = NULL,
       interaction_draws = results$theta_sample
     )
   )
-  class(fit) <- "imr"
+  validate_imr(fit)
   fit
 }
 
