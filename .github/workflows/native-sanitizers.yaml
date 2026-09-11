@@ -112,7 +112,7 @@ jobs:
           export LD_PRELOAD="${SANITIZER_RUNTIME}"
           set +e
           R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
-            Rscript -e 'library(testthat); library(IntegMultiReg); test_package("IntegMultiReg")' \
+            Rscript .github/scripts/verify-tests.R \
             2>&1 | tee "${RUNNER_TEMP}/sanitizer-tests.log"
           status=${PIPESTATUS[0]}
           set -e
@@ -134,4 +134,6 @@ jobs:
         if: always()
         with:
           name: native-${{ matrix.compiler }}-${{ matrix.label }}
-          path: ${{ runner.temp }}/sanitizer-*.log
+          path: |
+            ${{ runner.temp }}/sanitizer-*.log
+            ${{ runner.temp }}/test-evidence

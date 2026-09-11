@@ -164,7 +164,9 @@ all retained states, preserving their empirical multiplicities. It conditions
 on full-fit preprocessing and augmented response means, and retains ridge
 stabilization. Its use of held-out responses in inverse-density weights is
 an importance correction, not by itself evidence of an implementation error.
-It is an approximate procedure, not an exact reproduction of the original study.
+The augmented response mean plug-in is explicitly part of the paper's Section
+4.1, whereas the 0.001 ridge penalty differs from its unpenalized coefficient
+estimate. This is not an exact reproduction of the original study.
 
 `cv$validation` identifies the algorithm; `cv$predictions` records actual folds
 and predictions. The post-fit GSL and refit R generators produce different

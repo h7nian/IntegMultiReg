@@ -18,6 +18,8 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      # Disable cli's optional timer thread, not package computations or reports.
+      CLI_NO_THREAD: "1"
 
     steps:
       - uses: actions/checkout@v6
@@ -52,7 +54,7 @@ jobs:
           set +e
           R_LIBS="${RUNNER_TEMP}/valgrind-library" \
             R -d "valgrind --tool=memcheck --leak-check=full --show-leak-kinds=definite --errors-for-leak-kinds=definite --track-origins=yes --error-exitcode=1" \
-              --vanilla < testthat.R \
+              --vanilla -f "${GITHUB_WORKSPACE}/.github/scripts/verify-tests.R" \
               2>&1 | tee "${RUNNER_TEMP}/valgrind-tests.log"
           status=${PIPESTATUS[0]}
           set -e
@@ -70,5 +72,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: valgrind-test-log
-          path: ${{ runner.temp }}/valgrind-tests.log
+          path: |
+            ${{ runner.temp }}/valgrind-tests.log
+            ${{ runner.temp }}/test-evidence
           if-no-files-found: error

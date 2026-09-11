@@ -82,9 +82,10 @@ Importance mode follows the empirical importance average in equations 6--7
 of Chekouo et al. (2017), retaining MCMC state multiplicities rather than
 selecting equally weighted distinct models. It uses fractional predictive
 degrees of freedom and the current scoring definitions. The full-fit
-augmented response plug-in and 0.001 ridge stabilization remain
-approximations; this mode is not an exact reproduction of the original
-application. Binary and continuous outcomes extend the survival procedure.
+augmented response mean plug-in is explicitly part of Section 4.1 of the
+paper. The 0.001 ridge stabilization differs from its unpenalized coefficient
+estimate; this mode is not an exact reproduction of the original application.
+Binary and continuous outcomes extend the survival procedure.
 
 Both post-fit modes use the historical GSL fold generator, stratified by
 event status for survival. Refit uses R's generator and additionally
