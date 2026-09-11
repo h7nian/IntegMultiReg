@@ -28,7 +28,7 @@
 * Native entry points are named `imr_fit`, `imr_predict`, and
   `imr_concordance`; unreachable legacy numerical helpers were removed.
 
-See `MIGRATION.md` for a complete old-to-new API table.
+See `inst/MIGRATION.md` for a complete old-to-new API table.
 
 # IntegMultiReg 0.1.4
 
