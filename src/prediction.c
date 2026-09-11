@@ -26,9 +26,9 @@ SEXP imr_predict(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R,
                                 SEXP latent_y_R, SEXP gamma_sample_R, SEXP Theta_R,
                                 SEXP method1_R, SEXP n_platforms_R,
                                 SEXP platform_models_R, SEXP model_platforms_R, SEXP n_subgroups_R,
-                                SEXP sample_size, SEXP nbr_features, SEXP nbr_cov,
+                                SEXP sample_size, SEXP n_features_R, SEXP n_covariates_R,
                                 SEXP X1_filtered, SEXP newCC_list,
-                                SEXP sample, SEXP X1test, SEXP C_test, 
+                                SEXP draws_R, SEXP X1test, SEXP C_test,
                                 SEXP samplesize_test_R, SEXP max_models_R, SEXP type_outcome_R)
 {
     int protect_count = 0;
@@ -46,7 +46,7 @@ SEXP imr_predict(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R,
     protect_count++;
     PROTECT(nu_R);
     protect_count++;
-    PROTECT(sample);
+    PROTECT(draws_R);
     protect_count++;
     PROTECT(n_subgroups_R);
     protect_count++;
@@ -56,11 +56,11 @@ SEXP imr_predict(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R,
     protect_count++;
     PROTECT(model_platforms_R);
     protect_count++;
-    PROTECT(nbr_features);
+    PROTECT(n_features_R);
     protect_count++;
     PROTECT(sample_size);
     protect_count++;
-    PROTECT(nbr_cov);
+    PROTECT(n_covariates_R);
     protect_count++;
     PROTECT(samplesize_test_R);
     protect_count++;
@@ -73,25 +73,25 @@ SEXP imr_predict(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R,
     double psi = REAL(psi_R)[0];       // control var of prior distributions
     double alpha0 = REAL(alpha0_R)[0]; // prior
     double beta0 = REAL(beta0_R)[0];   // prior scaling factor
-    int sample_c = asInteger(sample);
+    int n_draws = asInteger(draws_R);
     int n_subgroups = asInteger(n_subgroups_R);
-    int *G = INTEGER(nbr_features);
+    int *G = INTEGER(n_features_R);
     int *sample_size_ptr = INTEGER(sample_size);
     int *samplesize_test = INTEGER(samplesize_test_R);
-    int K = asInteger(nbr_cov);
+    int K = asInteger(n_covariates_R);
     double *nu = REAL(nu_R);
     int n_platforms = asInteger(n_platforms_R);
     int max_models_requested = asInteger(max_models_R);
 
-    double *post = dvector(0, sample_c - 1);
-    int *model_index = malloc(sample_c * sizeof(int));
-    int *high_model_index = malloc(sample_c * sizeof(int));
+    double *post = dvector(0, n_draws - 1);
+    int *model_index = malloc(n_draws * sizeof(int));
+    int *high_model_index = malloc(n_draws * sizeof(int));
     double **ymean = r_list_vector_double_to_c(n_subgroups, latent_y_R);
     double ***CC = r_list_matrix_to_c(n_subgroups, newCC_list);
     double ***CCtest = r_list_matrix_to_c(n_subgroups, C_test);
     double ****XX = r_list_list_matrix_to_c(n_subgroups, X1_filtered);
     double ****XXtest = r_list_list_matrix_to_c(n_subgroups, X1test);
-    _Bool ****gamma_sample = r_list_list_matrix_to_c_bool(sample_c, gamma_sample_R);
+    _Bool ****gamma_sample = r_list_list_matrix_to_c_bool(n_draws, gamma_sample_R);
     double ***theta = r_list_matrix_to_c(n_platforms, Theta_R);
 
     int **platform_models_c = malloc(n_platforms * sizeof(int *));
@@ -141,7 +141,7 @@ SEXP imr_predict(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R,
     }
     int n_unique_models;
     const char likelihood_type[] = "NonLocal";
-    double ***beta = infer_posterior_models(ymean, CC, XX, sample_c, gamma_sample,
+    double ***beta = infer_posterior_models(ymean, CC, XX, n_draws, gamma_sample,
                                      nu, theta, mrf, h, h1, h0,
                                      hg, alpha0,
                                      alpha, psi, G, n_subgroups, n_platforms,
@@ -160,7 +160,7 @@ SEXP imr_predict(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R,
             tmp = predict_bma(m, K, n_model_platforms_c[m], samplesize_test[m],
                            model_platforms_c[m], n_platform_models_c, platform_models_c, G,
                            CCtest[m], XXtest[m], gamma_sample, beta, post, max_models,
-                           model_index, high_model_index, sample_c, asInteger(type_outcome_R));
+                           model_index, high_model_index, n_draws, asInteger(type_outcome_R));
         }
         else if (samplesize_test[m] == 0)
         {
@@ -209,7 +209,7 @@ SEXP imr_predict(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R,
         free(beta[s]);
     }
     free(beta);
-    for (int s = 0; s < sample_c; s++)
+    for (int s = 0; s < n_draws; s++)
     {
         for (int l = 0; l < n_platforms; l++)
         {

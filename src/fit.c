@@ -32,10 +32,10 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
                   SEXP seed_R, SEXP nu_R,
                   SEXP method1_R, SEXP n_platforms_R,
                   SEXP platform_models_R, SEXP model_platforms_R, SEXP n_subgroups_R,
-                  SEXP sample_size, SEXP nbr_features, SEXP nbr_cov,
+                  SEXP sample_size, SEXP n_features_R, SEXP n_covariates_R,
                   SEXP X1_filtered, SEXP newYY_list, SEXP type_outcome,
                   SEXP newCC_list,
-                  SEXP sample, SEXP burnin)
+                  SEXP draws_R, SEXP burnin_R)
 {
     clock_t t = clock();
     int protect_count = 0;
@@ -66,9 +66,9 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     protect_count++;
     PROTECT(sample_size);
     protect_count++;
-    PROTECT(nbr_features);
+    PROTECT(n_features_R);
     protect_count++;
-    PROTECT(nbr_cov);
+    PROTECT(n_covariates_R);
     protect_count++;
     PROTECT(X1_filtered);
     protect_count++;
@@ -78,10 +78,10 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     protect_count++;
 
 
-    int K = asInteger(nbr_cov);
-    int type_out = asInteger(type_outcome);
-    int sample_c = asInteger(sample);
-    int burnin_c = asInteger(burnin);
+    int K = asInteger(n_covariates_R);
+    int outcome_type = asInteger(type_outcome);
+    int n_draws = asInteger(draws_R);
+    int n_burnin = asInteger(burnin_R);
 
     int n_platforms = asInteger(n_platforms_R);
     Rprintf("We have %d platforms  in total \n", n_platforms);
@@ -145,7 +145,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     }
     Rprintf("\n");
 
-    int *G = INTEGER(nbr_features);
+    int *G = INTEGER(n_features_R);
     Rprintf("Number of features for each platform:\n");
     for (int i = 0; i < n_platforms; i++)
     {
@@ -203,7 +203,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     double **ymean = malloc(n_subgroups * sizeof(double *));
     double **yobs = NULL;
     _Bool **yobsb = NULL;
-    if (type_out == IMR_OUTCOME_BINARY)
+    if (outcome_type == IMR_OUTCOME_BINARY)
     {
         yobsb = malloc(n_subgroups * sizeof(_Bool *));
     }
@@ -216,8 +216,8 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     {
         n_censored[i] = 0;
         ymean[i] = dvector(0, sample_size_ptr[i] - 1);
-        if ((type_out == IMR_OUTCOME_SURVIVAL) ||
-            (type_out == IMR_OUTCOME_CONTINUOUS))
+        if ((outcome_type == IMR_OUTCOME_SURVIVAL) ||
+            (outcome_type == IMR_OUTCOME_CONTINUOUS))
             yobs[i] = dvector(0, sample_size_ptr[i] - 1);
         else // binary
             yobsb[i] = (_Bool *)malloc(sample_size_ptr[i] * sizeof(_Bool));
@@ -225,12 +225,12 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         _Bool Delta[sample_size_ptr[i]];
         for (int j = 0; j < sample_size_ptr[i]; j++)
         {
-            if (type_out == IMR_OUTCOME_SURVIVAL)
+            if (outcome_type == IMR_OUTCOME_SURVIVAL)
                 Delta[j] = (_Bool)newYY_arr[i][j][1];
             else
                 Delta[j] = 1;
-            if ((type_out == IMR_OUTCOME_SURVIVAL) ||
-                (type_out == IMR_OUTCOME_CONTINUOUS))
+            if ((outcome_type == IMR_OUTCOME_SURVIVAL) ||
+                (outcome_type == IMR_OUTCOME_CONTINUOUS))
                 ymean[i][j] = ylatent[i][j] =yobs[i][j] = newYY_arr[i][j][0];
             else //binary
                 ylatent[i][j] = yobsb[i][j] = (_Bool)newYY_arr[i][j][0];
@@ -238,24 +238,24 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
            // ymean[i][j] = ylatent[i][j] = yobs[i][j];
             // ylatent[i][j] = gsl_ran_exponential(r, ylatent[i]);
 
-            if ((Delta[j] == 0) && (type_out == IMR_OUTCOME_SURVIVAL))
+            if ((Delta[j] == 0) && (outcome_type == IMR_OUTCOME_SURVIVAL))
             {
                 ylatent[i][j] += 0.01;
                 ymean[i][j] = 0;
             }
-             if (type_out == IMR_OUTCOME_BINARY)
+             if (outcome_type == IMR_OUTCOME_BINARY)
                 ymean[i][j] = 0;
             
         }
         find_indices_not_equal(sample_size_ptr[i], Delta, 1, censored_index[i], &n_censored[i]);
-        if (type_out == IMR_OUTCOME_SURVIVAL)
+        if (outcome_type == IMR_OUTCOME_SURVIVAL)
             Rprintf("\nNumber of censored values for subgroup %d is %d\n", i + 1, n_censored[i]);
     }
     // Memory for MCMC acceptance (only needed for censored or binary latent
     // updates; for continuous outcomes accept_y is left NULL).
     double **accept_y = NULL;
-    if ((type_out == IMR_OUTCOME_SURVIVAL) ||
-        (type_out == IMR_OUTCOME_BINARY))
+    if ((outcome_type == IMR_OUTCOME_SURVIVAL) ||
+        (outcome_type == IMR_OUTCOME_BINARY))
     {
         accept_y = malloc(n_subgroups * sizeof(double *));
         for (int m = 0; m < n_subgroups; m++)
@@ -325,7 +325,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     double log_likelihood[n_subgroups], logdet[n_subgroups], scal[n_subgroups];
     Rprintf("\n");
 
-    initialize_sampler_state(type_out, ylatent, newCC, X1,
+    initialize_sampler_state(outcome_type, ylatent, newCC, X1,
                 gamma, n_platforms, G, n_subgroups,
                 platform_models_c, n_platform_models_c,
                 model_platforms_c,
@@ -341,10 +341,10 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
 
     // int s, su, su1;
 
-    double *log_posterior_sample = dvector(0, burnin_c + sample_c - 1);
-    _Bool ****gamma_sample = malloc(sample_c * sizeof(_Bool ***));
+    double *log_posterior_sample = dvector(0, n_burnin + n_draws - 1);
+    _Bool ****gamma_sample = malloc(n_draws * sizeof(_Bool ***));
 
-    for (int s = 0; s < sample_c; s++)
+    for (int s = 0; s < n_draws; s++)
     {
         gamma_sample[s] = malloc(n_platforms * sizeof(_Bool **)); // n_platforms
         for (int l = 0; l < n_platforms; l++)
@@ -364,7 +364,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         int n_theta_pairs = n_platform_models_c[l] *
                             (n_platform_models_c[l] - 1) / 2;
         theta_sample[l] = n_theta_pairs > 0
-            ? dmatrix(0, sample_c - 1, 0, n_theta_pairs - 1)
+            ? dmatrix(0, n_draws - 1, 0, n_theta_pairs - 1)
             : NULL;
     }
     _Bool thetaFreed = false;
@@ -375,7 +375,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
             int n_theta_pairs = n_platform_models_c[l] *
                                 (n_platform_models_c[l] - 1) / 2;
             if (n_theta_pairs > 0)
-                free_dmatrix(theta_sample[l], 0, sample_c - 1,
+                free_dmatrix(theta_sample[l], 0, n_draws - 1,
                              0, n_theta_pairs - 1);
         }
         free(theta_sample);
@@ -386,45 +386,45 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
 
     /* Report progress ~10 times; guard against a zero interval (and the
        resulting division by zero) when the chain is shorter than 10. */
-    int report_every = (burnin_c + sample_c) / 10;
+    int report_every = (n_burnin + n_draws) / 10;
     if (report_every < 1)
         report_every = 1;
 
-    for (int s = 0; s < burnin_c + sample_c; s++)
+    for (int s = 0; s < n_burnin + n_draws; s++)
     {
         for (int m = 0; m < n_subgroups; m++)
         {
              sample_gamma_indicators(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
                         ylatent[m], newCC[m], X1[m], gamma, &log_likelihood[m], &logdet[m], &scal[m], nu, theta,
                         n_platform_models_c, platform_models_c, accept_gamma, r, likelihood_type, h[m], h1, h0, hg, K, alpha, psi);
-            if ((type_out == IMR_OUTCOME_SURVIVAL) && (n_censored[m] > 0))
+            if ((outcome_type == IMR_OUTCOME_SURVIVAL) && (n_censored[m] > 0))
             {
                 sample_censored_latent_response(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
                              ylatent[m], yobs[m], newCC[m], X1[m], gamma, &scal[m], &log_likelihood[m],
                              n_censored[m], censored_index[m], logdet[m], r, n_platform_models_c, platform_models_c,
                              accept_y[m], h[m], h1, h0, hg, K, alpha, psi);
-                if (s >= burnin_c)
+                if (s >= n_burnin)
                 {
                     for (int i = 0; i < n_censored[m]; i++)
                     {
                         int jj = censored_index[m][i];
-                        ymean[m][jj] += ylatent[m][jj] / sample_c;
+                        ymean[m][jj] += ylatent[m][jj] / n_draws;
                     }
                 }
             }
 
-            if (type_out == IMR_OUTCOME_BINARY)
+            if (outcome_type == IMR_OUTCOME_BINARY)
             {
                  sample_binary_latent_response(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
                                   ylatent[m], yobsb[m], newCC[m], X1[m], gamma, &log_likelihood[m],
                                 r, n_platform_models_c, platform_models_c,
                                accept_y[m], h[m], h1, h0, hg, K, alpha, psi);
-                if (s >= burnin_c)
+                if (s >= n_burnin)
                 {
                     for (int i = 0; i < sample_size_ptr[m]; i++)
                     { 
                         // printf(" yyy= %lf",ylatent[m][i]);
-                        ymean[m][i] += ylatent[m][i] / sample_c;
+                        ymean[m][i] += ylatent[m][i] / n_draws;
                     }   
                 }
             }
@@ -437,7 +437,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
                  sample_mrf_theta(G[l], n_platform_models_c[l], theta[l], accept_theta[l], &mrf[l],
                           gamma[l], nu[l], alpha0, betaTh[l], r);
             }
-            if (s >= burnin_c)
+            if (s >= n_burnin)
             {
                 for (int l = 0; l < n_platforms; l++)
                 {
@@ -446,14 +446,14 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
                     {
                         for (int j = 0; j < i; j++)
                         {
-                            theta_sample[l][s - burnin_c][m1] = theta[l][i][j];
+                            theta_sample[l][s - n_burnin][m1] = theta[l][i][j];
                             m1++;
                         }
                     }
                 }
             }
         }
-        if (s >= burnin_c)
+        if (s >= n_burnin)
         {
             for (int l = 0; l < n_platforms; l++)
             {
@@ -461,8 +461,8 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
                 {
                     for (int j = 0; j < G[l]; j++)
                     {
-                        gamma_mean[l][m][j] += gamma[l][m][j] / (double)sample_c;
-                        gamma_sample[s - burnin_c][l][m][j] = gamma[l][m][j];
+                        gamma_mean[l][m][j] += gamma[l][m][j] / (double)n_draws;
+                        gamma_sample[s - n_burnin][l][m][j] = gamma[l][m][j];
                     }
                 }
             }
@@ -507,7 +507,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     {
         for (int m = 0; m < n_platform_models_c[l]; m++)
         {
-            Rprintf("%.4f ", accept_gamma[l][m] / (sample_c + burnin_c));
+            Rprintf("%.4f ", accept_gamma[l][m] / (n_draws + n_burnin));
         }
         Rprintf("\n");
     }
@@ -518,7 +518,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         for (int m = 0; m < n_subgroups; m++)
         {
             for (int i = 0; i < sample_size_ptr[m]; i++)
-                Rprintf("%.4f ", accept_y[m][i] / (sample_c + burnin_c));
+                Rprintf("%.4f ", accept_y[m][i] / (n_draws + n_burnin));
             Rprintf("\n\n");
         }
     }
@@ -526,9 +526,9 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
 
     // export gamma_sample to R
     SEXP gamma_sample_R;
-    PROTECT(gamma_sample_R = allocVector(VECSXP, sample_c));
+    PROTECT(gamma_sample_R = allocVector(VECSXP, n_draws));
     protect_count++;
-    for (int s = 0; s < sample_c; s++)
+    for (int s = 0; s < n_draws; s++)
     {
         SEXP GamS_R;
         PROTECT(GamS_R = allocVector(VECSXP, n_platforms));
@@ -567,7 +567,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
             if (!ThetaXSM)
                 nrerror("allocation failure for theta posterior means");
 
-            mean_array_columns(sample_c, n_theta_pairs,
+            mean_array_columns(n_draws, n_theta_pairs,
                                theta_sample[l], ThetaXSM);
             int m1 = 0;
             for (int i = 1; i < n_platform_models_c[l]; i++)
@@ -604,7 +604,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     for (int l = 0; (l < n_platforms) && (!thetaFreed); l++)
     {
         SEXP thetaSampleMatrix;
-        int nrowThetaSample = sample_c;                                            // Rows for ThetaXSample
+        int nrowThetaSample = n_draws;                                             // Rows for ThetaXSample
         int ncolThetaSample = n_platform_models_c[l] * (n_platform_models_c[l] - 1) / 2; // Columns for ThetaXSample
         PROTECT(thetaSampleMatrix = allocVector(REALSXP, nrowThetaSample * ncolThetaSample));
         double *thetaSamplePtr = REAL(thetaSampleMatrix);
@@ -631,9 +631,9 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     protect_count++;
 
     SEXP logposterior_R;
-    PROTECT(logposterior_R = allocVector(REALSXP, burnin_c + sample_c));
+    PROTECT(logposterior_R = allocVector(REALSXP, n_burnin + n_draws));
     protect_count++;
-    for (int s = 0; s < burnin_c + sample_c; s++)
+    for (int s = 0; s < n_burnin + n_draws; s++)
         REAL(logposterior_R)
     [s] = log_posterior_sample[s];
 
@@ -662,7 +662,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     setAttrib(list, R_NamesSymbol, listNames);
 
     /// We free memories ...
-    for (int s = 0; s < sample_c; s++)
+    for (int s = 0; s < n_draws; s++)
     {
         for (int l = 0; l < n_platforms; l++)
         {
@@ -680,7 +680,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     }
     free(censored_index);
     free(ylatent);
-    if (type_out == IMR_OUTCOME_BINARY)
+    if (outcome_type == IMR_OUTCOME_BINARY)
     {
         for (int m = 0; m < n_subgroups; m++)
         {
@@ -695,8 +695,8 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         free(yobs);
     }
     
-    if ((type_out == IMR_OUTCOME_SURVIVAL) ||
-        (type_out == IMR_OUTCOME_BINARY))
+    if ((outcome_type == IMR_OUTCOME_SURVIVAL) ||
+        (outcome_type == IMR_OUTCOME_BINARY))
     {
         for (int m = 0; m < n_subgroups; m++)
         {
@@ -712,7 +712,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
             int n_theta_pairs = n_platform_models_c[l] *
                                 (n_platform_models_c[l] - 1) / 2;
             if (n_theta_pairs > 0)
-                free_dmatrix(theta_sample[l], 0, sample_c - 1,
+                free_dmatrix(theta_sample[l], 0, n_draws - 1,
                              0, n_theta_pairs - 1);
         }
         free(theta_sample);

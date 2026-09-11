@@ -20,8 +20,8 @@ typedef enum {
  * Internal C naming convention:
  *   - registered entry points use the `imr_` prefix;
  *   - C identifiers use snake_case;
- *   - variable-selection indicators are called gamma/gam in comments and
- *     code because they match the notation in the model.
+ *   - variable-selection indicators are called gamma throughout because it
+ *     matches the notation in the model.
  */
 
 /* Sampler state updates. */
@@ -106,7 +106,7 @@ void compute_mrf_log_normalizer(
 /* Prediction and cross-validation. */
 double ***infer_posterior_models(
     double **latent_y, double ***covariates, double ****features,
-    int n_samples, _Bool ****gamma_sample, double *nu, double ***theta,
+    int n_draws, _Bool ****gamma_sample, double *nu, double ***theta,
     double *mrf_log_normalizer, double *slab_scale, double covariate_scale,
     double intercept_scale, double first_platform_scale, double alpha0,
     double alpha, double psi, int *n_features, int n_subgroups,
@@ -121,7 +121,7 @@ double *predict_bma(
     int *selected_platforms, int *n_platform_models, int **platform_models,
     int *n_features, double **covariates, double ***features,
     _Bool ****gamma_sample, double ***beta, double *posterior_weight,
-    int max_models, int *model_index, int *high_model_index, int n_samples,
+    int max_models, int *model_index, int *high_model_index, int n_draws,
     int outcome_type);
 
 /* Small numerical utilities shared by sampler and prediction code. */

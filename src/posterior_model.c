@@ -20,7 +20,7 @@ double *predict_bma(int model, int K, int n_selected_platforms, int sample_size,
                  int *n_platform_models, int **platform_models, int *G,
                  double **C, double ***X, _Bool ****gamma_sample,
                  double ***beta, double *post, int max_models,
-                 int *model_index, int *high_model_index, int sample, int type_out)
+                 int *model_index, int *high_model_index, int n_draws, int outcome_type)
 {
   int l, i, j;
   double *yhat = dvector(0, sample_size - 1);
@@ -55,7 +55,7 @@ double *predict_bma(int model, int K, int n_selected_platforms, int sample_size,
         Rf_error("malloc failed for selected_feature_index[%d]\n", i);
       }
       n_selected_features[i] = 0;
-      find_indices_not_equal(G[platform_index], gamma_sample[sample - 1 - l1][platform_index][platform_model_index], 0, selected_feature_index[i], &n_selected_features[i]);
+      find_indices_not_equal(G[platform_index], gamma_sample[n_draws - 1 - l1][platform_index][platform_model_index], 0, selected_feature_index[i], &n_selected_features[i]);
     }
 
     double **PG = build_design_matrix(K, n_selected_platforms, n_selected_features, selected_feature_index, C, X, selected_platforms, sample_size);
@@ -75,7 +75,7 @@ double *predict_bma(int model, int K, int n_selected_platforms, int sample_size,
         else
           yh += PG[i][j - 1] * beta[l0][model][j];
       }
-      yhat[i] += (type_out == IMR_OUTCOME_BINARY ?
+      yhat[i] += (outcome_type == IMR_OUTCOME_BINARY ?
                   pnorm5(yh, 0.0, 1.0, 1, 0) : yh) * post[l];
     }
     for (i = 0; i < sample_size; i++)
@@ -91,7 +91,7 @@ double *predict_bma(int model, int K, int n_selected_platforms, int sample_size,
  * Collapse duplicated gamma samples, keep the highest-posterior models, and
  * compute regression coefficients used by prediction and cross-validation.
  */
-double ***infer_posterior_models(double **y, double ***C, double ****X, int sample, _Bool ****gamma_sample,
+double ***infer_posterior_models(double **y, double ***C, double ****X, int n_draws, _Bool ****gamma_sample,
                           double *nu, double ***theta, double *mrf, double *h, double h1, double h0,
                           double hg, double alpha0,
                           double alpha, double psi, int *G, int n_subgroups, int n_platforms,
@@ -108,7 +108,7 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int samp
   int i, j;
   int n_unique_models = 0;
   model_index[n_unique_models] = 0;
-  for (i = 0; i < sample; i++)
+  for (i = 0; i < n_draws; i++)
   {
     for (j = 0; j < n_unique_models; j++)
     {
@@ -126,7 +126,7 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int samp
       {
         for (int k = 0; k < n_platform_models_c[l]; k++)
         {
-          result[l][k] = bool_vectors_equal(G[l], gamma_sample[sample - 1 - i][l][k], gamma_sample[sample - 1 - model_index[j]][l][k]);
+          result[l][k] = bool_vectors_equal(G[l], gamma_sample[n_draws - 1 - i][l][k], gamma_sample[n_draws - 1 - model_index[j]][l][k]);
           if (result[l][k] == 0)
           {
             model_differs = 1;
@@ -194,7 +194,7 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int samp
 	          Rf_error("Subgroup %d not found for platform %d\n", m, platform_index);
 	        }
         selected_feature_index[ll] = calloc(G[platform_index], sizeof(int));
-        find_indices_not_equal(G[platform_index], gamma_sample[sample - 1 - l1][platform_index][platform_model_index], 0, selected_feature_index[ll], &n_selected_features[ll]);
+        find_indices_not_equal(G[platform_index], gamma_sample[n_draws - 1 - l1][platform_index][platform_model_index], 0, selected_feature_index[ll], &n_selected_features[ll]);
       }
       double **PG = build_design_matrix(K, n_model_platforms_c[m], n_selected_features, selected_feature_index,
                             C[m], X[m], model_platforms_c[m], N);
@@ -261,7 +261,7 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int samp
         free(selected_feature_index[ll]);
       free(selected_feature_index);
     }
-    post[l] = log_posterior(loglik, gamma_sample[sample - 1 - l1], nu, theta, mrf, alpha0, betaTh, n_subgroups,
+    post[l] = log_posterior(loglik, gamma_sample[n_draws - 1 - l1], nu, theta, mrf, alpha0, betaTh, n_subgroups,
                       n_platforms, G, n_platform_models_c);
   } // end number of models l=0
 

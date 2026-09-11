@@ -20,7 +20,7 @@
  * gamma indicators.  For binary outcomes it also creates a first probit latent
  * response using a ridge fit so the sampler starts in a feasible region.
  */
-void initialize_sampler_state(int type_out, double **Y, double ***newCC, double ****X1,
+void initialize_sampler_state(int outcome_type, double **Y, double ***newCC, double ****X1,
                  _Bool ***gamma, int n_platforms, int *G, int n_subgroups,
                  int **platform_models_c, int *n_platform_models_c,
                  int **model_platforms_c, int *n_model_platforms_c, int *sample_size_ptr,
@@ -61,7 +61,7 @@ void initialize_sampler_state(int type_out, double **Y, double ***newCC, double 
     {
       total_selected_features += n_selected_features[l];
     }
-    if (type_out == IMR_OUTCOME_BINARY)
+    if (outcome_type == IMR_OUTCOME_BINARY)
     { // binary outcome
       int tot = 1 + K + total_selected_features;
       double *X_data = calloc(N*tot, sizeof(double));
