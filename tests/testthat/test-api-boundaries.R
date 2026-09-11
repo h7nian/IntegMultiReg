@@ -1,10 +1,10 @@
 test_that("integer controls reject nonfinite, nonscalar and overflowing values cleanly", {
-  fit_args <- list(platform_data_list = simIMR$platforms,
-    outcome = simIMR$outcome.binary, type_outcome = "binary",
-    sample_mcmc = c(2, 0), ssize = 30)
+  fit_args <- list(x = simIMR$platforms,
+    outcome = simIMR$outcome.binary, outcome_type = "binary",
+    draws = 2, burnin = 0, min_subgroup_size = 30)
   invalid <- list(NA_real_, NaN, Inf, -Inf, numeric(), c(1, 2), 1.5,
                   .Machine$integer.max + 1, 1e100)
-  for (arg in c("ssize", "seed")) for (value in invalid) {
+  for (arg in c("min_subgroup_size", "seed")) for (value in invalid) {
     args <- fit_args; args[arg] <- list(value)
     expect_error(expect_warning(do.call(imr, args), NA), paste0("`", arg, "`"))
   }
@@ -12,10 +12,14 @@ test_that("integer controls reject nonfinite, nonscalar and overflowing values c
     args <- list(object = fit_bin); args[arg] <- list(value)
     expect_error(expect_warning(do.call(cv_imr, args), NA), paste0("`", arg, "`"))
   }
-  for (value in list(c(1e100, 0), c(.Machine$integer.max, 1), c(1, NA))) {
-    args <- fit_args; args$sample_mcmc <- value
-    expect_error(expect_warning(do.call(imr, args), NA), "sample_mcmc")
+  for (value in list(1e100, NA_real_, 1.5, numeric(), c(1, 2))) {
+    args <- fit_args; args$draws <- value
+    expect_error(expect_warning(do.call(imr, args), NA), "`draws`")
   }
+  args <- fit_args
+  args$draws <- .Machine$integer.max
+  args$burnin <- 1L
+  expect_error(do.call(imr, args), "sum of `draws` and `burnin`")
 })
 
 test_that("ambiguous frame names are rejected before data can be dropped", {
@@ -35,15 +39,15 @@ test_that("ambiguous frame names are rejected before data can be dropped", {
 })
 
 test_that("saved fit validation catches corrupted counts, mappings and traces", {
-  for (field in c("n_platform", "sample_mcmc")) {
-    bad <- fit_bin; bad[[field]][1] <- 1e100
-    expect_error(expect_warning(validate_imr(bad), NA), field)
-  }
+  bad <- fit_bin; bad$model$n_platforms <- 1e100
+  expect_error(expect_warning(validate_imr(bad), NA), "platform metadata")
+  bad <- fit_bin; bad$control$mcmc$draws <- 1e100
+  expect_error(expect_warning(validate_imr(bad), NA), "control\\$mcmc")
   for (indices in list(0L, 100L, c(1L, 1L), NA_integer_)) {
-    bad <- fit_bin; bad$platform_models[[1]] <- indices
-    expect_error(validate_imr(bad), "platform_models")
+    bad <- fit_bin; bad$model$platform_subgroups[[1]] <- indices
+    expect_error(validate_imr(bad), "subgroup indices|not reciprocal")
   }
-  bad <- fit_bin; bad$log_posterior <- bad$log_posterior[-1]
+  bad <- fit_bin; bad$posterior$log_posterior <- bad$posterior$log_posterior[-1]
   expect_error(validate_imr(bad), "one entry per iteration")
 })
 
@@ -53,12 +57,12 @@ test_that("one retained draw and zero burn-in remain supported", {
     y <- switch(type, binary = data.frame(id = x$id, y = rep(0:1, 6)),
       continuous = data.frame(id = x$id, y = cos(x$id)),
       right.censored = data.frame(id = x$id, time = x$id + 1, status = rep(0:1, 6)))
-    f <- imr(list(assay = x), y, type_outcome = type, ssize = 0,
-             sample_mcmc = c(1, 0), seed = 3)
+    f <- imr(list(assay = x), y, outcome_type = type, min_subgroup_size = 0,
+             draws = 1, burnin = 0, seed = 3)
     expect_true(validate_imr(f))
-    expect_length(f$gam_sample, 1)
-    expect_length(f$log_posterior, 1)
-    p <- predict(f, list(assay = x))[[1]]$predict
+    expect_length(f$posterior$selection_draws, 1)
+    expect_length(f$posterior$log_posterior, 1)
+    p <- predict(f, list(assay = x))[[1]]$prediction
     expect_true(all(is.finite(p)))
     if (type == "binary") expect_true(all(p >= 0 & p <= 1))
   }
@@ -70,9 +74,9 @@ test_that("undefined validation scores do not report artificial performance", {
   expect_true(is.na(accuracy("right.censored", 1:2,
     data.frame(id = 1:2, time = 1:2, status = c(0, 0)))))
   expect_true(is.na(accuracy("continuous", numeric(), data.frame(id = integer(), y = numeric()))))
-  expect_error(cv_imr(fit_bin, k = min(fit_bin$sample_size) + 1), "sample size")
-  legacy <- fit_bin; legacy$input_data <- NULL
-  expect_error(cv_imr(legacy), "raw inputs")
+  expect_error(cv_imr(fit_bin, k = min(fit_bin$model$sample_sizes) + 1), "sample size")
+  damaged <- fit_bin; damaged$preprocessing$input_data <- NULL
+  expect_error(cv_imr(damaged), "raw inputs|Preprocessed|missing `input_data`")
 })
 
 test_that("data summary printing preserves the summary and reports actual dimensions", {

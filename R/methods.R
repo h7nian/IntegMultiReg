@@ -5,9 +5,9 @@
 #' @keywords internal
 #' @noRd
 .imr_mpip <- function(object, platform) {
-  m <- object$gam_mean[[platform]]
-  rn <- object$model_bitstrings[object$platform_models[[platform]]]
-  cn <- object$feature_names[[platform]]
+  m <- object$posterior$inclusion_probabilities[[platform]]
+  rn <- object$model$subgroup_names[object$model$platform_subgroups[[platform]]]
+  cn <- object$model$feature_names[[platform]]
   if (!is.null(rn) && length(rn) == nrow(m)) rownames(m) <- rn
   if (!is.null(cn) && length(cn) == ncol(m)) colnames(m) <- cn
   m
@@ -49,8 +49,9 @@
 #' @seealso [imr()]
 #' @export
 coef.imr <- function(object, ...) {
-  out <- lapply(seq_len(object$n_platform), function(l) .imr_mpip(object, l))
-  names(out) <- object$platform_names
+  validate_imr(object)
+  out <- lapply(seq_len(object$model$n_platforms), function(l) .imr_mpip(object, l))
+  names(out) <- object$model$platform_names
   out
 }
 
@@ -83,45 +84,46 @@ print.imr <- function(x, threshold = 0.5, rank = FALSE, top = 5, ...) {
   top <- .imr_check_integer_scalar(top, "top", min = 1)
   cat("Integrative Bayesian Multi-Platform Regression (IMR)\n")
   cat("----------------------------------------------------\n")
-  if (!is.null(x$call)) {
+  if (!is.null(x$control$call)) {
     cat("Call:\n  ")
-    print(x$call)
+    print(x$control$call)
   }
-  cat(sprintf("\nOutcome type : %s\n", x$type_outcome))
-  cat(sprintf("Method       : %s\n", x$method))
-  cat(sprintf("Platforms    : %d (%s)\n", x$n_platform,
-              paste(x$platform_names, collapse = ", ")))
+  validate_imr(x)
+  cat(sprintf("\nOutcome type : %s\n", x$control$outcome_type))
+  cat(sprintf("Method       : %s\n", toupper(x$control$method)))
+  cat(sprintf("Platforms    : %d (%s)\n", x$model$n_platforms,
+              paste(x$model$platform_names, collapse = ", ")))
   cat(sprintf("MCMC         : %d retained draws after %d burn-in\n",
-              x$sample_mcmc[["total"]], x$sample_mcmc[["burnin"]]))
+              x$control$mcmc$draws, x$control$mcmc$burnin))
 
-  codes <- .imr_platform_codes(x$n_platform)
+  codes <- .imr_platform_codes(x$model$n_platforms)
   cat("\nPlatform key:\n")
-  key <- paste(sprintf("  %s = %s", codes, x$platform_names), collapse = "\n")
+  key <- paste(sprintf("  %s = %s", codes, x$model$platform_names), collapse = "\n")
   cat(key, "\n", sep = "")
 
   cat("\nAvailability subgroups modelled (bitstring : platforms : size):\n")
   subgroup_codes <- vapply(
-    x$model_bitstrings, .imr_bitstring_codes, character(1),
-    n_platform = x$n_platform
+    x$model$subgroup_names, .imr_bitstring_codes, character(1),
+    n_platform = x$model$n_platforms
   )
   st <- paste(sprintf("  %-*s : %-*s : %d",
-                      max(nchar(x$model_bitstrings)), x$model_bitstrings,
+                      max(nchar(x$model$subgroup_names)), x$model$subgroup_names,
                       max(nchar(subgroup_codes)), subgroup_codes,
-                      as.integer(x$sample_size)),
+                      as.integer(x$model$sample_sizes)),
               collapse = "\n")
   cat(st, "\n", sep = "")
 
   cat(sprintf("\nFeatures with mPIP > %.2f (in any subgroup):\n", threshold))
-  for (l in seq_len(x$n_platform)) {
-    m <- x$gam_mean[[l]]
+  for (l in seq_len(x$model$n_platforms)) {
+    m <- x$posterior$inclusion_probabilities[[l]]
     sel <- if (nrow(m) > 0 && ncol(m) > 0) sum(apply(m, 2, max) > threshold) else 0L
-    cat(sprintf("  %-12s : %d of %d\n", x$platform_names[l], sel, ncol(m)))
+    cat(sprintf("  %-12s : %d of %d\n", x$model$platform_names[l], sel, ncol(m)))
   }
   if (rank) {
     cat(sprintf("\nTop %d ranked features by maximum subgroup mPIP:\n", top))
-    for (l in seq_len(x$n_platform)) {
+    for (l in seq_len(x$model$n_platforms)) {
       m <- .imr_mpip(x, l)
-      cat(sprintf("  %s\n", x$platform_names[l]))
+      cat(sprintf("  %s\n", x$model$platform_names[l]))
       if (nrow(m) == 0 || ncol(m) == 0) {
         cat("    (no selectable features)\n")
         next
@@ -170,9 +172,10 @@ summary.imr <- function(object, threshold = 0.5, ...) {
   if (threshold > 1) {
     .imr_abort("`threshold` must be between 0 and 1.")
   }
-  selected <- vector("list", object$n_platform)
-  names(selected) <- object$platform_names
-  for (l in seq_len(object$n_platform)) {
+  validate_imr(object)
+  selected <- vector("list", object$model$n_platforms)
+  names(selected) <- object$model$platform_names
+  for (l in seq_len(object$model$n_platforms)) {
     m <- .imr_mpip(object, l)
     if (nrow(m) == 0 || ncol(m) == 0) {
       selected[[l]] <- data.frame(feature = character(0), max_mpip = numeric(0),
@@ -192,13 +195,13 @@ summary.imr <- function(object, threshold = 0.5, ...) {
     )
   }
   out <- list(
-    call = object$call,
-    type_outcome = object$type_outcome,
-    method = object$method,
+    call = object$control$call,
+    outcome_type = object$control$outcome_type,
+    method = object$control$method,
     threshold = threshold,
-    sample_size = object$sample_size,
-    model_bitstrings = object$model_bitstrings,
-    platform_names = object$platform_names,
+    sample_sizes = object$model$sample_sizes,
+    subgroup_names = object$model$subgroup_names,
+    platform_names = object$model$platform_names,
     selected = selected
   )
   class(out) <- "summary.imr"
@@ -211,7 +214,7 @@ summary.imr <- function(object, threshold = 0.5, ...) {
 print.summary.imr <- function(x, ...) {
   cat("Integrative Bayesian Multi-Platform Regression (IMR) -- summary\n")
   cat("--------------------------------------------------------------\n")
-  cat(sprintf("Outcome type : %s   Method: %s\n", x$type_outcome, x$method))
+  cat(sprintf("Outcome type : %s   Method: %s\n", x$outcome_type, toupper(x$method)))
   cat(sprintf("Selection threshold (mPIP) : %.2f\n\n", x$threshold))
   for (l in seq_along(x$selected)) {
     df <- x$selected[[l]]
@@ -317,10 +320,10 @@ plot.imr <- function(x, type = c("selection", "theta", "trace",
   if (!is.null(platform)) {
     if (!is.numeric(platform) || length(platform) == 0L ||
         any(!is.finite(platform)) || any(platform != as.integer(platform)) ||
-        any(platform < 1L) || any(platform > x$n_platform)) {
+        any(platform < 1L) || any(platform > x$model$n_platforms)) {
       .imr_abort(sprintf(
         "`platform` must contain whole-number indices between 1 and %d.",
-        x$n_platform
+        x$model$n_platforms
       ))
     }
     platform <- as.integer(platform)
@@ -333,7 +336,7 @@ plot.imr <- function(x, type = c("selection", "theta", "trace",
   }, add = TRUE)
 
   if (type == "trace") {
-    lp <- x$log_posterior
+    lp <- x$posterior$log_posterior
     pp <- .imr_plot_par(mar, mgp, default_mar = c(4.8, 4.8, 3, 1))
     graphics::par(mar = pp$mar, mgp = pp$mgp)
     trace_col <- if (is.null(col)) .imr_plot_trace_colour() else col
@@ -343,20 +346,20 @@ plot.imr <- function(x, type = c("selection", "theta", "trace",
       main = "Log-posterior trace", cex.axis = cex_axis,
       cex.lab = cex_lab, cex.main = cex_main, col = trace_col
     ), dots))
-    graphics::abline(v = x$sample_mcmc[["burnin"]], lty = 2, col = "grey50")
+    graphics::abline(v = x$control$mcmc$burnin, lty = 2, col = "grey50")
     return(invisible(NULL))
   }
 
   if (type %in% c("theta_trace", "selection_trace")) {
     if (is.null(platform)) platform <- 1L
     platform <- .imr_check_integer_scalar(
-      platform, "platform", min = 1L, max = x$n_platform
+      platform, "platform", min = 1L, max = x$model$n_platforms
     )
     pp <- .imr_plot_par(mar, mgp, default_mar = c(4.8, 4.8, 3, 1))
     graphics::par(mar = pp$mar, mgp = pp$mgp)
     trace_col <- if (is.null(col)) .imr_plot_trace_colour() else col
     if (type == "theta_trace") {
-      samples <- x$theta_sample[[platform]]
+      samples <- x$posterior$interaction_draws[[platform]]
       if (is.null(samples) || ncol(samples) == 0L) {
         .imr_abort("The selected platform has no sampled theta interactions.")
       }
@@ -365,7 +368,7 @@ plot.imr <- function(x, type = c("selection", "theta", "trace",
       )
       values <- samples[, parameter]
       title <- sprintf("Theta trace: %s, pair %d",
-                       x$platform_names[platform], parameter)
+                       x$model$platform_names[platform], parameter)
       ylab <- "Theta"
     } else {
       template <- .imr_mpip(x, platform)
@@ -376,12 +379,12 @@ plot.imr <- function(x, type = c("selection", "theta", "trace",
         feature, "feature", min = 1L, max = ncol(template)
       )
       values <- vapply(
-        x$gam_sample,
+        x$posterior$selection_draws,
         function(draw) as.numeric(draw[[platform]][subgroup, feature]),
         numeric(1L)
       )
       title <- sprintf(
-        "Selection trace: %s / %s / %s", x$platform_names[platform],
+        "Selection trace: %s / %s / %s", x$model$platform_names[platform],
         rownames(template)[subgroup], colnames(template)[feature]
       )
       ylab <- "Selection indicator"
@@ -395,7 +398,7 @@ plot.imr <- function(x, type = c("selection", "theta", "trace",
     return(invisible(NULL))
   }
 
-  plats <- if (is.null(platform)) seq_len(x$n_platform) else platform
+  plats <- if (is.null(platform)) seq_len(x$model$n_platforms) else platform
   heat_palette <- if (is.null(palette)) {
     if (type == "selection") "grey" else "heatmap"
   } else {
@@ -430,16 +433,16 @@ plot.imr <- function(x, type = c("selection", "theta", "trace",
   for (l in plats) {
     if (type == "selection") {
       m <- .imr_mpip(x, l)
-      main <- sprintf("mPIP: %s", x$platform_names[l])
+      main <- sprintf("mPIP: %s", x$model$platform_names[l])
       xlab <- "Features"; ylab <- "Availability subgroups"
       rlab <- rownames(m)
     } else {
-      m <- x$theta_mean[[l]]
-      rlab <- x$model_bitstrings[x$platform_models[[l]]]
+      m <- x$posterior$interaction_means[[l]]
+      rlab <- x$model$subgroup_names[x$model$platform_subgroups[[l]]]
       if (!is.null(rlab) && length(rlab) == nrow(m)) {
         rownames(m) <- colnames(m) <- rlab
       }
-      main <- sprintf("Theta: %s", x$platform_names[l])
+      main <- sprintf("Theta: %s", x$model$platform_names[l])
       xlab <- "Availability subgroups"; ylab <- "Availability subgroups"
     }
     graphics::par(mar = panel_par$mar, mgp = panel_par$mgp)

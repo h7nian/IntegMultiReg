@@ -34,32 +34,33 @@ Bayesian model averaging (default `100`).  Must be positive.}
 diagnostics.  Defaults to `FALSE`.}
 }
 \value{
-A list with two numeric matrices, each of dimension
+A named list. `pooled` and `fold_mean` are numeric matrices of dimension
   `rounds` x `(n_subgroups + 1)`, whose last column corresponds to all
   subjects pooled and whose remaining columns are named by the availability
   subgroup bitstrings:
-  \item{total_cindex}{Accuracy computed on the pooled cross-validated
+  \item{pooled}{Accuracy computed on the pooled cross-validated
     predictions within each availability subgroup (and overall).}
-  \item{subset_cindex}{Accuracy computed fold-by-fold within each
+  \item{fold_mean}{Accuracy computed fold-by-fold within each
     availability subgroup.}
-  The accuracy metric (`"C-index"`, `"AUC"` or `"MSE"`) is recorded in the
-  `"metric"` attribute of the returned list. The `"predictions"` attribute
-contains subject IDs, subgroups, rounds, folds and out-of-fold predictions.
-Undefined AUCs (single class) and C-indices (no comparable pairs) are `NA`.
+  `predictions` contains subject IDs, subgroups, rounds, folds and out-of-fold
+  predictions. `metric` names the accuracy measure and `validation` records
+  that each fold was independently refitted.
+  Undefined AUCs (single class) and C-indices (no comparable pairs) are `NA`.
 }
 \description{
 `cv_imr()` evaluates predictive accuracy of a model fitted with [imr()] using
 repeated \eqn{K}-fold splits. Each training fold independently standardizes
 predictors, runs the MCMC sampler and estimates model-averaging weights.
 The original fit supplies model settings and raw data, not posterior draws.
-Fit a separate object with `method = "BMS"` for a no-borrowing comparison.
+Fit a separate object with `method = "bms"` for a no-borrowing comparison.
 The accuracy measure depends on the outcome type: the concordance index
 (C-index) for right-censored outcomes, the area under the ROC curve (AUC) for
 binary outcomes, and the mean squared error (MSE) for continuous outcomes.
 }
 \details{
 Only subgroups retained in `object` are evaluated. Their training subsets
-remain included even when they are smaller than the original `ssize`.
+remain included even when they are smaller than the original
+`min_subgroup_size`.
 Formula transformations are rebuilt using the training rows. Raw formula
 data must be stored in the fit; older formula fits must be refitted.
 Each fold uses the original prior and MCMC settings, so runtime is roughly
@@ -71,12 +72,13 @@ treated as fixed; tuning them requires an additional validation layer.
 \donttest{
 data("simIMR", package = "IntegMultiReg")
 fit <- imr(
-  platform_data_list = simIMR$platforms, outcome = simIMR$outcome,
-  cov = simIMR$covariates, type_outcome = "binary",
-  nu = c(-4, -3, -4), sample_mcmc = c(200, 100), ssize = 5, seed = 1
+  x = simIMR$platforms, outcome = simIMR$outcome,
+  covariates = simIMR$covariates, outcome_type = "binary",
+  nu = c(-4, -3, -4), draws = 200, burnin = 100,
+  min_subgroup_size = 5, seed = 1
 )
 cv <- cv_imr(fit, k = 5, rounds = 2)
-cv$total_cindex
+cv$pooled
 }
 }
 \seealso{

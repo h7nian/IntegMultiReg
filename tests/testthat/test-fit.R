@@ -1,18 +1,16 @@
 test_that("the fitted object has the expected class and structure", {
   expect_s3_class(fit_bin, "imr")
-  for (nm in c("gam_mean", "theta_mean", "estimate_latent_y", "log_posterior",
-               "gam_sample", "list_hyperpara", "data1", "data2",
-               "model_bitstrings", "sample_size", "platform_names",
-               "feature_names", "nu", "sample_mcmc")) {
-    expect_true(nm %in% names(fit_bin), info = nm)
-  }
-  expect_equal(fit_bin$n_platform, 3L)
-  expect_equal(length(fit_bin$gam_mean), 3L)
+  expect_named(fit_bin, c(
+    "schema_version", "control", "model", "preprocessing", "posterior"
+  ))
+  expect_identical(fit_bin$schema_version, 2L)
+  expect_equal(fit_bin$model$n_platforms, 3L)
+  expect_equal(length(fit_bin$posterior$inclusion_probabilities), 3L)
 })
 
 test_that("subgroup structure matches the simulated availability patterns", {
-  expect_setequal(fit_bin$model_bitstrings, c("011", "100", "101", "111"))
-  expect_equal(as.integer(fit_bin$sample_size[c("011", "100", "101", "111")]),
+  expect_setequal(fit_bin$model$subgroup_names, c("011", "100", "101", "111"))
+  expect_equal(as.integer(fit_bin$model$sample_sizes[c("011", "100", "101", "111")]),
                c(120L, 60L, 60L, 60L))
 })
 
@@ -29,26 +27,27 @@ test_that("inclusion probabilities are valid and dimensions are right", {
 })
 
 test_that("the log-posterior trace is finite and the right length", {
-  expect_length(fit_bin$log_posterior, sum(fit_bin$sample_mcmc))
-  expect_true(all(is.finite(fit_bin$log_posterior)))
+  expect_length(fit_bin$posterior$log_posterior,
+                fit_bin$control$mcmc$draws + fit_bin$control$mcmc$burnin)
+  expect_true(all(is.finite(fit_bin$posterior$log_posterior)))
 })
 
 test_that("results are reproducible for a fixed seed", {
   a <- fit_demo("binary", total = 200, burn = 100, seed = 7)
   b <- fit_demo("binary", total = 200, burn = 100, seed = 7)
-  expect_equal(a$gam_mean, b$gam_mean)
-  expect_equal(a$log_posterior, b$log_posterior)
+  expect_equal(a$posterior$inclusion_probabilities, b$posterior$inclusion_probabilities)
+  expect_equal(a$posterior$log_posterior, b$posterior$log_posterior)
 })
 
 test_that("seed = NULL follows the ambient RNG (set.seed reproducibility)", {
   run <- function() {
-    imr(simIMR$platforms, simIMR$outcome.binary, cov = simIMR$covariates,
-        type_outcome = "binary", nu = c(-4, -3, -4),
-        sample_mcmc = c(120, 60), ssize = 30, seed = NULL)
+    imr(simIMR$platforms, simIMR$outcome.binary, covariates = simIMR$covariates,
+        outcome_type = "binary", nu = c(-4, -3, -4),
+        draws = 120, burnin = 60, min_subgroup_size = 30, seed = NULL)
   }
   set.seed(123); a <- run()
   set.seed(123); b <- run()
-  expect_equal(a$log_posterior, b$log_posterior)
+  expect_equal(a$posterior$log_posterior, b$posterior$log_posterior)
 })
 
 test_that("the model recovers planted signal above null features", {
@@ -65,13 +64,13 @@ test_that("the model recovers planted signal above null features", {
 
 test_that("BMS fits keep theta fixed at zero and return empty theta samples", {
   fit <- imr(
-    simIMR$platforms, simIMR$outcome.binary, cov = simIMR$covariates,
-    type_outcome = "binary", method = "BMS", nu = c(-4, -3, -4),
-    sample_mcmc = c(80, 40), ssize = 30, seed = 16
+    simIMR$platforms, simIMR$outcome.binary, covariates = simIMR$covariates,
+    outcome_type = "binary", method = "bms", nu = c(-4, -3, -4),
+    draws = 80, burnin = 40, min_subgroup_size = 30, seed = 16
   )
 
-  expect_true(all(vapply(fit$theta_mean, function(x) all(x == 0), logical(1))))
-  expect_true(all(vapply(fit$theta_sample, is.null, logical(1))))
+  expect_true(all(vapply(fit$posterior$interaction_means, function(x) all(x == 0), logical(1))))
+  expect_true(all(vapply(fit$posterior$interaction_draws, is.null, logical(1))))
 })
 
 test_that("single-subgroup fits handle zero-column theta samples", {
@@ -84,11 +83,11 @@ test_that("single-subgroup fits handle zero-column theta samples", {
   outcome <- data.frame(id = seq_len(n), y = rnorm(n))
 
   fit <- imr(
-    platforms, outcome, type_outcome = "continuous",
-    sample_mcmc = c(12, 6), ssize = 5, seed = 17
+    platforms, outcome, outcome_type = "continuous",
+    draws = 12, burnin = 6, min_subgroup_size = 5, seed = 17
   )
 
-  expect_equal(fit$model_bitstrings, "11")
-  expect_equal(dim(fit$theta_sample[[1]]), c(12L, 0L))
-  expect_equal(dim(fit$theta_sample[[2]]), c(12L, 0L))
+  expect_equal(fit$model$subgroup_names, "11")
+  expect_equal(dim(fit$posterior$interaction_draws[[1]]), c(12L, 0L))
+  expect_equal(dim(fit$posterior$interaction_draws[[2]]), c(12L, 0L))
 })

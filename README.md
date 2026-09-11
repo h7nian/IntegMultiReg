@@ -36,7 +36,7 @@ install.packages("IntegMultiReg")
 Alternatively, install a local source tarball:
 
 ```r
-install.packages("IntegMultiReg_0.1.4.tar.gz", repos = NULL, type = "source")
+install.packages("IntegMultiReg_0.2.0.tar.gz", repos = NULL, type = "source")
 ```
 
 The CRAN checking tools `checkbashisms` and `qpdf` are not runtime
@@ -52,13 +52,13 @@ library(IntegMultiReg)
 data("simIMR")
 
 fit <- imr(
-  platform_data_list = simIMR$platforms,
+  x = simIMR$platforms,
   outcome            = simIMR$outcome.binary,
-  cov                = simIMR$covariates,
-  type_outcome       = "binary",
+  covariates = simIMR$covariates,
+  outcome_type       = "binary",
   nu                 = c(-4, -3, -4),
-  sample_mcmc        = c(2000, 1000),
-  ssize              = 30,
+  draws = 2000, burnin = 1000,
+  min_subgroup_size              = 30,
   seed               = 1
 )
 
@@ -91,11 +91,11 @@ kircIMR$model_subgroup_sizes
 kirc_fit <- imr(
   kircIMR$platforms,
   kircIMR$outcome.survival,
-  cov = kircIMR$covariates,
-  type_outcome = "right.censored",
+  covariates = kircIMR$covariates,
+  outcome_type = "right.censored",
   nu = c(-4, -3, -4),
-  sample_mcmc = c(4000, 1000),
-  ssize = 30,
+  draws = 4000, burnin = 1000,
+  min_subgroup_size = 30,
   seed = 1
 )
 ```
@@ -155,7 +155,7 @@ outcome variability. The censoring process for future observations is not modele
 weights in every training fold. It never weights models using held-out
 responses. This costs approximately `k * rounds` full fits. The original
 hyperparameters remain fixed; data-driven tuning needs another validation layer.
-Use `attr(cv, "predictions")` to inspect subject-level out-of-fold predictions.
+Use `cv$predictions` to inspect subject-level out-of-fold predictions.
 Old post-fitting CV tables are historical results and must be regenerated.
 Binary prediction now applies the probit link within each model before averaging, and
 survival concordance correctly scores tied predictions and comparable pairs.

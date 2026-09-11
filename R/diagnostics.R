@@ -10,102 +10,262 @@ validate_imr <- function(object) {
   if (!inherits(object, "imr") || !is.list(object)) {
     .imr_abort("`object` must be an `imr` object returned by `imr()`.")
   }
-  required <- c(
-    "gam_mean", "theta_mean", "log_posterior", "gam_sample",
-    "model_bitstrings", "sample_size", "platform_names", "feature_names",
-    "n_platform", "type_outcome", "method", "sample_mcmc", "theta_sample",
-    "platform_models"
-  )
-  missing <- setdiff(required, names(object))
-  if (length(missing) > 0L) {
-    .imr_abort(sprintf("The fitted object is missing `%s`.", missing[1L]))
+  required <- c("schema_version", "control", "model", "preprocessing", "posterior")
+  if (!setequal(names(object), required)) {
+    missing <- setdiff(required, names(object))
+    .imr_abort(if (length(missing)) sprintf("The fitted object is missing `%s`.", missing[1L]) else
+      "The fitted object contains unsupported top-level fields.")
   }
-  if (!is.numeric(object$n_platform) || length(object$n_platform) != 1L ||
-      !.imr_is_integerish(object$n_platform) || object$n_platform < 1L) {
-    .imr_abort("`n_platform` must be one positive integer.")
+  if (!identical(object$schema_version, 2L)) {
+    .imr_abort("Unsupported fit schema; use `upgrade_imr_fit()` for a 0.1.x object.")
   }
-  if (!is.numeric(object$sample_mcmc) || length(object$sample_mcmc) != 2L ||
-      !all(c("total", "burnin") %in% names(object$sample_mcmc)) ||
-      !.imr_is_integerish(object$sample_mcmc) ||
-      object$sample_mcmc[["total"]] < 1L ||
-      object$sample_mcmc[["burnin"]] < 0L ||
-      sum(as.double(object$sample_mcmc)) > .Machine$integer.max) {
-    .imr_abort("`sample_mcmc` must contain integer `total` and `burnin` counts.")
+  control <- object$control
+  model <- object$model
+  prep <- object$preprocessing
+  posterior <- object$posterior
+  if (!is.list(control) || !is.list(model) || !is.list(prep) || !is.list(posterior)) {
+    .imr_abort("Fit schema sections must be lists.")
   }
-  if (!is.list(object$platform_models) ||
-      length(object$platform_models) != object$n_platform) {
-    .imr_abort("`platform_models` has inconsistent platform structure.")
-  }
-  if (length(object$gam_mean) != object$n_platform ||
-      length(object$feature_names) != object$n_platform) {
-    .imr_abort("Platform-level components have inconsistent lengths.")
-  }
-  for (l in seq_len(object$n_platform)) {
-    m <- object$gam_mean[[l]]
-    if (!is.matrix(m) || any(!is.finite(m)) || any(m < 0 | m > 1)) {
-      .imr_abort(sprintf("`gam_mean[[%d]]` must be a finite matrix in [0, 1].", l))
-    }
-    models <- object$platform_models[[l]]
-    if (!.imr_is_integerish(models) || anyDuplicated(models) ||
-        any(models < 1L | models > length(object$model_bitstrings)) ||
-        nrow(m) != length(models)) {
-      .imr_abort(sprintf("`platform_models[[%d]]` has invalid subgroup indices.", l))
-    }
-    if (ncol(m) != length(object$feature_names[[l]])) {
-      .imr_abort(sprintf("Feature names do not match `gam_mean[[%d]]`.", l))
+  required_control <- c("call", "outcome_type", "response_scale", "method",
+    "min_subgroup_size", "priors", "mcmc", "seed")
+  required_model <- c("n_platforms", "platform_names", "feature_names",
+    "covariate_names", "subgroup_names", "sample_sizes",
+    "subgroup_platforms", "platform_subgroups")
+  required_prep <- c("input_data", "features", "response", "covariates",
+    "feature_center", "feature_scale", "covariate_center", "covariate_scale",
+    "formula", "formula_data", "terms", "contrasts", "xlevels", "id")
+  required_posterior <- c("inclusion_probabilities", "interaction_means",
+    "latent_response_mean", "log_posterior", "selection_draws",
+    "interaction_draws")
+  section_requirements <- list(control = required_control, model = required_model,
+    preprocessing = required_prep, posterior = required_posterior)
+  sections <- list(control = control, model = model, preprocessing = prep,
+                   posterior = posterior)
+  for (section in names(sections)) {
+    missing <- setdiff(section_requirements[[section]], names(sections[[section]]))
+    if (length(missing)) {
+      .imr_abort(sprintf("The `%s` section is missing `%s`.", section, missing[[1L]]))
     }
   }
-  retained <- unname(object$sample_mcmc[["total"]])
-  if (length(object$gam_sample) != retained) {
-    .imr_abort("`gam_sample` does not contain the recorded retained draws.")
+  if (length(control$outcome_type) != 1L || is.na(control$outcome_type) ||
+      !control$outcome_type %in% c("right.censored", "binary", "continuous") ||
+      length(control$method) != 1L || is.na(control$method) ||
+      !control$method %in% c("imr", "bms")) {
+    .imr_abort("The fit has an invalid outcome type or method.")
   }
-  for (s in seq_along(object$gam_sample)) {
-    draw <- object$gam_sample[[s]]
-    if (!is.list(draw) || length(draw) != object$n_platform) {
-      .imr_abort(sprintf("`gam_sample[[%d]]` has inconsistent platforms.", s))
+  if (!is.list(control$priors) ||
+      !all(c("nu", "molecular_scale", "forced_scale", "residual", "interaction") %in%
+           names(control$priors)) || !is.list(control$mcmc)) {
+    .imr_abort("The fit has incomplete prior or MCMC controls.")
+  }
+  draws <- control$mcmc$draws
+  burnin <- control$mcmc$burnin
+  if (!.imr_is_integerish(c(draws, burnin)) || length(draws) != 1L ||
+      length(burnin) != 1L || draws < 1L || burnin < 0L ||
+      as.double(draws) + as.double(burnin) > .Machine$integer.max) {
+    .imr_abort("`control$mcmc` must contain valid `draws` and `burnin` counts.")
+  }
+  n_platforms <- model$n_platforms
+  if (length(n_platforms) != 1L || !.imr_is_integerish(n_platforms) || n_platforms < 1L ||
+      length(model$platform_names) != n_platforms || anyDuplicated(model$platform_names) ||
+      length(model$feature_names) != n_platforms ||
+      length(model$platform_subgroups) != n_platforms) {
+    .imr_abort("The fit has inconsistent platform metadata.")
+  }
+  n_subgroups <- length(model$subgroup_names)
+  if (!n_subgroups || length(model$sample_sizes) != n_subgroups ||
+      length(model$subgroup_platforms) != n_subgroups ||
+      !.imr_is_integerish(model$sample_sizes) || any(model$sample_sizes < 1L)) {
+    .imr_abort("The fit has inconsistent subgroup metadata.")
+  }
+  .imr_check_mrf_capacity(model$platform_subgroups)
+  for (g in seq_len(n_subgroups)) {
+    platforms <- model$subgroup_platforms[[g]]
+    if (!.imr_is_integerish(platforms) || anyDuplicated(platforms) ||
+        any(platforms < 1L | platforms > n_platforms)) {
+      .imr_abort(sprintf("Subgroup %d has invalid platform indices.", g))
     }
-    for (l in seq_len(object$n_platform)) {
-      if (!identical(dim(draw[[l]]), dim(object$gam_mean[[l]])) ||
-          any(!draw[[l]] %in% c(0, 1))) {
-        .imr_abort(sprintf("`gam_sample[[%d]][[%d]]` is inconsistent.", s, l))
+    for (l in platforms) {
+      if (!g %in% model$platform_subgroups[[l]]) {
+        .imr_abort("Subgroup/platform mappings are not reciprocal.")
       }
     }
   }
-  if (!is.list(object$theta_mean) ||
-      length(object$theta_mean) != object$n_platform ||
-      !is.list(object$theta_sample) ||
-      length(object$theta_sample) != object$n_platform) {
-    .imr_abort("Theta components have inconsistent platform structure.")
+  if (length(posterior$inclusion_probabilities) != n_platforms ||
+      length(posterior$interaction_means) != n_platforms ||
+      length(posterior$interaction_draws) != n_platforms) {
+    .imr_abort("Posterior platform components have inconsistent lengths.")
   }
-  for (l in seq_len(object$n_platform)) {
-    n_platform_models <- length(object$platform_models[[l]])
-    expected_theta_columns <- choose(n_platform_models, 2L)
-    if (!is.matrix(object$theta_mean[[l]]) ||
-        !identical(dim(object$theta_mean[[l]]),
-                   c(n_platform_models, n_platform_models)) ||
-        any(!is.finite(object$theta_mean[[l]]))) {
-      .imr_abort(sprintf("`theta_mean[[%d]]` must be a finite matrix.", l))
+  for (l in seq_len(n_platforms)) {
+    m <- posterior$inclusion_probabilities[[l]]
+    if (!is.matrix(m) || any(!is.finite(m)) || any(m < 0 | m > 1)) {
+      .imr_abort(sprintf("Inclusion probabilities for platform %d are invalid.", l))
     }
-    samples <- object$theta_sample[[l]]
-    if (identical(object$method, "BMS")) {
+    models <- model$platform_subgroups[[l]]
+    if (!.imr_is_integerish(models) || anyDuplicated(models) ||
+        any(models < 1L | models > n_subgroups) ||
+        nrow(m) != length(models)) {
+      .imr_abort(sprintf("Platform %d has invalid subgroup indices.", l))
+    }
+    if (ncol(m) != length(model$feature_names[[l]])) {
+      .imr_abort(sprintf("Feature names do not match platform %d posterior output.", l))
+    }
+  }
+  if (length(posterior$selection_draws) != draws) {
+    .imr_abort("Selection draws do not match `control$mcmc$draws`.")
+  }
+  for (s in seq_along(posterior$selection_draws)) {
+    draw <- posterior$selection_draws[[s]]
+    if (!is.list(draw) || length(draw) != n_platforms) {
+      .imr_abort(sprintf("Selection draw %d has inconsistent platforms.", s))
+    }
+    for (l in seq_len(n_platforms)) {
+      if (!identical(dim(draw[[l]]), dim(posterior$inclusion_probabilities[[l]])) ||
+          any(!draw[[l]] %in% c(0, 1))) {
+        .imr_abort(sprintf("Selection draw %d for platform %d is inconsistent.", s, l))
+      }
+    }
+  }
+  for (l in seq_len(n_platforms)) {
+    n_platform_models <- length(model$platform_subgroups[[l]])
+    expected_theta_columns <- choose(n_platform_models, 2L)
+    if (!is.matrix(posterior$interaction_means[[l]]) ||
+        !identical(dim(posterior$interaction_means[[l]]),
+                   c(n_platform_models, n_platform_models)) ||
+        any(!is.finite(posterior$interaction_means[[l]]))) {
+      .imr_abort(sprintf("Interaction means for platform %d are invalid.", l))
+    }
+    samples <- posterior$interaction_draws[[l]]
+    if (identical(control$method, "bms")) {
       if (!is.null(samples)) {
         .imr_abort("BMS fits must not contain sampled theta interactions.")
       }
-    } else if (!is.matrix(samples) || nrow(samples) != retained ||
+    } else if (!is.matrix(samples) || nrow(samples) != draws ||
                ncol(samples) != expected_theta_columns ||
                any(!is.finite(samples))) {
-      .imr_abort(sprintf("`theta_sample[[%d]]` is inconsistent.", l))
+      .imr_abort(sprintf("Interaction draws for platform %d are inconsistent.", l))
     }
   }
-  if (!is.numeric(object$log_posterior) ||
-      any(!is.finite(object$log_posterior)) ||
-      length(object$log_posterior) != sum(object$sample_mcmc)) {
+  if (!is.numeric(posterior$log_posterior) || any(!is.finite(posterior$log_posterior)) ||
+      length(posterior$log_posterior) != draws + burnin) {
     .imr_abort("`log_posterior` must be finite and numeric with one entry per iteration.")
   }
-  if (length(object$model_bitstrings) != length(object$sample_size)) {
-    .imr_abort("Subgroup labels and sample sizes have inconsistent lengths.")
+  if (!is.list(prep$features) || length(prep$features) != n_subgroups ||
+      !is.list(prep$response) || length(prep$response) != n_subgroups ||
+      !is.list(prep$covariates) || length(prep$covariates) != n_subgroups) {
+    .imr_abort("Preprocessed native inputs have inconsistent subgroup structure.")
+  }
+  if (!inherits(prep$input_data, "imr_data")) {
+    .imr_abort("`preprocessing$input_data` must be a validated `imr_data` object.")
+  }
+  validate_imr_data(prep$input_data)
+  expected_response_columns <- if (control$outcome_type == "right.censored") 2L else 1L
+  for (g in seq_len(n_subgroups)) {
+    if (!is.list(prep$features[[g]]) || length(prep$features[[g]]) != n_platforms ||
+        !is.matrix(prep$response[[g]]) || nrow(prep$response[[g]]) != model$sample_sizes[[g]] ||
+        ncol(prep$response[[g]]) != expected_response_columns ||
+        !is.double(prep$response[[g]]) || any(!is.finite(prep$response[[g]])) ||
+        !is.matrix(prep$covariates[[g]]) || nrow(prep$covariates[[g]]) != model$sample_sizes[[g]] ||
+        ncol(prep$covariates[[g]]) != length(model$covariate_names) ||
+        !is.double(prep$covariates[[g]]) || any(!is.finite(prep$covariates[[g]]))) {
+      .imr_abort(sprintf("Preprocessed subgroup %d has inconsistent dimensions.", g))
+    }
+    for (l in seq_len(n_platforms)) {
+      x <- prep$features[[g]][[l]]
+      expected_rows <- if (l %in% model$subgroup_platforms[[g]]) model$sample_sizes[[g]] else 0L
+      if (!is.matrix(x) || !is.double(x) || nrow(x) != expected_rows ||
+          ncol(x) != length(model$feature_names[[l]]) || any(!is.finite(x))) {
+        .imr_abort(sprintf("Preprocessed subgroup %d platform %d is invalid.", g, l))
+      }
+    }
+  }
+  if (!is.list(posterior$latent_response_mean) ||
+      length(posterior$latent_response_mean) != n_subgroups ||
+      any(vapply(seq_len(n_subgroups), function(g) {
+        y <- posterior$latent_response_mean[[g]]
+        !is.numeric(y) || length(y) != model$sample_sizes[[g]] || any(!is.finite(y))
+      }, logical(1L)))) {
+    .imr_abort("Latent-response summaries do not match the fitted subgroups.")
   }
   invisible(TRUE)
+}
+
+#' Upgrade a Legacy IMR Fit
+#'
+#' Convert a structurally complete 0.1.x `imr` object to the named schema used
+#' by version 0.2.0. Corrupted or incomplete objects must be refitted.
+#'
+#' @param object A fitted `imr` object created by IntegMultiReg 0.1.x.
+#' @return A validated schema-version-2 `imr` object.
+#' @export
+upgrade_imr_fit <- function(object) {
+  if (!inherits(object, "imr") || !is.list(object)) {
+    .imr_abort("`object` must be a legacy `imr` fit.")
+  }
+  if (identical(object$schema_version, 2L)) {
+    validate_imr(object)
+    return(object)
+  }
+  required <- c("gam_mean", "theta_mean", "estimate_latent_y", "log_posterior",
+    "gam_sample", "theta_sample", "list_hyperpara", "data1", "data2",
+    "type_outcome", "method", "platform_names", "feature_names",
+    "covariate_names", "model_bitstrings", "sample_size", "model_platforms",
+    "platform_models", "sample_mcmc", "input_data")
+  missing <- setdiff(required, names(object))
+  if (length(missing)) {
+    .imr_abort(sprintf("Legacy fit is missing `%s`; refit the model.", missing[1L]))
+  }
+  if (length(object$list_hyperpara) != 7L + object$n_platform ||
+      length(object$data1) != 9L || length(object$data2) != 7L) {
+    .imr_abort("Legacy native payload is incomplete; refit the model.")
+  }
+  input_data <- object$input_data
+  if (!is.null(input_data$type_outcome) && is.null(input_data$outcome_type)) {
+    input_data$outcome_type <- input_data$type_outcome
+    input_data$type_outcome <- NULL
+  }
+  h <- object$list_hyperpara
+  fit <- list(
+    schema_version = 2L,
+    control = list(
+      call = object$call, outcome_type = object$type_outcome,
+      response_scale = object$response_scale,
+      method = tolower(object$method), min_subgroup_size = object$ssize,
+      priors = list(nu = object$nu, molecular_scale = h[[2L]],
+        forced_scale = h[[1L]], residual = c(shape = h[[3L]], rate = h[[4L]]),
+        interaction = c(shape = h[[5L]], rate = h[[6L]])),
+      mcmc = list(draws = unname(object$sample_mcmc[["total"]]),
+                  burnin = unname(object$sample_mcmc[["burnin"]])),
+      seed = as.integer(h[[7L]])
+    ),
+    model = list(
+      n_platforms = object$n_platform, platform_names = object$platform_names,
+      feature_names = object$feature_names, covariate_names = object$covariate_names,
+      subgroup_names = object$model_bitstrings, sample_sizes = object$sample_size,
+      subgroup_platforms = object$model_platforms,
+      platform_subgroups = object$platform_models
+    ),
+    preprocessing = list(
+      input_data = input_data, features = object$data2[[1L]],
+      response = object$data2[[2L]], covariates = object$data2[[3L]],
+      feature_center = object$data2[[4L]], feature_scale = object$data2[[5L]],
+      covariate_center = object$data2[[6L]], covariate_scale = object$data2[[7L]],
+      formula = object$formula, formula_data = object$formula_data,
+      terms = object$terms, contrasts = object$contrasts,
+      xlevels = object$xlevels, id = object$formula_id %||% "id"
+    ),
+    posterior = list(
+      inclusion_probabilities = object$gam_mean,
+      interaction_means = object$theta_mean,
+      latent_response_mean = object$estimate_latent_y,
+      log_posterior = object$log_posterior,
+      selection_draws = object$gam_sample,
+      interaction_draws = object$theta_sample
+    )
+  )
+  class(fit) <- "imr"
+  validate_imr(fit)
+  fit
 }
 
 
@@ -137,7 +297,7 @@ posterior_summary.imr <- function(object, level = 0.95, ...) {
   if (level >= 1) .imr_abort("`level` must be less than 1.")
   probs <- c((1 - level) / 2, 0.5, 1 - (1 - level) / 2)
 
-  selection <- lapply(seq_len(object$n_platform), function(l) {
+  selection <- lapply(seq_len(object$model$n_platforms), function(l) {
     template <- .imr_mpip(object, l)
     rows <- vector("list", nrow(template) * ncol(template))
     at <- 0L
@@ -145,7 +305,7 @@ posterior_summary.imr <- function(object, level = 0.95, ...) {
       for (j in seq_len(ncol(template))) {
         at <- at + 1L
         draws <- vapply(
-          object$gam_sample,
+          object$posterior$selection_draws,
           function(draw) as.numeric(draw[[l]][i, j]), numeric(1L)
         )
         qs <- stats::quantile(draws, probs = probs, names = FALSE, type = 8)
@@ -160,10 +320,10 @@ posterior_summary.imr <- function(object, level = 0.95, ...) {
     }
     do.call(rbind, rows)
   })
-  names(selection) <- object$platform_names
+  names(selection) <- object$model$platform_names
 
-  theta <- lapply(seq_len(object$n_platform), function(l) {
-    samples <- object$theta_sample[[l]]
+  theta <- lapply(seq_len(object$model$n_platforms), function(l) {
+    samples <- object$posterior$interaction_draws[[l]]
     if (is.null(samples) || ncol(samples) == 0L) {
       return(data.frame(
         subgroup1 = character(), subgroup2 = character(),
@@ -171,7 +331,7 @@ posterior_summary.imr <- function(object, level = 0.95, ...) {
         median = numeric(), upper = numeric()
       ))
     }
-    subgroup_names <- object$model_bitstrings[object$platform_models[[l]]]
+    subgroup_names <- object$model$subgroup_names[object$model$platform_subgroups[[l]]]
     pairs <- do.call(cbind, lapply(seq.int(2L, length(subgroup_names)),
       function(i) rbind(seq_len(i - 1L), i)))
     rows <- lapply(seq_len(ncol(samples)), function(j) {
@@ -187,7 +347,7 @@ posterior_summary.imr <- function(object, level = 0.95, ...) {
     })
     do.call(rbind, rows)
   })
-  names(theta) <- object$platform_names
+  names(theta) <- object$model$platform_names
 
   out <- list(level = level, selection = selection, theta = theta)
   class(out) <- "posterior_summary.imr"
@@ -254,10 +414,10 @@ compare_imr <- function(..., threshold = 0.5) {
   invisible(lapply(fits, validate_imr))
   reference <- fits[[1L]]
   compatible <- vapply(fits[-1L], function(fit) {
-    identical(fit$type_outcome, reference$type_outcome) &&
-      identical(fit$platform_names, reference$platform_names) &&
-      identical(fit$feature_names, reference$feature_names) &&
-      identical(fit$model_bitstrings, reference$model_bitstrings)
+    identical(fit$control$outcome_type, reference$control$outcome_type) &&
+      identical(fit$model$platform_names, reference$model$platform_names) &&
+      identical(fit$model$feature_names, reference$model$feature_names) &&
+      identical(fit$model$subgroup_names, reference$model$subgroup_names)
   }, logical(1L))
   if (any(!compatible)) {
     .imr_abort(paste0(
@@ -272,13 +432,15 @@ compare_imr <- function(..., threshold = 0.5) {
   rows <- lapply(seq_along(fits), function(i) {
     fit <- fits[[i]]
     selected <- sum(vapply(
-      fit$gam_mean,
+      fit$posterior$inclusion_probabilities,
       function(m) sum(apply(m, 2L, max) > threshold), integer(1L)
     ))
     data.frame(
-      fit = fit_names[i], outcome = fit$type_outcome, method = fit$method,
-      platforms = fit$n_platform, subgroups = length(fit$model_bitstrings),
-      retained_draws = fit$sample_mcmc[["total"]],
+      fit = fit_names[i], outcome = fit$control$outcome_type,
+      method = fit$control$method,
+      platforms = fit$model$n_platforms,
+      subgroups = length(fit$model$subgroup_names),
+      retained_draws = fit$control$mcmc$draws,
       selected_features = selected,
       stringsAsFactors = FALSE, row.names = NULL
     )

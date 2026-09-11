@@ -78,13 +78,13 @@ structure.  A short survival fit follows the same call pattern:
 
 ```{r kirc-fit, eval = FALSE}
 kirc_fit <- imr(
-  platform_data_list = kircIMR$platforms,
+  x = kircIMR$platforms,
   outcome            = kircIMR$outcome.survival,
-  cov                = kircIMR$covariates,
-  type_outcome       = "right.censored",
+  covariates = kircIMR$covariates,
+  outcome_type       = "right.censored",
   nu                 = c(-4, -3, -4),
-  sample_mcmc        = c(4000, 1000),
-  ssize              = 30,
+  draws = 4000, burnin = 1000,
+  min_subgroup_size              = 30,
   seed               = 1
 )
 summary(kirc_fit)
@@ -98,13 +98,13 @@ MCMC run for illustration; in practice use longer chains.
 
 ```{r fit}
 fit <- imr(
-  platform_data_list = simIMR$platforms,
+  x = simIMR$platforms,
   outcome            = simIMR$outcome.binary,
-  cov                = simIMR$covariates,
-  type_outcome       = "binary",
+  covariates = simIMR$covariates,
+  outcome_type       = "binary",
   nu                 = c(-4, -3, -4),
-  sample_mcmc        = c(1500, 500),
-  ssize              = 30,
+  draws = 1500, burnin = 500,
+  min_subgroup_size              = 30,
   seed               = 1
 )
 fit
@@ -179,27 +179,27 @@ hyperparameters are treated as fixed; tuning requires another validation layer.
 
 ```{r cv}
 cv <- cv_imr(fit, k = 5, rounds = 3)
-attr(cv, "metric")
-round(colMeans(cv$total_cindex), 3)
+cv$metric
+round(colMeans(cv$pooled), 3)
 ```
 
 # Other outcome types
 
 The same interface handles continuous and right-censored outcomes; only
-`type_outcome` and the `outcome` data frame change.
+`outcome_type` and the `outcome` data frame change.
 
 ```{r other-types, eval = FALSE}
 # continuous (Gaussian) outcome
 fit_c <- imr(
-  simIMR$platforms, simIMR$outcome.continuous, cov = simIMR$covariates,
-  type_outcome = "continuous", nu = c(-4, -3, -4),
-  sample_mcmc = c(1500, 500), ssize = 30, seed = 1)
+  simIMR$platforms, simIMR$outcome.continuous, covariates = simIMR$covariates,
+  outcome_type = "continuous", nu = c(-4, -3, -4),
+  draws = 1500, burnin = 500, min_subgroup_size = 30, seed = 1)
 
 # right-censored survival outcome
 fit_s <- imr(
-  simIMR$platforms, simIMR$outcome.survival, cov = simIMR$covariates,
-  type_outcome = "right.censored", nu = c(-4, -3, -4),
-  sample_mcmc = c(1500, 500), ssize = 30, seed = 1)
+  simIMR$platforms, simIMR$outcome.survival, covariates = simIMR$covariates,
+  outcome_type = "right.censored", nu = c(-4, -3, -4),
+  draws = 1500, burnin = 500, min_subgroup_size = 30, seed = 1)
 ```
 
 # References

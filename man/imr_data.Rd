@@ -8,13 +8,13 @@ imr_data(
   platforms,
   outcome = NULL,
   covariates = NULL,
-  type_outcome = NULL,
+  outcome_type = NULL,
   id = "id"
 )
 }
 \arguments{
 \item{platforms}{A non-empty named list of data frames, one per platform.
-Platform names must be unique and cannot be \code{id} or \code{subgroup}, which are
+Platform names must be unique and cannot be `id` or `subgroup`, which are
 reserved for availability metadata.
 Every data frame must contain the subject identifier and at least one
 finite numeric feature.}
@@ -27,14 +27,14 @@ right-censored outcomes it contains the identifier, time and status.}
 \item{covariates}{Optional data frame containing the identifier followed by
 clinical covariates.}
 
-\item{type_outcome}{Optional outcome type: `"binary"`, `"continuous"` or
+\item{outcome_type}{Optional outcome type: `"binary"`, `"continuous"` or
 `"right.censored"`. It is required when `outcome` is supplied.}
 
 \item{id}{Name of the subject-identifier column in every supplied data frame.}
 }
 \value{
 An object of class `"imr_data"` with components `platforms`,
-  `outcome`, `covariates`, `type_outcome`, `id`, `availability` and
+  `outcome`, `covariates`, `outcome_type`, `id`, `availability` and
   `subgroup_sizes`, `n_platform_subjects` and `excluded_ids`. Availability
   summaries include only subjects with all required outcome/covariate rows.
 }
@@ -50,7 +50,7 @@ dat <- imr_data(
   platforms = simIMR$platforms,
   outcome = simIMR$outcome.binary,
   covariates = simIMR$covariates,
-  type_outcome = "binary"
+  outcome_type = "binary"
 )
 dat
 }

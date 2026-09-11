@@ -1,3 +1,35 @@
+# IntegMultiReg 0.2.0
+
+## Breaking API cleanup
+
+* `imr()` is now an S3 generic with list, formula, and `imr_data` methods. Its
+  first argument is `x`; fitting arguments now use `covariates`, `outcome_type`,
+  `min_subgroup_size`, `draws`, `burnin`, `molecular_prior_scale`,
+  `forced_prior_scale`, `residual_prior`, and `interaction_prior`.
+* Method values are lowercase (`"imr"`, `"bms"`). Printed output keeps the
+  familiar uppercase labels. Legacy argument aliases are intentionally not
+  accepted.
+* Predictions use the column name `prediction`. `cv_imr()` now returns the
+  named fields `pooled`, `fold_mean`, `predictions`, `metric`, and `validation`.
+* Removed the duplicate `predict_imr()`, `summary_imr()`, `coef_imr()`, and
+  `plot_imr()` wrappers. Use the standard S3 generics.
+
+## Fit schema and native safety
+
+* New fits use schema version 2 with four named sections: `control`, `model`,
+  `preprocessing`, and `posterior`. `upgrade_imr_fit()` explicitly upgrades a
+  structurally complete 0.1.x fit; public methods do not upgrade automatically.
+* Formula fits retain only the identifier, response, and variables used by the
+  formula. Fit validation now checks native-bound types, dimensions, mappings,
+  indices, and draw counts before compiled code is called.
+* MRF normalization now enumerates states with an unsigned counter and uses
+  log-sum-exp. A platform is limited to 16 modelled subgroups, with an R error
+  before native code for larger models.
+* Native entry points are named `imr_fit`, `imr_predict`, and
+  `imr_concordance`; unreachable legacy numerical helpers were removed.
+
+See `MIGRATION.md` for a complete old-to-new API table.
+
 # IntegMultiReg 0.1.4
 
 * Reject platform names `id` and `subgroup` in data construction and validation

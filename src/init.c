@@ -36,9 +36,9 @@ extern SEXP main_function_prediction_test(
     SEXP samplesize_test_R, SEXP max_models_R, SEXP type_outcome_R);
 
 static const R_CallMethodDef CallEntries[] = {
-    {"mainFunction",               (DL_FUNC) &main_function,               22},
-    {"imrConcordance",             (DL_FUNC) &imr_concordance,                3},
-    {"mainFunctionPredictionTest", (DL_FUNC) &main_function_prediction_test, 27},
+    {"imr_fit",         (DL_FUNC) &main_function,                 22},
+    {"imr_concordance", (DL_FUNC) &imr_concordance,                3},
+    {"imr_predict",     (DL_FUNC) &main_function_prediction_test, 27},
     {NULL, NULL, 0}
 };
 
@@ -49,7 +49,7 @@ void R_init_IntegMultiReg(DllInfo *dll)
 
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     /* Registered routines are still resolved by name through the
-     * registration table, so the .Call("mainFunction", ...) form used in
+     * registration table, so the character-string .Call() form used in
      * the R sources keeps working; we only disable the fallback search
      * for unregistered symbols.  We do not force symbols, which would
      * forbid the character-string form. */

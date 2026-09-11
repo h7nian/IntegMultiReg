@@ -67,9 +67,10 @@ quick picture of how the sample is distributed across subgroups.
 \donttest{
 data("simIMR", package = "IntegMultiReg")
 fit <- imr(
-  platform_data_list = simIMR$platforms, outcome = simIMR$outcome,
-  cov = simIMR$covariates, type_outcome = "binary",
-  nu = c(-4, -3, -4), sample_mcmc = c(200, 100), ssize = 5, seed = 1
+  x = simIMR$platforms, outcome = simIMR$outcome,
+  covariates = simIMR$covariates, outcome_type = "binary",
+  nu = c(-4, -3, -4), draws = 200, burnin = 100,
+  min_subgroup_size = 5, seed = 1
 )
 plot_subgroup_sizes(fit)
 }

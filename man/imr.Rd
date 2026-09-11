@@ -3,25 +3,29 @@
 \name{imr}
 \alias{imr}
 \alias{imr.default}
+\alias{imr.list}
 \alias{imr.formula}
 \alias{imr.imr_data}
 \title{Fit the Integrative Bayesian Multi-Platform Regression Model}
 \usage{
-imr(platform_data_list = NULL, ..., formula = NULL)
+imr(x, ...)
 
-\method{imr}{default}(
-  platform_data_list,
+\method{imr}{default}(x, ...)
+
+\method{imr}{list}(
+  x,
   outcome,
-  cov = NULL,
-  type_outcome = c("right.censored", "binary", "continuous"),
-  method = c("IMR", "BMS"),
-  ssize = 30,
-  nu = rep(-3, length(platform_data_list)),
-  hh = 0.087,
-  h0 = 10000,
-  sig_alpha_psi = c(0.001, 0.001),
-  thet_alph_bet = c(40, 10),
-  sample_mcmc = c(2000, 1000),
+  covariates = NULL,
+  outcome_type = c("right.censored", "binary", "continuous"),
+  method = c("imr", "bms"),
+  min_subgroup_size = 30L,
+  nu = rep(-3, length(x)),
+  molecular_prior_scale = 0.087,
+  forced_prior_scale = 10000,
+  residual_prior = c(shape = 0.001, rate = 0.001),
+  interaction_prior = c(shape = 40, rate = 10),
+  draws = 2000L,
+  burnin = 1000L,
   seed = NULL,
   verbose = FALSE,
   survival_scale = c("log", "identity"),
@@ -29,18 +33,18 @@ imr(platform_data_list = NULL, ..., formula = NULL)
 )
 
 \method{imr}{formula}(
-  platform_data_list,
+  x,
   data,
   platforms,
   id = "id",
-  type_outcome = c("right.censored", "binary", "continuous"),
+  outcome_type = c("right.censored", "binary", "continuous"),
   ...
 )
 
-\method{imr}{imr_data}(platform_data_list, ...)
+\method{imr}{imr_data}(x, ...)
 }
 \arguments{
-\item{platform_data_list}{A list of data frames, one per platform.  Each
+\item{x}{A list of data frames, one per platform.  Each
 data frame must contain an `id` column (the subject identifier, taken to be
 the first column); the remaining columns are finite numeric features
 measured on that platform.  Subject identifiers must be unique within each
@@ -50,60 +54,53 @@ outcome and covariate data.}
 \item{...}{Additional fitting arguments passed from the formula or
 `imr_data` method to the default method. Unused arguments are rejected.}
 
-\item{formula}{A model formula. This named argument is equivalent to passing
-the formula as the first argument.
-The model always includes an intercept: `0`/`-1` and `offset()` terms are
-rejected. The identifier column is excluded when expanding `.`.}
-
 \item{outcome}{A data frame containing an `id` column and the response.  For
-`type_outcome = "right.censored"` it must also contain the event/censoring
+`outcome_type = "right.censored"` it must also contain the event/censoring
 time and a censoring indicator (three columns in total).  For `"binary"`
 the response must be coded 0/1 and for `"continuous"` it is a numeric
 response (two columns in total).  The `id` column must be first and unique.}
 
-\item{cov}{An optional data frame of clinical covariates including an `id`
+\item{covariates}{An optional data frame of clinical covariates including an `id`
 column followed by finite numeric covariates.  Covariates are always
 included in every regression (they are not subject to selection).  Defaults
 to `NULL` (no covariates).}
 
-\item{type_outcome}{Character string specifying the outcome type, one of
+\item{outcome_type}{Character string specifying the outcome type, one of
 `"right.censored"` (default), `"binary"` or `"continuous"`.}
 
-\item{method}{Character string specifying the method, `"IMR"` (default) for
+\item{method}{Character string specifying the method, `"imr"` (default) for
 the integrative model that shares information across subgroups via the MRF
-prior, or `"BMS"` for the non-integrative Bayesian multi-step variant that
+prior, or `"bms"` for the non-integrative Bayesian multi-step variant that
 fits each subgroup independently (MRF interaction parameters set to zero).}
 
-\item{ssize}{Minimum availability subgroup size for a subgroup to be
-modelled. Subgroups with at most `ssize` subjects are dropped. Default is
+\item{min_subgroup_size}{Minimum availability subgroup size for a subgroup to be
+modelled. Subgroups with at most `min_subgroup_size` subjects are dropped. Default is
 `30`.}
 
 \item{nu}{A numeric vector of prior log-odds of inclusion, one value per
 platform, controlling the prior sparsity of the selected features.
-Defaults to `rep(-3, length(platform_data_list))`.}
+Defaults to `rep(-3, length(x))`.}
 
-\item{hh}{Scale of the non-local (product moment) prior on the slab
+\item{molecular_prior_scale}{Scale of the non-local (product moment) prior on the slab
 regression effects (default `0.087`).}
 
-\item{h0}{pMOM prior scale for the always-included intercept and clinical
+\item{forced_prior_scale}{pMOM prior scale for the always-included intercept and clinical
 coefficients (default `10000`), corresponding to tau_0 in the original
 paper. This is not the marginal prior variance.}
 
-\item{sig_alpha_psi}{Length-2 numeric vector with the shape and rate of the
+\item{residual_prior}{Length-2 numeric vector with the shape and rate of the
 inverse-gamma prior on the response error variance (default
-`c(0.001, 0.001)`).  Ignored when `type_outcome = "binary"`: a probit model
+`c(0.001, 0.001)`).  Ignored when `outcome_type = "binary"`: a probit model
 uses a highly concentrated inverse-gamma prior with shape and rate
 `100000` to approximate unit residual variance for identifiability.}
 
-\item{thet_alph_bet}{Length-2 numeric vector with the shape and rate of the
+\item{interaction_prior}{Length-2 numeric vector with the shape and rate of the
 gamma prior on the MRF interaction parameters theta, which borrow
 information across subgroups (default `c(40, 10)`).}
 
-\item{sample_mcmc}{An integer vector `c(n_retained, n_burnin)` giving the
-number of post-burn-in draws to retain and the number of burn-in
-iterations to discard.  The sampler runs `n_retained + n_burnin`
-iterations in total, so the returned `log_posterior` has
-`sum(sample_mcmc)` entries.  Default is `c(2000, 1000)`.}
+\item{draws}{Number of post-burn-in MCMC draws to retain (default `2000`).}
+
+\item{burnin}{Number of initial MCMC iterations to discard (default `1000`).}
 
 \item{seed}{Optional integer seed for the sampler.  If `NULL` (the default) a
 seed is drawn from the current R RNG state, so a run is reproducible
@@ -123,27 +120,18 @@ and does not fit a log-time AFT model. Ignored for other outcome types.}
 interface.}
 
 \item{id}{Name of the identifier column in `data` and `platforms`.}
+
+\item{formula}{A model formula passed as `x`.
+The model always includes an intercept: `0`/`-1` and `offset()` terms are
+rejected. The identifier column is excluded when expanding `.`.}
 }
 \value{
-An object of class `"imr"`: a list with components
-\item{gam_mean}{List (one matrix per platform) of posterior mean
-  variable-selection probabilities; rows index the subgroups containing the
-  platform and columns index the platform features.}
-\item{theta_mean}{List (one matrix per platform) of posterior mean MRF
-  interaction parameters between subgroups.}
-\item{estimate_latent_y}{List (one vector per subgroup) of posterior mean
-  latent responses, useful for censored or binary data.}
-\item{log_posterior}{Numeric vector of log-posterior values across all MCMC
-  iterations (burn-in included).}
-\item{gam_sample}{Post-burn-in MCMC samples of the selection indicators.}
-\item{theta_sample}{Post-burn-in MCMC samples of the MRF interaction
-  parameters (absent when `method = "BMS"`).}
-\item{list_hyperpara, data1, data2}{Hyper-parameters and pre-processed data
-  retained for prediction and cross-validation.}
-\item{call, type_outcome, n_platform, platform_names, feature_names,
-  covariate_names, model_bitstrings, sample_size, model_platforms,
-  platform_models, sample_mcmc, nu, method}{Run metadata used by the print,
-  summary, plot and predict methods.}
+An object of class `"imr"` with `schema_version = 2L` and four
+  named sections: `control` (outcome, method, priors, MCMC and seed), `model`
+  (platform, feature and subgroup metadata), `preprocessing` (validated
+  inputs, standardized matrices and formula metadata), and `posterior`
+  (inclusion probabilities, interaction draws, latent-response summaries
+  and the log-posterior trace).
 }
 \description{
 `imr()` fits the integrative multi-regression (IMR) model of Chekouo et al.
@@ -158,10 +146,10 @@ variable-selection indicators together with non-local priors on the
 regression coefficients.  The sampler is implemented in C for efficiency.
 
 The arguments are grouped by the orthogonal aspect of the analysis that each
-one controls: the *data* (`platform_data_list`, `outcome`, `cov`), the
-*likelihood* (`type_outcome`), the *model* (`method`), subgroup *filtering*
-(`ssize`), the *priors* (`nu`, `hh`, `h0`, `sig_alpha_psi`, `thet_alph_bet`),
-the *computation* (`sample_mcmc`, `seed`) and the *output* (`verbose`).
+one controls: the *data* (`x`, `outcome`, `covariates`), the
+*likelihood* (`outcome_type`), the *model* (`method`), subgroup *filtering*
+(`min_subgroup_size`), the *priors* (`nu`, `molecular_prior_scale`, `forced_prior_scale`, `residual_prior`, `interaction_prior`),
+the *computation* (`draws`, `burnin`, `seed`) and the *output* (`verbose`).
 }
 \details{
 All feature and covariate data are standardized internally (mean 0, standard
@@ -175,13 +163,13 @@ probit data-augmentation latent variable is sampled.
 \donttest{
 data("simIMR", package = "IntegMultiReg")
 fit <- imr(
-  platform_data_list = simIMR$platforms,
+  x = simIMR$platforms,
   outcome = simIMR$outcome,
-  cov = simIMR$covariates,
-  type_outcome = "binary",
+  covariates = simIMR$covariates,
+  outcome_type = "binary",
   nu = c(-4, -3, -4),
-  sample_mcmc = c(200, 100),
-  ssize = 5,
+  draws = 200, burnin = 100,
+  min_subgroup_size = 5,
   seed = 1
 )
 fit

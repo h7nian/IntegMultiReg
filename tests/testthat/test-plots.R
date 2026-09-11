@@ -10,7 +10,7 @@ test_that("plot_top_features draws and returns the ranked feature table", {
   # returned table is sorted by decreasing mPIP and the values are valid
   expect_true(all(diff(tab$mpip) <= 0))
   expect_true(all(tab$mpip >= 0 & tab$mpip <= 1))
-  expect_true(all(tab$platform %in% fit_bin$platform_names))
+  expect_true(all(tab$platform %in% fit_bin$model$platform_names))
 })
 
 test_that("plot_top_features caps 'top' at the number of features", {

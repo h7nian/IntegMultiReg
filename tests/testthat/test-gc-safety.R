@@ -4,14 +4,14 @@ test_that("native return objects survive frequent garbage collection", {
   exercise <- function() {
     previous <- gctorture2(10L)
     on.exit(gctorture2(previous), add = TRUE)
-    fit <- imr(x, y, type_outcome = "continuous", ssize = 1,
-               sample_mcmc = c(3, 1), seed = 11)
+    fit <- imr(x, y, outcome_type = "continuous", min_subgroup_size = 1,
+               draws = 3, burnin = 1, seed = 11)
     predictions <- predict(fit, x, max_models = 2)
     cv <- cv_imr(fit, k = 2, rounds = 1, max_models = 2)
     list(fit = fit, predictions = predictions, cv = cv)
   }
   result <- exercise()
   expect_true(validate_imr(result$fit))
-  expect_true(all(is.finite(result$predictions[[1L]]$predict)))
-  expect_true(all(is.finite(result$cv$total_cindex)))
+  expect_true(all(is.finite(result$predictions[[1L]]$prediction)))
+  expect_true(all(is.finite(result$cv$pooled)))
 })

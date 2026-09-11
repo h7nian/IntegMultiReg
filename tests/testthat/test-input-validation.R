@@ -4,13 +4,13 @@ test_that("outcome dimension is validated per outcome type", {
                     y = simIMR$outcome.binary$y, extra = 1)
   expect_error(
     imr(simIMR$platforms, bad,
-      type_outcome = "binary", sample_mcmc = c(50, 25), ssize = 30),
+      outcome_type = "binary", draws = 50, burnin = 25, min_subgroup_size = 30),
     "id"
   )
   # right.censored needs exactly 3 columns
   expect_error(
     imr(simIMR$platforms, simIMR$outcome.binary,
-      type_outcome = "right.censored", sample_mcmc = c(50, 25), ssize = 30),
+      outcome_type = "right.censored", draws = 50, burnin = 25, min_subgroup_size = 30),
     "right-censored"
   )
 })
@@ -19,34 +19,34 @@ test_that("retained-draw and burn-in counts are validated", {
   # the number of retained draws must be positive
   expect_error(
     imr(simIMR$platforms, simIMR$outcome.binary,
-      type_outcome = "binary", sample_mcmc = c(0, 25), ssize = 30),
-    "retained draws"
+      outcome_type = "binary", draws = 0, burnin = 25, min_subgroup_size = 30),
+    "`draws`"
   )
-  # a retained count below the burn-in is allowed (sample_mcmc = retained + burn-in)
+  # A retained count below the burn-in is allowed.
   expect_s3_class(
     imr(simIMR$platforms, simIMR$outcome.binary,
-      type_outcome = "binary", sample_mcmc = c(60, 80), ssize = 30, seed = 1),
+      outcome_type = "binary", draws = 60, burnin = 80, min_subgroup_size = 30, seed = 1),
     "imr"
   )
 })
 
-test_that("an ssize that excludes every subgroup is an error", {
+test_that("an min_subgroup_size that excludes every subgroup is an error", {
   expect_error(
     imr(simIMR$platforms, simIMR$outcome.binary,
-      type_outcome = "binary", sample_mcmc = c(50, 25), ssize = 1e6),
+      outcome_type = "binary", draws = 50, burnin = 25, min_subgroup_size = 1e6),
     "No availability subgroup"
   )
 })
 
-test_that("type_outcome and method are matched against their choices", {
+test_that("outcome_type and method are matched against their choices", {
   expect_error(
     imr(simIMR$platforms, simIMR$outcome.binary,
-      type_outcome = "poisson", sample_mcmc = c(50, 25)),
+      outcome_type = "poisson", draws = 50, burnin = 25),
     "should be one of"
   )
   expect_error(
     imr(simIMR$platforms, simIMR$outcome.binary,
-      type_outcome = "binary", method = "lasso", sample_mcmc = c(50, 25)),
+      outcome_type = "binary", method = "lasso", draws = 50, burnin = 25),
     "should be one of"
   )
 })
@@ -60,40 +60,40 @@ test_that("input data frames have standard id and numeric-column validation", {
   no_id <- simIMR$platforms
   names(no_id[[1]])[1] <- "sample_id"
   expect_error(
-    imr(no_id, simIMR$outcome.binary, cov = simIMR$covariates,
-        type_outcome = "binary", sample_mcmc = c(50, 25), ssize = 30),
+    imr(no_id, simIMR$outcome.binary, covariates = simIMR$covariates,
+        outcome_type = "binary", draws = 50, burnin = 25, min_subgroup_size = 30),
     "id.*first column"
   )
 
   dup_id <- simIMR$platforms
   dup_id[[1]]$id[2] <- dup_id[[1]]$id[1]
   expect_error(
-    imr(dup_id, simIMR$outcome.binary, cov = simIMR$covariates,
-        type_outcome = "binary", sample_mcmc = c(50, 25), ssize = 30),
+    imr(dup_id, simIMR$outcome.binary, covariates = simIMR$covariates,
+        outcome_type = "binary", draws = 50, burnin = 25, min_subgroup_size = 30),
     "unique subject identifiers"
   )
 
   non_numeric <- simIMR$platforms
   non_numeric[[1]]$G01 <- as.character(non_numeric[[1]]$G01)
   expect_error(
-    imr(non_numeric, simIMR$outcome.binary, cov = simIMR$covariates,
-        type_outcome = "binary", sample_mcmc = c(50, 25), ssize = 30),
+    imr(non_numeric, simIMR$outcome.binary, covariates = simIMR$covariates,
+        outcome_type = "binary", draws = 50, burnin = 25, min_subgroup_size = 30),
     "must be numeric"
   )
 
   bad_binary <- simIMR$outcome.binary
   bad_binary$y[1] <- 2
   expect_error(
-    imr(simIMR$platforms, bad_binary, cov = simIMR$covariates,
-        type_outcome = "binary", sample_mcmc = c(50, 25), ssize = 30),
+    imr(simIMR$platforms, bad_binary, covariates = simIMR$covariates,
+        outcome_type = "binary", draws = 50, burnin = 25, min_subgroup_size = 30),
     "0/1"
   )
 
   bad_survival <- simIMR$outcome.survival
   bad_survival$time[1] <- 0
   expect_error(
-    imr(simIMR$platforms, bad_survival, cov = simIMR$covariates,
-        type_outcome = "right.censored", sample_mcmc = c(50, 25), ssize = 30),
+    imr(simIMR$platforms, bad_survival, covariates = simIMR$covariates,
+        outcome_type = "right.censored", draws = 50, burnin = 25, min_subgroup_size = 30),
     "positive"
   )
 })
@@ -101,27 +101,27 @@ test_that("input data frames have standard id and numeric-column validation", {
 test_that("scalar and hyper-parameter arguments are validated before sampling", {
   expect_error(
     imr(simIMR$platforms, simIMR$outcome.binary,
-        type_outcome = "binary", nu = c(-3, -3), sample_mcmc = c(50, 25)),
+        outcome_type = "binary", nu = c(-3, -3), draws = 50, burnin = 25),
     "`nu`"
   )
   expect_error(
     imr(simIMR$platforms, simIMR$outcome.binary,
-        type_outcome = "binary", hh = -1, sample_mcmc = c(50, 25)),
-    "`hh`"
+        outcome_type = "binary", molecular_prior_scale = -1, draws = 50, burnin = 25),
+    "`molecular_prior_scale`"
   )
   expect_error(
     imr(simIMR$platforms, simIMR$outcome.binary,
-        type_outcome = "binary", sample_mcmc = c(50.5, 25)),
-    "`sample_mcmc`"
+        outcome_type = "binary", draws = 50.5, burnin = 25),
+    "`draws`"
   )
   expect_error(
     imr(simIMR$platforms, simIMR$outcome.binary,
-        type_outcome = "binary", ssize = -1, sample_mcmc = c(50, 25)),
-    "`ssize`"
+        outcome_type = "binary", min_subgroup_size = -1, draws = 50, burnin = 25),
+    "`min_subgroup_size`"
   )
   expect_error(
     imr(simIMR$platforms, simIMR$outcome.binary,
-        type_outcome = "binary", verbose = NA, sample_mcmc = c(50, 25)),
+        outcome_type = "binary", verbose = NA, draws = 50, burnin = 25),
     "`verbose`"
   )
 })

@@ -1,24 +1,24 @@
 test_that("validate_imr checks fitted object integrity", {
   expect_true(validate_imr(fit_bin))
   bad <- fit_bin
-  bad$gam_mean[[1L]][1L, 1L] <- 2
-  expect_error(validate_imr(bad), "in \\[0, 1\\]")
+  bad$posterior$inclusion_probabilities[[1L]][1L, 1L] <- 2
+  expect_error(validate_imr(bad), "invalid")
 
   bad_draws <- fit_bin
-  bad_draws$gam_sample[[1L]][[1L]] <- matrix(0, 1, 1)
+  bad_draws$posterior$selection_draws[[1L]][[1L]] <- matrix(0, 1, 1)
   expect_error(validate_imr(bad_draws), "inconsistent")
 
   missing_metadata <- fit_bin
-  missing_metadata$sample_mcmc <- NULL
-  expect_error(validate_imr(missing_metadata), "missing `sample_mcmc`")
+  missing_metadata$control <- NULL
+  expect_error(validate_imr(missing_metadata), "missing `control`")
 
   malformed_mcmc <- fit_bin
-  malformed_mcmc$sample_mcmc <- c(burnin = 2)
-  expect_error(validate_imr(malformed_mcmc), "integer `total` and `burnin`")
+  malformed_mcmc$control$mcmc <- list(burnin = 2L)
+  expect_error(validate_imr(malformed_mcmc), "valid `draws` and `burnin`")
 
   bad_theta <- fit_bin
-  bad_theta$theta_sample[[1L]] <- bad_theta$theta_sample[[1L]][, -1L, drop = FALSE]
-  expect_error(validate_imr(bad_theta), "theta_sample")
+  bad_theta$posterior$interaction_draws[[1L]] <- bad_theta$posterior$interaction_draws[[1L]][, -1L, drop = FALSE]
+  expect_error(validate_imr(bad_theta), "Interaction draws")
 })
 
 test_that("posterior summaries include uncertainty for gamma and theta", {
@@ -31,7 +31,7 @@ test_that("posterior summaries include uncertainty for gamma and theta", {
   expect_true(nrow(out$theta$genomic) > 0L)
   expect_output(print(out), "posterior summary")
   ci <- confint(fit_bin, parm = "theta", level = 0.9)
-  expect_named(ci, fit_bin$platform_names)
+  expect_named(ci, fit_bin$model$platform_names)
 })
 
 test_that("compare_imr creates a common descriptive table", {
@@ -43,7 +43,7 @@ test_that("compare_imr creates a common descriptive table", {
   ))
 
   incompatible <- fit_bin
-  incompatible$type_outcome <- "continuous"
+  incompatible$control$outcome_type <- "continuous"
   expect_error(compare_imr(fit_bin, incompatible), "same outcome type")
 })
 

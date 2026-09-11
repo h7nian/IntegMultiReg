@@ -13,56 +13,53 @@
 #' regression coefficients.  The sampler is implemented in C for efficiency.
 #'
 #' The arguments are grouped by the orthogonal aspect of the analysis that each
-#' one controls: the *data* (`platform_data_list`, `outcome`, `cov`), the
-#' *likelihood* (`type_outcome`), the *model* (`method`), subgroup *filtering*
-#' (`ssize`), the *priors* (`nu`, `hh`, `h0`, `sig_alpha_psi`, `thet_alph_bet`),
-#' the *computation* (`sample_mcmc`, `seed`) and the *output* (`verbose`).
+#' one controls: the *data* (`x`, `outcome`, `covariates`), the
+#' *likelihood* (`outcome_type`), the *model* (`method`), subgroup *filtering*
+#' (`min_subgroup_size`), the *priors* (`nu`, `molecular_prior_scale`, `forced_prior_scale`, `residual_prior`, `interaction_prior`),
+#' the *computation* (`draws`, `burnin`, `seed`) and the *output* (`verbose`).
 #'
-#' @param platform_data_list A list of data frames, one per platform.  Each
+#' @param x A list of data frames, one per platform.  Each
 #'   data frame must contain an `id` column (the subject identifier, taken to be
 #'   the first column); the remaining columns are finite numeric features
 #'   measured on that platform.  Subject identifiers must be unique within each
 #'   data frame.  The `id` column links subjects across platforms and to the
 #'   outcome and covariate data.
 #' @param outcome A data frame containing an `id` column and the response.  For
-#'   `type_outcome = "right.censored"` it must also contain the event/censoring
+#'   `outcome_type = "right.censored"` it must also contain the event/censoring
 #'   time and a censoring indicator (three columns in total).  For `"binary"`
 #'   the response must be coded 0/1 and for `"continuous"` it is a numeric
 #'   response (two columns in total).  The `id` column must be first and unique.
-#' @param cov An optional data frame of clinical covariates including an `id`
+#' @param covariates An optional data frame of clinical covariates including an `id`
 #'   column followed by finite numeric covariates.  Covariates are always
 #'   included in every regression (they are not subject to selection).  Defaults
 #'   to `NULL` (no covariates).
-#' @param type_outcome Character string specifying the outcome type, one of
+#' @param outcome_type Character string specifying the outcome type, one of
 #'   `"right.censored"` (default), `"binary"` or `"continuous"`.
-#' @param method Character string specifying the method, `"IMR"` (default) for
+#' @param method Character string specifying the method, `"imr"` (default) for
 #'   the integrative model that shares information across subgroups via the MRF
-#'   prior, or `"BMS"` for the non-integrative Bayesian multi-step variant that
+#'   prior, or `"bms"` for the non-integrative Bayesian multi-step variant that
 #'   fits each subgroup independently (MRF interaction parameters set to zero).
-#' @param ssize Minimum availability subgroup size for a subgroup to be
-#'   modelled. Subgroups with at most `ssize` subjects are dropped. Default is
+#' @param min_subgroup_size Minimum availability subgroup size for a subgroup to be
+#'   modelled. Subgroups with at most `min_subgroup_size` subjects are dropped. Default is
 #'   `30`.
 #' @param nu A numeric vector of prior log-odds of inclusion, one value per
 #'   platform, controlling the prior sparsity of the selected features.
-#'   Defaults to `rep(-3, length(platform_data_list))`.
-#' @param hh Scale of the non-local (product moment) prior on the slab
+#'   Defaults to `rep(-3, length(x))`.
+#' @param molecular_prior_scale Scale of the non-local (product moment) prior on the slab
 #'   regression effects (default `0.087`).
-#' @param h0 pMOM prior scale for the always-included intercept and clinical
+#' @param forced_prior_scale pMOM prior scale for the always-included intercept and clinical
 #'   coefficients (default `10000`), corresponding to tau_0 in the original
 #'   paper. This is not the marginal prior variance.
-#' @param sig_alpha_psi Length-2 numeric vector with the shape and rate of the
+#' @param residual_prior Length-2 numeric vector with the shape and rate of the
 #'   inverse-gamma prior on the response error variance (default
-#'   `c(0.001, 0.001)`).  Ignored when `type_outcome = "binary"`: a probit model
+#'   `c(0.001, 0.001)`).  Ignored when `outcome_type = "binary"`: a probit model
 #'   uses a highly concentrated inverse-gamma prior with shape and rate
 #'   `100000` to approximate unit residual variance for identifiability.
-#' @param thet_alph_bet Length-2 numeric vector with the shape and rate of the
+#' @param interaction_prior Length-2 numeric vector with the shape and rate of the
 #'   gamma prior on the MRF interaction parameters theta, which borrow
 #'   information across subgroups (default `c(40, 10)`).
-#' @param sample_mcmc An integer vector `c(n_retained, n_burnin)` giving the
-#'   number of post-burn-in draws to retain and the number of burn-in
-#'   iterations to discard.  The sampler runs `n_retained + n_burnin`
-#'   iterations in total, so the returned `log_posterior` has
-#'   `sum(sample_mcmc)` entries.  Default is `c(2000, 1000)`.
+#' @param draws Number of post-burn-in MCMC draws to retain (default `2000`).
+#' @param burnin Number of initial MCMC iterations to discard (default `1000`).
 #' @param seed Optional integer seed for the sampler.  If `NULL` (the default) a
 #'   seed is drawn from the current R RNG state, so a run is reproducible
 #'   whenever [set.seed()] is called beforehand or an explicit `seed` is passed.
@@ -83,25 +80,12 @@
 #' censored subjects are imputed within the sampler; for binary outcomes a
 #' probit data-augmentation latent variable is sampled.
 #'
-#' @return An object of class `"imr"`: a list with components
-#' \item{gam_mean}{List (one matrix per platform) of posterior mean
-#'   variable-selection probabilities; rows index the subgroups containing the
-#'   platform and columns index the platform features.}
-#' \item{theta_mean}{List (one matrix per platform) of posterior mean MRF
-#'   interaction parameters between subgroups.}
-#' \item{estimate_latent_y}{List (one vector per subgroup) of posterior mean
-#'   latent responses, useful for censored or binary data.}
-#' \item{log_posterior}{Numeric vector of log-posterior values across all MCMC
-#'   iterations (burn-in included).}
-#' \item{gam_sample}{Post-burn-in MCMC samples of the selection indicators.}
-#' \item{theta_sample}{Post-burn-in MCMC samples of the MRF interaction
-#'   parameters (absent when `method = "BMS"`).}
-#' \item{list_hyperpara, data1, data2}{Hyper-parameters and pre-processed data
-#'   retained for prediction and cross-validation.}
-#' \item{call, type_outcome, n_platform, platform_names, feature_names,
-#'   covariate_names, model_bitstrings, sample_size, model_platforms,
-#'   platform_models, sample_mcmc, nu, method}{Run metadata used by the print,
-#'   summary, plot and predict methods.}
+#' @return An object of class `"imr"` with `schema_version = 2L` and four
+#'   named sections: `control` (outcome, method, priors, MCMC and seed), `model`
+#'   (platform, feature and subgroup metadata), `preprocessing` (validated
+#'   inputs, standardized matrices and formula metadata), and `posterior`
+#'   (inclusion probabilities, interaction draws, latent-response summaries
+#'   and the log-posterior trace).
 #'
 #' @references
 #' Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). "A Bayesian Integrative
@@ -114,90 +98,75 @@
 #' \donttest{
 #' data("simIMR", package = "IntegMultiReg")
 #' fit <- imr(
-#'   platform_data_list = simIMR$platforms,
+#'   x = simIMR$platforms,
 #'   outcome = simIMR$outcome,
-#'   cov = simIMR$covariates,
-#'   type_outcome = "binary",
+#'   covariates = simIMR$covariates,
+#'   outcome_type = "binary",
 #'   nu = c(-4, -3, -4),
-#'   sample_mcmc = c(200, 100),
-#'   ssize = 5,
+#'   draws = 200, burnin = 100,
+#'   min_subgroup_size = 5,
 #'   seed = 1
 #' )
 #' fit
 #' }
 #' @export
-imr <- function(platform_data_list = NULL, ..., formula = NULL) {
-  if (!is.null(formula)) {
-    if (!is.null(platform_data_list)) {
-      .imr_abort("Supply either `formula` or `platform_data_list`, not both.")
-    }
-    fit <- imr.formula(formula, ...)
-    fit$call <- match.call()
-    return(fit)
-  }
-  if (is.null(platform_data_list)) {
-    .imr_abort("Supply model inputs or a `formula`.")
-  }
-  UseMethod("imr")
+imr <- function(x, ...) UseMethod("imr")
+
+#' @rdname imr
+#' @export
+imr.default <- function(x, ...) {
+  .imr_abort("`x` must be a platform list, formula, or `imr_data` object.")
 }
 
 #' @rdname imr
 #' @export
-imr.default <- function(platform_data_list,
-                                           outcome,
-                                           cov = NULL,
-                                           type_outcome = c("right.censored", "binary", "continuous"),
-                                           method = c("IMR", "BMS"),
-                                           ssize = 30,
-                                           nu = rep(-3, length(platform_data_list)),
-                                           hh = 0.087,
-                                           h0 = 10000,
-                                           sig_alpha_psi = c(0.001, 0.001),
-                                           thet_alph_bet = c(40, 10),
-                                           sample_mcmc = c(2000, 1000),
-                                           seed = NULL,
-                                           verbose = FALSE,
-                                           survival_scale = c("log", "identity"),
-                                           ...) {
+imr.list <- function(x, outcome, covariates = NULL,
+                     outcome_type = c("right.censored", "binary", "continuous"),
+                     method = c("imr", "bms"), min_subgroup_size = 30L,
+                     nu = rep(-3, length(x)), molecular_prior_scale = 0.087,
+                     forced_prior_scale = 10000,
+                     residual_prior = c(shape = 0.001, rate = 0.001),
+                     interaction_prior = c(shape = 40, rate = 10),
+                     draws = 2000L, burnin = 1000L, seed = NULL,
+                     verbose = FALSE,
+                     survival_scale = c("log", "identity"), ...) {
   dots <- list(...)
   if (length(dots) > 0L) {
     .imr_abort(sprintf("Unused argument: `%s`.", names(dots)[1L]))
   }
-  cl <- match.call()
-  type_outcome <- match.arg(type_outcome)
+  call <- match.call()
+  outcome_type <- match.arg(outcome_type)
   survival_scale <- match.arg(survival_scale)
   method <- match.arg(method)
 
   .imr_check_flag(verbose, "verbose")
   validated <- imr_data(
-    platforms = platform_data_list,
+    platforms = x,
     outcome = outcome,
-    covariates = cov,
-    type_outcome = type_outcome
+    covariates = covariates,
+    outcome_type = outcome_type
   )
-  platform_data_list <- validated$platforms
+  platforms <- validated$platforms
   outcome <- validated$outcome
-  cov <- validated$covariates
-  n_platform <- length(platform_data_list)
+  covariates <- validated$covariates
+  n_platforms <- length(platforms)
 
-  ssize <- .imr_check_integer_scalar(ssize, "ssize", min = 0)
-  nu <- .imr_check_numeric_vector(nu, "nu", length = n_platform)
-  h0 <- .imr_check_numeric_vector(h0, "h0", length = 1, positive = TRUE)
-  hh <- .imr_check_numeric_vector(hh, "hh", length = 1, positive = TRUE)
-  sig_alpha_psi <- .imr_check_numeric_vector(
-    sig_alpha_psi, "sig_alpha_psi", length = 2, positive = TRUE
+  min_subgroup_size <- .imr_check_integer_scalar(
+    min_subgroup_size, "min_subgroup_size", min = 0
   )
-  thet_alph_bet <- .imr_check_numeric_vector(
-    thet_alph_bet, "thet_alph_bet", length = 2, positive = TRUE
+  nu <- .imr_check_numeric_vector(nu, "nu", length = n_platforms)
+  forced_prior_scale <- .imr_check_numeric_vector(
+    forced_prior_scale, "forced_prior_scale", length = 1, positive = TRUE
   )
-  sample_mcmc <- .imr_check_integer_vector(
-    sample_mcmc, "sample_mcmc", length = 2, min = 0
+  molecular_prior_scale <- .imr_check_numeric_vector(
+    molecular_prior_scale, "molecular_prior_scale", length = 1, positive = TRUE
   )
-  if (sum(as.double(sample_mcmc)) > .Machine$integer.max) {
-    .imr_abort("The sum of `sample_mcmc` must not exceed the native integer limit.")
-  }
-  if (sample_mcmc[1] <= 0L) {
-    .imr_abort("`sample_mcmc[1]` (retained draws) must be positive.")
+  residual_prior <- .imr_check_named_pair(residual_prior, "residual_prior")
+  interaction_prior <- .imr_check_named_pair(interaction_prior, "interaction_prior")
+  draws <- .imr_check_integer_scalar(draws, "draws", min = 1)
+  burnin <- .imr_check_integer_scalar(burnin, "burnin", min = 0)
+  if (as.double(draws) + as.double(burnin) > .Machine$integer.max) {
+    .imr_abort("The sum of `draws` and `burnin` must not exceed the native integer limit.")
   }
   if (!is.null(seed)) {
     seed <- .imr_check_integer_scalar(seed, "seed", min = 0)
@@ -212,30 +181,23 @@ imr.default <- function(platform_data_list,
   } else {
     set.seed(seed)
   }
-  type_out <- 1
-  if (type_outcome == "binary") {
-    type_out <- 2
-  } else if (type_outcome == "continuous") {
-    type_out <- 3
-  }
+  outcome_code <- match(outcome_type, c("right.censored", "binary", "continuous"))
 
   ## Record human-readable platform and feature names (the first column of each
   ## platform is the 'id' and is dropped before modelling).
-  platform_names <- names(platform_data_list)
+  platform_names <- names(platforms)
   if (is.null(platform_names) || any(platform_names == "")) {
-    platform_names <- paste0("platform", seq_len(n_platform))
+    platform_names <- paste0("platform", seq_len(n_platforms))
   }
-  feature_names <- lapply(platform_data_list, function(df) colnames(df)[-1])
+  feature_names <- lapply(platforms, function(platform) colnames(platform)[-1])
 
-  dat <- subgroup_data(outcome, cov, platform_data_list)
-  n_sample <- sample_mcmc[1]
-  n_burnin <- sample_mcmc[2]
+  dat <- subgroup_data(outcome, covariates, platforms)
   # Prepare scalar parameters.
-  h0_c <- as.numeric(h0)
-  hh_c <- as.numeric(hh)
-  alpha_c <- as.numeric(sig_alpha_psi[1])
-  psi_c <- as.numeric(sig_alpha_psi[2])
-  if (type_outcome == "binary") {
+  h0_c <- as.numeric(forced_prior_scale)
+  hh_c <- as.numeric(molecular_prior_scale)
+  alpha_c <- as.numeric(residual_prior[["shape"]])
+  psi_c <- as.numeric(residual_prior[["rate"]])
+  if (outcome_type == "binary") {
     # A probit outcome fixes the residual variance at 1 for identifiability
     # (the latent utility is z = eta + e with e ~ N(0, 1)).  The marginal
     # likelihood otherwise integrates sigma^2 out under this inverse-gamma
@@ -245,8 +207,8 @@ imr.default <- function(platform_data_list,
     probit_unit_variance <- 1e5
     alpha_c <- psi_c <- probit_unit_variance
   }
-  alpha0_c <- as.numeric(thet_alph_bet[1])
-  beta0_c <- as.numeric(thet_alph_bet[2])
+  alpha0_c <- as.numeric(interaction_prior[["shape"]])
+  beta0_c <- as.numeric(interaction_prior[["rate"]])
   seed_c <- as.numeric(seed)
 
   storage.mode(h0_c) <- "double"
@@ -257,7 +219,7 @@ imr.default <- function(platform_data_list,
   storage.mode(beta0_c) <- "double"
   storage.mode(seed_c) <- "double"
 
-  method_c <- as.character(method)
+  method_c <- toupper(method)
 
   #################################################################
   # Process the platform data and extract subgroup id vectors.
@@ -297,7 +259,7 @@ imr.default <- function(platform_data_list,
   })
 
   n_features <- as.integer(vapply(
-    platform_data_list, function(x) ncol(x) - 1L, integer(1)
+    platforms, function(platform) ncol(platform) - 1L, integer(1)
   ))
   # Compute representative row counts for each subgroup.
   subgroup_rows <- sapply(dat[[3]], function(subgroup) {
@@ -309,11 +271,11 @@ imr.default <- function(platform_data_list,
     }
   })
 
-  # Keep only subgroups with more than 'ssize' rows.
-  model_index <- as.integer(which(subgroup_rows > ssize))
+  # Keep only subgroups above the requested minimum size.
+  model_index <- as.integer(which(subgroup_rows > min_subgroup_size))
   if (length(model_index) == 0) {
     .imr_abort(
-      "No availability subgroup has more than `ssize` subjects; lower `ssize` or check the data."
+      "No availability subgroup has more than `min_subgroup_size` subjects; lower it or check the data."
     )
   }
   sample_size <- as.integer(subgroup_rows[model_index])
@@ -336,12 +298,12 @@ imr.default <- function(platform_data_list,
       )[, -1, drop = FALSE]
     }
   )
-  if (!is.null(cov)) {
+  if (!is.null(covariates)) {
     dat_filtered[[2]] <- lapply(
       seq_along(dat_filtered[[2]]),
       function(i) {
         .imr_match_rows(
-          dat_filtered[[2]][[i]], subgroup_ids_filtered[[i]], "cov"
+          dat_filtered[[2]][[i]], subgroup_ids_filtered[[i]], "covariates"
         )[, -1, drop = FALSE]
       }
     )
@@ -351,7 +313,7 @@ imr.default <- function(platform_data_list,
 
   mean_train <- mean_nested_list(dat_filtered[[3]])
   sd_train <- sd_nested_list(dat_filtered[[3]])
-  if (!is.null(cov)) {
+  if (!is.null(covariates)) {
     mean_cov_train <- lapply(dat_filtered[[2]], mean_matrix)
     sd_cov_train <- lapply(dat_filtered[[2]], sd_matrix)
   } else {
@@ -361,7 +323,7 @@ imr.default <- function(platform_data_list,
 
   dat_normalized[[3]] <- normalize_nested_list(dat_filtered[[3]])
   ### Normalized covariates
-  if (!is.null(cov)) {
+  if (!is.null(covariates)) {
     dat_normalized[[2]] <- lapply(dat_filtered[[2]], normalize_matrix)
   }
   ## outcome: force double storage (the C sampler reads it with REAL())
@@ -386,24 +348,25 @@ imr.default <- function(platform_data_list,
   }, simplify = FALSE)
 
   ### For each platform, obtain the model indices where that platform is involved
-  platform_models_c <- sapply(1:n_platform, function(x) {
+  platform_models_c <- lapply(seq_len(n_platforms), function(x) {
     as.integer((seq(1, n_models) - 1)[unlist(lapply(
       model_platforms_c,
       function(y) (x - 1) %in% y
     ))])
-  }, simplify = FALSE)
+  })
+  .imr_check_mrf_capacity(platform_models_c)
 
-  n_platform_c <- n_platform
+  n_platform_c <- n_platforms
   x_filtered <- dat_normalized[[3]]
   y_list <- dat_normalized[[1]]
-  if (type_outcome == "right.censored" && survival_scale == "log") {
+  if (outcome_type == "right.censored" && survival_scale == "log") {
     y_list <- lapply(y_list, function(y) {
       y[, 1L] <- log(y[, 1L])
       y
     })
   }
 
-  if (!is.null(cov)) {
+  if (!is.null(covariates)) {
     n_cov <- ncol(dat_normalized[[2]][[1]])
   } else {
     n_cov <- 0
@@ -421,7 +384,7 @@ imr.default <- function(platform_data_list,
   ###########################################
   # Call the compiled MCMC sampler.
   ###########################################
-  results <- .quietly(verbose, .Call("mainFunction", h0_c, hh_c, alpha_c, psi_c,
+  results <- .quietly(verbose, .Call("imr_fit", h0_c, hh_c, alpha_c, psi_c,
     alpha0_c, beta0_c, seed_c, nu_c, method_c,
     n_platform_c = as.integer(n_platform_c),
     platform_models_c = platform_models_c, model_platforms_c = model_platforms_c,
@@ -430,10 +393,10 @@ imr.default <- function(platform_data_list,
     n_features = as.integer(n_features),
     n_cov = as.integer(n_cov),
     x_filtered = x_filtered, y_list = y_list,
-    type_outcome = as.integer(type_out),
+    outcome_type = as.integer(outcome_code),
     cov_list = cov_list,
-    sample = as.integer(n_sample),
-    burnin = as.integer(n_burnin)
+    sample = as.integer(draws),
+    burnin = as.integer(burnin)
   ))
 
   ## Guard against tiny floating-point drift in the running averages so that
@@ -444,50 +407,52 @@ imr.default <- function(platform_data_list,
     m
   })
 
-  results$list_hyperpara <- c(
-    h0_c, hh_c, alpha_c, psi_c, alpha0_c, beta0_c, seed_c, nu_c
+  subgroup_names <- names(x_filtered)
+  fit <- list(
+    schema_version = 2L,
+    control = list(
+      call = call, outcome_type = outcome_type,
+      response_scale = if (outcome_type == "right.censored") survival_scale else
+        if (outcome_type == "binary") "probit" else "identity",
+      method = method, min_subgroup_size = min_subgroup_size,
+      priors = list(nu = nu, molecular_scale = molecular_prior_scale,
+        forced_scale = forced_prior_scale,
+        residual = c(shape = alpha_c, rate = psi_c),
+        interaction = interaction_prior),
+      mcmc = list(draws = draws, burnin = burnin), seed = seed
+    ),
+    model = list(
+      n_platforms = n_platforms, platform_names = platform_names,
+      feature_names = feature_names,
+      covariate_names = if (!is.null(covariates)) colnames(covariates)[-1] else character(),
+      subgroup_names = subgroup_names,
+      sample_sizes = stats::setNames(sample_size, subgroup_names),
+      subgroup_platforms = lapply(model_platforms_c, function(index) index + 1L),
+      platform_subgroups = lapply(platform_models_c, function(index) index + 1L)
+    ),
+    preprocessing = list(
+      input_data = validated, features = x_filtered, response = y_list,
+      covariates = cov_list, feature_center = mean_train,
+      feature_scale = sd_train, covariate_center = mean_cov_train,
+      covariate_scale = sd_cov_train, formula = NULL, formula_data = NULL,
+      terms = NULL, contrasts = NULL, xlevels = NULL, id = "id"
+    ),
+    posterior = list(
+      inclusion_probabilities = results$gam_mean,
+      interaction_means = results$theta_mean,
+      latent_response_mean = results$estimate_latent_y,
+      log_posterior = results$log_posterior,
+      selection_draws = results$gam_sample,
+      interaction_draws = results$theta_sample
+    )
   )
-  # total number of hyper-parameters = 7 + n_platform
-
-  results$data1 <- list(
-    n_platform_c, platform_models_c, model_platforms_c,
-    n_models, sample_size, n_features, n_cov, type_out,
-    n_sample
-  )
-  results$data2 <- list(
-    xx = x_filtered, yy = y_list, cc = cov_list,
-    mean_train, sd_train, mean_cov_train, sd_cov_train
-  )
-
-  ## Run metadata for the print / summary / plot / predict methods.
-  model_bitstrings <- names(x_filtered)
-  results$call <- cl
-  results$type_outcome <- type_outcome
-  results$response_scale <- if (type_outcome == "right.censored") {
-    survival_scale
-  } else if (type_outcome == "binary") "probit" else "identity"
-  results$method <- method
-  results$n_platform <- n_platform
-  results$platform_names <- platform_names
-  results$feature_names <- feature_names
-  results$covariate_names <- if (!is.null(cov)) colnames(cov)[-1] else character(0)
-  results$model_bitstrings <- model_bitstrings
-  results$sample_size <- stats::setNames(sample_size, model_bitstrings)
-  results$model_platforms <- lapply(model_platforms_c, function(x) x + 1L)
-  results$platform_models <- lapply(platform_models_c, function(x) x + 1L)
-  results$nu <- nu
-  results$ssize <- ssize
-  results$sample_mcmc <- c(total = n_sample, burnin = n_burnin)
-  results$input_data <- validated
-
-  class(results) <- "imr"
-  return(results)
+  class(fit) <- "imr"
+  fit
 }
 
 
 #' @rdname imr
-#' @param formula A model formula. This named argument is equivalent to passing
-#'   the formula as the first argument.
+#' @param formula A model formula passed as `x`.
 #'   The model always includes an intercept: `0`/`-1` and `offset()` terms are
 #'   rejected. The identifier column is excluded when expanding `.`.
 #' @param data A data frame used with the formula interface.
@@ -495,11 +460,11 @@ imr.default <- function(platform_data_list,
 #'   interface.
 #' @param id Name of the identifier column in `data` and `platforms`.
 #' @export
-imr.formula <- function(platform_data_list, data, platforms, id = "id",
-                        type_outcome = c("right.censored", "binary", "continuous"),
+imr.formula <- function(x, data, platforms, id = "id",
+                        outcome_type = c("right.censored", "binary", "continuous"),
                         ...) {
-  formula <- platform_data_list
-  type_outcome <- match.arg(type_outcome)
+  formula <- x
+  outcome_type <- match.arg(outcome_type)
   if (!inherits(formula, "formula")) {
     .imr_abort("The first argument must be a formula.")
   }
@@ -536,11 +501,11 @@ imr.formula <- function(platform_data_list, data, platforms, id = "id",
   } else {
     matrix(response, ncol = 1L)
   }
-  expected_response_columns <- if (type_outcome == "right.censored") 2L else 1L
+  expected_response_columns <- if (outcome_type == "right.censored") 2L else 1L
   if (ncol(response_matrix) != expected_response_columns) {
     .imr_abort(sprintf(
       "The formula response must produce %d column(s) for `%s` outcomes.",
-      expected_response_columns, type_outcome
+      expected_response_columns, outcome_type
     ))
   }
   outcome <- data.frame(
@@ -549,7 +514,7 @@ imr.formula <- function(platform_data_list, data, platforms, id = "id",
   )
   names(outcome)[1L] <- id
   names(outcome) <- c(
-    id, if (type_outcome == "right.censored") c("time", "status") else "response"
+    id, if (outcome_type == "right.censored") c("time", "status") else "response"
   )
   covariates <- if (ncol(model_matrix) == 0L) {
     NULL
@@ -562,52 +527,54 @@ imr.formula <- function(platform_data_list, data, platforms, id = "id",
   if (!is.null(covariates)) names(covariates)[1L] <- id
   dat <- imr_data(
     platforms = platforms, outcome = outcome, covariates = covariates,
-    type_outcome = type_outcome, id = id
+    outcome_type = outcome_type, id = id
   )
-  fit <- imr.imr_data(dat, ...)
-  fit$call <- match.call()
-  fit$formula_data <- data
-  fit$formula <- formula
-  fit$terms <- terms_object
-  fit$contrasts <- contrasts
-  fit$xlevels <- xlevels
-  fit$formula_id <- id
+  fit <- imr(dat, ...)
+  fit$control$call <- match.call()
+  required_columns <- unique(c(id, all.vars(terms_object)))
+  fit$preprocessing$formula_data <- data[, required_columns, drop = FALSE]
+  fit$preprocessing$formula <- formula
+  fit$preprocessing$terms <- terms_object
+  # Single-bracket assignment preserves an explicit NULL in the fixed schema.
+  fit$preprocessing["contrasts"] <- list(contrasts)
+  fit$preprocessing$xlevels <- xlevels
+  fit$preprocessing$id <- id
   fit
 }
 
 
 #' @rdname imr
 #' @export
-imr.imr_data <- function(platform_data_list, ...) {
-  validate_imr_data(platform_data_list)
-  if (is.null(platform_data_list$outcome)) {
+imr.imr_data <- function(x, ...) {
+  validate_imr_data(x)
+  if (is.null(x$outcome)) {
     .imr_abort("An `imr_data` object used for fitting must contain an outcome.")
   }
-  fit <- imr.default(
-    platform_data_list = platform_data_list$platforms,
-    outcome = platform_data_list$outcome,
-    cov = platform_data_list$covariates,
-    type_outcome = platform_data_list$type_outcome,
+  fit <- imr.list(
+    x = x$platforms,
+    outcome = x$outcome,
+    covariates = x$covariates,
+    outcome_type = x$outcome_type,
     ...
   )
-  fit$call <- match.call()
-  fit$input_data <- platform_data_list
+  fit$control$call <- match.call()
+  fit$preprocessing$input_data <- x
   fit
 }
 
 
 #' @keywords internal
 #' @noRd
-subgroup_data <- function(outcome, cov = NULL, platform_data_list) {
+subgroup_data <- function(outcome, covariates = NULL, platforms) {
   # Collect all the input data frames into a list
-  nplat <- length(platform_data_list)
+  nplat <- length(platforms)
   ### Intersection of outcome and covariate ids with the union of platform ids
   ids_out_cov <- outcome$id
-  if (!is.null(cov)) {
-    ids_out_cov <- intersect(outcome$id, cov$id)
+  if (!is.null(covariates)) {
+    ids_out_cov <- intersect(outcome$id, covariates$id)
   }
 
-  platforms <- lapply(platform_data_list, function(x) {
+  platforms <- lapply(platforms, function(x) {
     x[x$id %in% ids_out_cov, , drop = FALSE]
   })
 
@@ -618,8 +585,8 @@ subgroup_data <- function(outcome, cov = NULL, platform_data_list) {
     )
   }
   outcome1 <- outcome[outcome$id %in% id_outcome, , drop = FALSE]
-  cov1 <- if (!is.null(cov)) {
-    cov[cov$id %in% id_outcome, , drop = FALSE]
+  cov1 <- if (!is.null(covariates)) {
+    covariates[covariates$id %in% id_outcome, , drop = FALSE]
   } else {
     NULL
   }
@@ -654,7 +621,7 @@ subgroup_data <- function(outcome, cov = NULL, platform_data_list) {
       bit <- substr(pat, nplat - i + 1, nplat - i + 1)
       if (bit == "1") {
         subgroup_list[[i]] <- .imr_match_rows(
-          platforms[[i]], subgroup_ids, sprintf("platform_data_list[[%d]]", i)
+          platforms[[i]], subgroup_ids, sprintf("x[[%d]]", i)
         )
       } else {
         subgroup_list[[i]] <- platforms[[i]][FALSE, , drop = FALSE]
@@ -671,7 +638,7 @@ subgroup_data <- function(outcome, cov = NULL, platform_data_list) {
   ## a different order (for id-sorted inputs it is a no-op).
   outcome2 <- lapply(sample_ids, function(x) .imr_match_rows(outcome1, x, "outcome"))
   cov2 <- if (!is.null(cov1)) {
-    lapply(sample_ids, function(x) .imr_match_rows(cov1, x, "cov"))
+    lapply(sample_ids, function(x) .imr_match_rows(cov1, x, "covariates"))
   } else {
     lapply(sample_ids, function(x) data.frame(id = x))
   }

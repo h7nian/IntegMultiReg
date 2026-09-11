@@ -6,6 +6,8 @@
   stop(message, call. = FALSE)
 }
 
+`%||%` <- function(x, y) if (is.null(x)) y else x
+
 #' @keywords internal
 #' @noRd
 .imr_warn <- function(message) {
@@ -86,6 +88,27 @@
   x
 }
 
+.imr_check_named_pair <- function(x, arg) {
+  x <- .imr_check_numeric_vector(x, arg, length = 2L, positive = TRUE)
+  if (is.null(names(x)) || !identical(names(x), c("shape", "rate"))) {
+    .imr_abort(sprintf("`%s` must be named `c(shape = ..., rate = ...)`.", arg))
+  }
+  x
+}
+
+.imr_check_mrf_capacity <- function(platform_subgroups, max_subgroups = 16L) {
+  if (!is.list(platform_subgroups)) {
+    .imr_abort("Platform-to-subgroup mappings must be a list.")
+  }
+  if (any(lengths(platform_subgroups) > max_subgroups)) {
+    .imr_abort(sprintf(
+      "Each platform may participate in at most %d modelled subgroups for exact MRF normalization.",
+      max_subgroups
+    ))
+  }
+  invisible(TRUE)
+}
+
 #' @keywords internal
 #' @noRd
 .imr_check_id_frame <- function(x, arg, require_rows = TRUE,
@@ -146,7 +169,7 @@
 #' @noRd
 .imr_empty_predictions <- function(model_names) {
   out <- lapply(model_names, function(x) {
-    data.frame(id = character(0), predict = numeric(0))
+    data.frame(id = character(0), prediction = numeric(0))
   })
   names(out) <- paste0("model:", model_names)
   out

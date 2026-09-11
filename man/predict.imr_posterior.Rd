@@ -32,7 +32,7 @@ are discrete 0/1; use `"mean"` for event-probability intervals.}
 \item{...}{Unused.}
 }
 \value{
-A list of data frames by subgroup, with `id`, `predict`, `lower`
+A list of data frames by subgroup, with `id`, `prediction`, `lower`
   and `upper`. The point prediction is the Monte Carlo mean except for
   log-time survival fits, where it is the median.
 }

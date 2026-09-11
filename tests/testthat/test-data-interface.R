@@ -3,7 +3,7 @@ test_that("imr_data validates and summarizes multi-platform inputs", {
     simIMR$platforms,
     outcome = simIMR$outcome.binary,
     covariates = simIMR$covariates,
-    type_outcome = "binary"
+    outcome_type = "binary"
   )
   expect_s3_class(dat, "imr_data")
   expect_true(validate_imr_data(dat))
@@ -17,24 +17,24 @@ test_that("imr_data validates and summarizes multi-platform inputs", {
 test_that("reserved platform names are rejected before availability routing", {
   x <- data.frame(id = 1:20, marker = sin(1:20))
   y <- data.frame(id = 1:20, y = cos(1:20))
-  dat <- imr_data(list(assay = x), y, type_outcome = "continuous")
-  fit <- imr(dat, ssize = 1, h0 = 1, sample_mcmc = c(10, 5), seed = 1)
+  dat <- imr_data(list(assay = x), y, outcome_type = "continuous")
+  fit <- imr(dat, min_subgroup_size = 1, forced_prior_scale = 1, draws = 10, burnin = 5, seed = 1)
   cv <- cv_imr(fit, k = 2, rounds = 1)
-  expect_setequal(attr(cv, "predictions")$id, x$id)
-  expect_true(all(is.finite(cv$total_cindex)))
+  expect_setequal(cv$predictions$id, x$id)
+  expect_true(all(is.finite(cv$pooled)))
 
   for (reserved in c("id", "subgroup")) {
     pattern <- paste0("reserved availability metadata names: `", reserved, "`")
     expect_error(imr_data(setNames(list(x), reserved)), pattern)
     expect_error(imr_data(setNames(list(x), reserved), y,
-                          type_outcome = "continuous"), pattern)
+                          outcome_type = "continuous"), pattern)
     # Mimic a saved object whose presence column collides with metadata.
     corrupt <- dat
     names(corrupt$platforms) <- reserved
     names(corrupt$availability)[2L] <- reserved
     expect_error(validate_imr_data(corrupt), pattern)
     changed_fit <- fit
-    changed_fit$input_data <- corrupt
+    changed_fit$preprocessing$input_data <- corrupt
     expect_error(cv_imr(changed_fit, k = 2, rounds = 1), pattern)
     expect_error(predict(fit, corrupt), pattern)
   }
@@ -49,7 +49,7 @@ test_that("imr_data detects corrupted availability metadata", {
 test_that("imr_data reports subjects lacking required aligned rows", {
   outcome <- simIMR$outcome.binary[-1L, ]
   dat <- imr_data(
-    simIMR$platforms, outcome = outcome, type_outcome = "binary"
+    simIMR$platforms, outcome = outcome, outcome_type = "binary"
   )
   expect_equal(dat$n_platform_subjects, 300L)
   expect_equal(nrow(dat$availability), 299L)
@@ -66,7 +66,7 @@ test_that("imr_data supports a non-standard identifier name", {
   names(outcome)[1L] <- "subject"
   dat <- imr_data(
     platforms, outcome = outcome,
-    type_outcome = "continuous", id = "subject"
+    outcome_type = "continuous", id = "subject"
   )
   expect_identical(names(dat$platforms[[1L]])[1L], "id")
   expect_identical(names(dat$outcome)[1L], "id")
@@ -77,14 +77,14 @@ test_that("an imr_data object can be fitted directly", {
     simIMR$platforms,
     outcome = simIMR$outcome.binary,
     covariates = simIMR$covariates,
-    type_outcome = "binary"
+    outcome_type = "binary"
   )
   fit <- imr(
-    dat, nu = c(-4, -3, -4), sample_mcmc = c(60, 30),
-    ssize = 30, seed = 71
+    dat, nu = c(-4, -3, -4), draws = 60, burnin = 30,
+    min_subgroup_size = 30, seed = 71
   )
   expect_s3_class(fit, "imr")
-  expect_s3_class(fit$input_data, "imr_data")
+  expect_s3_class(fit$preprocessing$input_data, "imr_data")
 })
 
 test_that("the formula/data interface builds outcome and model matrix", {
@@ -96,13 +96,13 @@ test_that("the formula/data interface builds outcome and model matrix", {
     y ~ age + sex + stage,
     data = clinical,
     platforms = simIMR$platforms,
-    type_outcome = "binary",
-    nu = c(-4, -3, -4), sample_mcmc = c(60, 30),
-    ssize = 30, seed = 72
+    outcome_type = "binary",
+    nu = c(-4, -3, -4), draws = 60, burnin = 30,
+    min_subgroup_size = 30, seed = 72
   )
   expect_s3_class(fit, "imr")
-  expect_equal(fit$covariate_names, c("age", "sex", "stage"))
-  expect_true(inherits(fit$formula, "formula"))
+  expect_equal(fit$model$covariate_names, c("age", "sex", "stage"))
+  expect_true(inherits(fit$preprocessing$formula, "formula"))
 })
 
 test_that("the formula interface accepts the standard named formula argument", {
@@ -112,13 +112,13 @@ test_that("the formula interface accepts the standard named formula argument", {
   )
   clinical$age_group <- factor(clinical$age > stats::median(clinical$age))
   fit <- imr(
-    formula = y ~ sex + age_group,
+    x = y ~ sex + age_group,
     data = clinical, platforms = simIMR$platforms,
-    type_outcome = "binary", nu = c(-4, -3, -4),
-    sample_mcmc = c(30, 10), ssize = 30, seed = 73
+    outcome_type = "binary", nu = c(-4, -3, -4),
+    draws = 30, burnin = 10, min_subgroup_size = 30, seed = 73
   )
   expect_s3_class(fit, "imr")
-  expect_true(any(grepl("^age_group", fit$covariate_names)))
+  expect_true(any(grepl("^age_group", fit$model$covariate_names)))
 })
 
 test_that("imr_data can carry prediction platforms and covariates", {
@@ -158,6 +158,6 @@ test_that("predict returns full precision", {
     ),
     covariates = simIMR$covariates
   )
-  values <- unlist(lapply(out, `[[`, "predict"), use.names = FALSE)
+  values <- unlist(lapply(out, `[[`, "prediction"), use.names = FALSE)
   expect_true(any(abs(values - round(values, 3L)) > 1e-8))
 })

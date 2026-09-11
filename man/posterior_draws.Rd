@@ -46,7 +46,8 @@ effects, follow the original first-order pMOM prior. Inactive molecular
 coefficients are exactly zero. Molecular and clinical slopes are on the
 subgroup-standardized predictor scale; responses are not standardized.
 
-Whole selection draws are resampled uniformly from `object$gam_sample`,
+Whole selection draws are resampled uniformly from the fit's retained
+selection draws,
 preserving their empirical joint distribution across subgroups. For each
 distinct subgroup model, a Gibbs sampler draws coefficients and variance
 conditional on the observed data. Binary and censored responses are augmented
@@ -70,8 +71,8 @@ retained only for historical compatibility.
 \donttest{
 x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
 y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
-fit <- imr(list(assay = x), y, type_outcome = "continuous",
-           h0 = 1, sample_mcmc = c(500, 250), seed = 1)
+fit <- imr(list(assay = x), y, outcome_type = "continuous",
+           forced_prior_scale = 1, draws = 500, burnin = 250, seed = 1)
 draws <- posterior_draws(fit, draws = 1000, burnin = 1000,
                          conditional_draws = 1000, seed = 2)
 summary(draws)
