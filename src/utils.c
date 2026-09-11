@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <stdint.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
-#include <gsl/gsl_multifit.h>
 #include <R.h>
 #include <Rinternals.h>
 #include <gsl/gsl_blas.h>
@@ -69,44 +69,6 @@ void ridge_predict_only(const double *X, const double *y,
     gsl_vector_free(beta);
     gsl_permutation_free(perm);
 }
-// Function to fit OLS and get predicted values
-
-void fitted_ols(double * X_data, double * y_data,int n, int p, double *ypred){
-    gsl_matrix_view X = gsl_matrix_view_array(X_data, n, p);
-    gsl_vector_view y = gsl_vector_view_array(y_data, n);
-    gsl_vector *c = gsl_vector_alloc(p);       // coefficients
-    gsl_matrix *cov = gsl_matrix_alloc(p, p);  // covariance matrix
-    double chisq;
-
-    gsl_multifit_linear_workspace *work = gsl_multifit_linear_alloc(n, p);
-
-    gsl_multifit_linear(&X.matrix, &y.vector, c, cov, &chisq, work);
-
-    /*
-    printf("Estimated coefficients:\n");
-    for(int i = 0; i < p; i++) {
-        printf("beta[%d] = %g\n", i, gsl_vector_get(c, i));
-    }
-    */
-
-    gsl_multifit_linear_free(work);
-
-      gsl_vector *y_pred = gsl_vector_alloc(n);
-    gsl_blas_dgemv(CblasNoTrans, 1.0, &X.matrix, c, 0.0, y_pred);
-
-    //printf("Predicted values:\n");
-    for(int i = 0; i < n; i++) {
-       ypred[i]= gsl_vector_get(y_pred, i);
-    }
-
-    gsl_vector_free(c);
-    gsl_vector_free(y_pred);
-    gsl_matrix_free(cov);
-
-
-}
-
-
 float generate_normal(const float sigma)
 {
 
@@ -449,30 +411,43 @@ double ****r_list_list_matrix_to_c(int listlength, SEXP ListListMat)
 }
 
 
-void compute_mrf_normalizer(int p, double **theta, double nu, double *mrf)
+static double mrf_log_weight(uint64_t state, int n_models,
+                             double **theta, double nu)
 {
-    double mrfc = 0;
-    int ss = 1 << p;
-    int i, j, j1;
-    int bj, bj1;
-    for (i = 0; i < ss; i++)
+    int selected = 0;
+    double interaction = 0.0;
+    for (int j = 0; j < n_models; ++j)
     {
-        int b = 0;
-        double bc = 0;
-        for (j = p - 1; j >= 0; j--)
+        const unsigned int bit_j = (unsigned int)((state >> j) & UINT64_C(1));
+        selected += (int)bit_j;
+        interaction += bit_j * theta[j][j];
+        for (int k = 0; k < j; ++k)
         {
-            bj = ((int)floor(i * (1.0 / (1 << j)))) % 2; // gives all the binary combinations
-            b += bj;
-            for (j1 = 0; j1 < j; j1++)
-            {
-                bj1 = (int)floor(i * (1.0 / (1 << j1))) % 2;
-                bc += 2 * bj * bj1 * theta[j][j1];
-            }
-            bc += pow(bj, 2) * theta[j][j];
+            const unsigned int bit_k =
+                (unsigned int)((state >> k) & UINT64_C(1));
+            interaction += 2.0 * bit_j * bit_k * theta[j][k];
         }
-        mrfc += exp(nu * b + bc);
     }
-    *mrf = mrfc;
+    return nu * selected + interaction;
+}
+
+void compute_mrf_log_normalizer(int n_models, double **theta, double nu,
+                                double *log_normalizer)
+{
+    const uint64_t n_states = UINT64_C(1) << (unsigned int)n_models;
+    double max_log_weight = -INFINITY;
+    for (uint64_t state = 0; state < n_states; ++state)
+    {
+        max_log_weight = fmax(
+            max_log_weight, mrf_log_weight(state, n_models, theta, nu));
+    }
+    double scaled_sum = 0.0;
+    for (uint64_t state = 0; state < n_states; ++state)
+    {
+        scaled_sum += exp(
+            mrf_log_weight(state, n_models, theta, nu) - max_log_weight);
+    }
+    *log_normalizer = max_log_weight + log(scaled_sum);
 }
 
 void sort_descending_index(int n, double *x, int *idx)
@@ -500,87 +475,6 @@ void sort_descending_index(int n, double *x, int *idx)
 }
 
 
-double auc(int n, double *esti, _Bool * class)
-{
-    double fpr[n + 2], tpr[n + 2];
-    double auc1 = 0;
-    int P = 0; // P=positive instances
-    int i, j;
-    double esti1[n];
-    for (i = 0; i < n; i++)
-    {
-        esti1[i] = esti[i];
-        if (class[i] == 1)
-            P += 1;
-    }
-    int idx[n];
-    sort_descending_index(n, esti1, idx);
-
-    fpr[n + 1] = 1;
-    tpr[n + 1] = 1;
-    fpr[0] = 0;
-    tpr[0] = 0;
-    for (i = n; i >= 1; --i)
-    {
-        double af = 0;
-        double at = 0;
-        for (j = 0; j < n; j++)
-        {
-            if (esti[j] > esti1[i - 1])
-            {
-                if (class[j] == 0)
-                {
-                    af += 1;
-                }
-                else
-                {
-                    at += 1;
-                }
-            }
-        }
-        tpr[i] = at / P;
-        fpr[i] = af / (n - P);
-        auc1 += (fpr[i + 1] - fpr[i]) * (tpr[i + 1] + tpr[i]);
-    }
-    auc1 += (fpr[1] - fpr[0]) * (tpr[1] + tpr[0]);
-    auc1 = 0.5 * (auc1);
-    return auc1;
-}
-
-double sample_left_truncated_normal_gsl(double mu, double sd, double lower, const gsl_rng *r)
-{
-    // This functon generates a univariate truncate normal distribution at lower. It uses an accept and reject algorithm
-    double lowern = (lower - mu) / sd;
-    double alphaopt = (lowern + sqrt(pow(lowern, 2) + 4)) / 2;
-    double z = lowern + gsl_ran_exponential(r, 1 / alphaopt);
-    double qz = exp(-pow(z - alphaopt, 2) / 2);
-    double u = gsl_ran_flat(r, 0, 1);
-    // int nmax=4;
-    // int i=0;
-    // while ((u>qz)||(i<nmax)){
-    while (u > qz)
-    {
-        z = lowern + gsl_ran_exponential(r, 1 / alphaopt);
-        qz = exp(-pow(z - alphaopt, 2) / 2);
-        u = gsl_ran_flat(r, 0, 1);
-        // i++;
-    }
-    return z * sd + mu;
-}
-
-void mean_3d_array(int n, int n1, int n2, double (*x)[n1][n2], double me[n1][n2])
-{
-    int i, j, l;
-    for (i = 0; i < n1; i++)
-    {
-        for (j = 0; j < n2; j++)
-        {
-            me[i][j] = 0;
-            for (l = 0; l < n; l++)
-                me[i][j] += x[l][i][j] / n;
-        }
-    }
-}
 void mean_array_columns(int n, int n1, double **x, double *me)
 {
     int i, l;
@@ -589,38 +483,6 @@ void mean_array_columns(int n, int n1, double **x, double *me)
         me[i] = 0;
         for (l = 0; l < n; l++)
             me[i] += x[l][i] / n;
-    }
-}
-
-void matrix_multiply(int n, int K1, int p, double **Mat1, double **Mat2, double **ProdMat)
-{
-    int i, j, k;
-    double a;
-    for (i = 0; i < n; i++)
-    {
-        for (j = 0; j < p; j++)
-        {
-            a = 0;
-            for (k = 0; k < K1; k++)
-            {
-                a += Mat1[i][k] * Mat2[k][j];
-            }
-            ProdMat[i][j] = a;
-        }
-    }
-}
-void matrix_vector_multiply(int n, int K1, double **Mat, double *Vec, double *ProdVec)
-{
-    int i, k;
-    double a;
-    for (i = 0; i < n; i++)
-    {
-        a = 0;
-        for (k = 0; k < K1; k++)
-        {
-            a += Mat[i][k] * Vec[k];
-        }
-        ProdVec[i] = a;
     }
 }
 
@@ -647,71 +509,6 @@ double norm(int n, double *x)
     return sqrt(normx);
 }
 
-double max(int n, double *x)
-{
-    double xmax = x[0];
-    int i;
-    for (i = 0; i < n; i++)
-    {
-        if (x[i] > xmax)
-            xmax = x[i];
-    }
-    return xmax;
-}
-
-double min(int n, double *x)
-{
-    double xmin = x[0];
-    int i;
-    for (i = 0; i < n; i++)
-    {
-        if (x[i] < xmin)
-            xmin = x[i];
-    }
-    return xmin;
-}
-
-void normalize_columns(int nR, int nC, double **x)
-{
-    double *Colmea = column_means(nR, nC, x);
-    double *ColVar = column_vars(nR, nC, x);
-    int i, j;
-    for (i = 0; i < nR; i++)
-        for (j = 0; j < nC; j++)
-            x[i][j] = (x[i][j] - Colmea[j]) / sqrt(ColVar[j]);
-    free(Colmea);
-    free(ColVar);
-}
-
-double *column_means(int nR, int nC, double **x)
-{
-    int i, j;
-    double *Mean = malloc(nC * sizeof(double));
-    for (j = 0; j < nC; j++)
-    {
-        double me = 0;
-        for (i = 0; i < nR; i++)
-            me += x[i][j];
-        Mean[j] = me / nR;
-    }
-    return Mean;
-}
-double *column_vars(int nR, int nC, double **x)
-{
-    int i, j;
-    double *Colmea = column_means(nR, nC, x);
-    double *ColVar = malloc(nC * sizeof(double));
-    for (j = 0; j < nC; j++)
-    {
-        double va = 0;
-        for (i = 0; i < nR; i++)
-            va += (x[i][j] - Colmea[j]) * (x[i][j] - Colmea[j]);
-        ColVar[j] = va / (nR - 1);
-    }
-    free(Colmea);
-    return ColVar;
-}
-
 double sum(int n, double *x)
 {
     int i;
@@ -729,16 +526,6 @@ double mean(int n, double *x)
         me += x[i];
     return me / n;
 }
-double mean_squared_error(int n, double *x, double*y)
-{
-    int i;
-    double mse = 0;
-    for (i = 0; i < n; i++)
-        mse += (x[i] - y[i]) * (x[i] - y[i]);
-    return mse / n;
-}
-
-
 double var(int n, double *x)
 {
     int i;
@@ -779,16 +566,6 @@ double **dmatrix(int nrl, int nrh, int ncl, int nch)
     return m;
 }
 
-_Bool *bvector(int nl, int nh)
-{
-    _Bool *v;
-
-    v = (_Bool *)malloc((nh - nl + 1) * sizeof(_Bool));
-    if (!v)
-        nrerror("allocation failure in dvector()");
-    return v - nl;
-}
-
 _Bool **bmatrix(int nrl, int nrh, int ncl, int nch)
 {
     int i;
@@ -807,11 +584,6 @@ _Bool **bmatrix(int nrl, int nrh, int ncl, int nch)
         m[i] -= ncl;
     }
     return m;
-}
-
-void free_dvector(double *v, int nl, int nh)
-{
-    free((char *)(v + nl));
 }
 
 void free_dmatrix(double **m, int nrl, int nrh, int ncl, int nch)

@@ -13,7 +13,7 @@
  */
 void sample_mrf_theta(
     int n_features, int n_models, double **theta, double **accept_theta,
-    double *mrf_normalizer, _Bool **gamma, double nu, double alpha0,
+    double *mrf_log_normalizer, _Bool **gamma, double nu, double alpha0,
     double **beta0, gsl_rng *rng)
 {
     const double proposal_variance = 0.05;
@@ -37,16 +37,16 @@ void sample_mrf_theta(
             double new_rate = MAX(theta_proposal / proposal_variance, 0.001);
             double new_shape = MAX(theta_proposal, 0.2) * new_rate;
 
-            double proposed_mrf_normalizer;
-            compute_mrf_normalizer(
-                n_models, theta, nu, &proposed_mrf_normalizer);
+            double proposed_mrf_log_normalizer;
+            compute_mrf_log_normalizer(
+                n_models, theta, nu, &proposed_mrf_log_normalizer);
 
             double log_accept_ratio =
                 (alpha0 - 1) * (log(theta_proposal) - log(theta_current)) +
                 (theta_proposal - theta_current) *
                     (2 * shared_selected - beta0[i][j]) -
                 n_features *
-                    (log(proposed_mrf_normalizer) - log(*mrf_normalizer));
+                    (proposed_mrf_log_normalizer - *mrf_log_normalizer);
 
             double accept = MIN(
                 exp(log_accept_ratio +
@@ -58,7 +58,7 @@ void sample_mrf_theta(
             double uni = gsl_ran_flat(rng, 0, 1);
             if (uni < accept)
             {
-                *mrf_normalizer = proposed_mrf_normalizer;
+                *mrf_log_normalizer = proposed_mrf_log_normalizer;
                 accept_theta[i][j] += 1;
                 accept_theta[j][i] = accept_theta[i][j];
             }

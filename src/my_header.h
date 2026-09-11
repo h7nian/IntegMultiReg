@@ -10,10 +10,15 @@
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
+typedef enum {
+    IMR_OUTCOME_SURVIVAL = 1,
+    IMR_OUTCOME_BINARY = 2,
+    IMR_OUTCOME_CONTINUOUS = 3
+} imr_outcome_type;
+
 /*
  * Internal C naming convention:
- *   - exported R registration strings keep their historical names
- *     ("mainFunction", "mainFunctionPredictionTest", ...);
+ *   - registered entry points use the `imr_` prefix;
  *   - C identifiers use snake_case;
  *   - variable-selection indicators are called gamma/gam in comments and
  *     code because they match the notation in the model.
@@ -63,7 +68,7 @@ void sample_binary_latent_response(
 
 void sample_mrf_theta(
     int n_features, int n_models, double **theta, double **accept_theta,
-    double *mrf_normalizer, _Bool **gamma, double nu, double alpha0,
+    double *mrf_log_normalizer, _Bool **gamma, double nu, double alpha0,
     double **beta0, gsl_rng *rng);
 
 /* Model probability, likelihood and design-matrix helpers. */
@@ -92,17 +97,17 @@ void maximize_nonlocal_beta(
 
 double log_posterior(
     double *log_likelihood, _Bool ***gamma, double *nu, double ***theta,
-    double *mrf_normalizer, double alpha0, double ***beta_theta,
+    double *mrf_log_normalizer, double alpha0, double ***beta_theta,
     int n_subgroups, int n_platforms, int *n_features, int *n_platform_models);
 
-void compute_mrf_normalizer(
-    int n_models, double **theta, double nu, double *mrf_normalizer);
+void compute_mrf_log_normalizer(
+    int n_models, double **theta, double nu, double *log_normalizer);
 
 /* Prediction and cross-validation. */
 double ***infer_posterior_models(
     double **latent_y, double ***covariates, double ****features,
     int n_samples, _Bool ****gamma_sample, double *nu, double ***theta,
-    double *mrf_normalizer, double *slab_scale, double covariate_scale,
+    double *mrf_log_normalizer, double *slab_scale, double covariate_scale,
     double intercept_scale, double first_platform_scale, double alpha0,
     double alpha, double psi, int *n_features, int n_subgroups,
     int n_platforms, int *n_platform_models, int *n_model_platforms,

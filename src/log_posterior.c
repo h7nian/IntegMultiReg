@@ -15,7 +15,7 @@
  *   3. gamma prior on the MRF interaction parameters theta.
  */
 double log_posterior(double *loglik, _Bool ***gamma, double *nu, double ***theta,
-               double *mrf, double alpha0, double ***betaTh, int nbrsugbroups,
+               double *mrf_log_normalizer, double alpha0, double ***betaTh, int nbrsugbroups,
                int n_platforms, int *G, int *n_platform_models_c)
 {
     double logPost = 0;
@@ -41,7 +41,8 @@ double log_posterior(double *loglik, _Bool ***gamma, double *nu, double ***theta
                 }
             }
         }
-        logPostGam += nu[l] * sumGX + thetGamX - G[l] * log(mrf[l]);
+        logPostGam += nu[l] * sumGX + thetGamX -
+                      G[l] * mrf_log_normalizer[l];
     }
 
     // Prior theta

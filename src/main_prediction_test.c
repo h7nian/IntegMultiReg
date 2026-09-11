@@ -117,7 +117,7 @@ SEXP main_function_prediction_test(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_
     double *mrf = calloc(n_platforms, sizeof(double));
     for (int l = 0; l < n_platforms; l++)
     {
-        compute_mrf_normalizer(n_platform_models_c[l], theta[l], nu[l], &mrf[l]);
+        compute_mrf_log_normalizer(n_platform_models_c[l], theta[l], nu[l], &mrf[l]);
     }
     double *h = malloc(n_subgroups * sizeof(double));
     for (int i = 0; i < n_subgroups; i++)

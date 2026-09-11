@@ -61,7 +61,7 @@ void initialize_sampler_state(int type_out, double **Y, double ***newCC, double 
     {
       total_selected_features += n_selected_features[l];
     }
-    if (type_out == 2)
+    if (type_out == IMR_OUTCOME_BINARY)
     { // binary outcome
       int tot = 1 + K + total_selected_features;
       double *X_data = calloc(N*tot, sizeof(double));

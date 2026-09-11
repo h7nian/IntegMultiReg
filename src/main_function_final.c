@@ -204,7 +204,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     double **ymean = malloc(n_subgroups * sizeof(double *));
     double **yobs = NULL;
     _Bool **yobsb = NULL;
-    if (type_out == 2) // binary
+    if (type_out == IMR_OUTCOME_BINARY)
     {
         yobsb = malloc(n_subgroups * sizeof(_Bool *));
     }
@@ -217,7 +217,8 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     {
         n_censored[i] = 0;
         ymean[i] = dvector(0, sample_size_ptr[i] - 1);
-        if ((type_out == 1) || (type_out == 3)) // right censored or continuous
+        if ((type_out == IMR_OUTCOME_SURVIVAL) ||
+            (type_out == IMR_OUTCOME_CONTINUOUS))
             yobs[i] = dvector(0, sample_size_ptr[i] - 1);
         else // binary
             yobsb[i] = (_Bool *)malloc(sample_size_ptr[i] * sizeof(_Bool));
@@ -225,11 +226,12 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
         _Bool Delta[sample_size_ptr[i]];
         for (int j = 0; j < sample_size_ptr[i]; j++)
         {
-            if (type_out == 1)
+            if (type_out == IMR_OUTCOME_SURVIVAL)
                 Delta[j] = (_Bool)newYY_arr[i][j][1];
             else
                 Delta[j] = 1;
-            if ((type_out == 1) || (type_out == 3)) // right censored or continuous
+            if ((type_out == IMR_OUTCOME_SURVIVAL) ||
+                (type_out == IMR_OUTCOME_CONTINUOUS))
                 ymean[i][j] = ylatent[i][j] =yobs[i][j] = newYY_arr[i][j][0];
             else //binary
                 ylatent[i][j] = yobsb[i][j] = (_Bool)newYY_arr[i][j][0];
@@ -237,23 +239,24 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
            // ymean[i][j] = ylatent[i][j] = yobs[i][j];
             // ylatent[i][j] = gsl_ran_exponential(r, ylatent[i]);
 
-            if ((Delta[j] == 0)&& (type_out == 1))
+            if ((Delta[j] == 0) && (type_out == IMR_OUTCOME_SURVIVAL))
             {
                 ylatent[i][j] += 0.01;
                 ymean[i][j] = 0;
             }
-             if (type_out == 2)
+             if (type_out == IMR_OUTCOME_BINARY)
                 ymean[i][j] = 0;
             
         }
         find_indices_not_equal(sample_size_ptr[i], Delta, 1, censored_index[i], &n_censored[i]);
-        if (type_out == 1)
+        if (type_out == IMR_OUTCOME_SURVIVAL)
             Rprintf("\nNumber of censored values for subgroup %d is %d\n", i + 1, n_censored[i]);
     }
     // Memory for MCMC acceptance (only needed for censored or binary latent
     // updates; for continuous outcomes accept_y is left NULL).
     double **accept_y = NULL;
-    if ((type_out == 1) || (type_out == 2))
+    if ((type_out == IMR_OUTCOME_SURVIVAL) ||
+        (type_out == IMR_OUTCOME_BINARY))
     {
         accept_y = malloc(n_subgroups * sizeof(double *));
         for (int m = 0; m < n_subgroups; m++)
@@ -333,7 +336,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     double *mrf = calloc(n_platforms, sizeof(double));
     for (int l = 0; l < n_platforms; l++)
     {
-        compute_mrf_normalizer(n_platform_models_c[l], theta[l], nu[l], &mrf[l]);
+        compute_mrf_log_normalizer(n_platform_models_c[l], theta[l], nu[l], &mrf[l]);
         Rprintf("%.3lf ", mrf[l]);
     }
 
@@ -395,7 +398,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
              sample_gamma_indicators(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
                         ylatent[m], newCC[m], X1[m], gamma, &log_likelihood[m], &logdet[m], &scal[m], nu, theta,
                         n_platform_models_c, platform_models_c, accept_gamma, r, likelihood_type, h[m], h1, h0, hg, K, alpha, psi);
-            if ((type_out == 1) && (n_censored[m] > 0)) // right censored outcome and we have censored subjects    
+            if ((type_out == IMR_OUTCOME_SURVIVAL) && (n_censored[m] > 0))
             {
                 sample_censored_latent_response(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
                              ylatent[m], yobs[m], newCC[m], X1[m], gamma, &scal[m], &log_likelihood[m],
@@ -411,7 +414,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
                 }
             }
 
-            if (type_out == 2)  // binary outcome
+            if (type_out == IMR_OUTCOME_BINARY)
             {
                  sample_binary_latent_response(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
                                   ylatent[m], yobsb[m], newCC[m], X1[m], gamma, &log_likelihood[m],
@@ -678,7 +681,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     }
     free(censored_index);
     free(ylatent);
-    if (type_out == 2)//binary
+    if (type_out == IMR_OUTCOME_BINARY)
     {
         for (int m = 0; m < n_subgroups; m++)
         {
@@ -693,7 +696,8 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
         free(yobs);
     }
     
-    if ((type_out == 1) || (type_out == 2))
+    if ((type_out == IMR_OUTCOME_SURVIVAL) ||
+        (type_out == IMR_OUTCOME_BINARY))
     {
         for (int m = 0; m < n_subgroups; m++)
         {

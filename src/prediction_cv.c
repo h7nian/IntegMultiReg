@@ -115,7 +115,8 @@ double *predict_bma(int model, int K, int n_selected_platforms, int sample_size,
         else
           yh += PG[i][j - 1] * beta[l0][model][j];
       }
-      yhat[i] += (type_out == 2 ? pnorm5(yh, 0.0, 1.0, 1, 0) : yh) * post[l];
+      yhat[i] += (type_out == IMR_OUTCOME_BINARY ?
+                  pnorm5(yh, 0.0, 1.0, 1, 0) : yh) * post[l];
     }
     for (i = 0; i < sample_size; i++)
       free(PG[i]);
