@@ -86,13 +86,17 @@ test_that("MRF subgroup capacity is enforced at 16 before native code", {
   expect_error(validate_imr(bad), "at most 16")
 })
 
-test_that("extreme sparsity priors keep the MRF log normalizer finite", {
+test_that("extreme inclusion priors remain finite and sanitizer-safe", {
   ids <- seq_len(24L)
   platform <- data.frame(id = ids, marker = sin(ids))
-  fit <- imr(
-    list(assay = platform), data.frame(id = ids, y = cos(ids)),
-    outcome_type = "continuous", nu = 1000,
-    min_subgroup_size = 0, draws = 2, burnin = 0, seed = 91
-  )
-  expect_true(all(is.finite(fit$posterior$log_posterior)))
+  fits <- lapply(c(-1000, 1000), function(extreme_nu) {
+    imr(
+      list(assay = platform), data.frame(id = ids, y = cos(ids)),
+      outcome_type = "continuous", nu = extreme_nu,
+      min_subgroup_size = 0, draws = 2, burnin = 0, seed = 91
+    )
+  })
+  expect_true(all(vapply(fits, function(fit) {
+    all(is.finite(fit$posterior$log_posterior))
+  }, logical(1))))
 })

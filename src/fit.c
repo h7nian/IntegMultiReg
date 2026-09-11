@@ -297,10 +297,17 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     double *nu = REAL(nu_R);
     for (int l = 0; l < n_platforms; l++)
     {
-        int initg = exp(nu[l]) * G[l] / (1 + exp(nu[l]));
+        /* Evaluate the logistic inclusion probability without forming
+         * exp(nu) / (1 + exp(nu)), which becomes Inf / Inf for a large
+         * positive prior and is undefined when converted to an integer. */
+        double exp_term = exp(nu[l] < 0.0 ? nu[l] : -nu[l]);
+        double inclusion_probability = nu[l] < 0.0
+            ? exp_term / (1.0 + exp_term)
+            : 1.0 / (1.0 + exp_term);
+        int initial_inclusions = (int)(inclusion_probability * G[l]);
         for (int m = 0; m < n_platform_models_c[l]; m++)
         {
-            for (int i = 0; i < initg; i++)
+            for (int i = 0; i < initial_inclusions; i++)
             {
                 int ii = gsl_rng_uniform_int(r, G[l]);
                 gamma[l][m][ii] = 1;
