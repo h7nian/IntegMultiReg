@@ -27,6 +27,9 @@
 #'   or `"importance"`. This is independent of the fitted IMR/BMS `method`.
 #' @param verbose Logical; if `TRUE`, print fold progress and sampler
 #'   diagnostics.  Defaults to `FALSE`.
+#' @param workers Positive integer number of PSOCK worker processes (default
+#'   `1L`, serial). Applies to all three CV methods. At most `k * rounds`
+#'   processes are used; no automatic CPU detection is performed.
 #'
 #' @return A named list. `pooled` and `fold_mean` are numeric matrices of dimension
 #'   `rounds` x `(n_subgroups + 1)`, whose last column corresponds to all
@@ -72,6 +75,20 @@
 #' results are reproducible and the caller's R RNG state is preserved.
 #' Hyperparameters are fixed; data-driven tuning needs an outer validation layer.
 #'
+#' Parallel execution preserves each method's partitions, seeds and output
+#' ordering. Each process holds its own fit and training-fold workspace, with
+#' single-threaded mathematical libraries; memory use grows with `workers`.
+#' Process startup can make short jobs slower. Use only one parallel layer
+#' when running multiple experiments. Worker failures stop the entire call;
+#' no partial result or silent serial fallback is returned. Worker warnings
+#' are relayed in task order after computation. Verbose worker output is not
+#' guaranteed to appear in the calling console.
+#'
+#' For parallel formula refits, custom functions must be available in a
+#' serializable formula environment (for example a local closure), or use a
+#' package-qualified function name. The caller's global workspace is not
+#' exported to workers. `workers = 1L` retains ordinary formula evaluation.
+#'
 #' @seealso [imr()], [predict.imr()]
 #'
 #' @examples
@@ -90,7 +107,8 @@
 cv_imr <- function(object, k = 5, rounds = 2,
                    method = NULL,
                    max_models = 100, verbose = FALSE,
-                   cv_method = c("legacy", "refit", "importance")) {
+                   cv_method = c("legacy", "refit", "importance"),
+                   workers = 1L) {
   if (!inherits(object, "imr")) {
     .imr_abort("`object` must be an `imr` object returned by `imr()`.")
   }
@@ -100,6 +118,9 @@ cv_imr <- function(object, k = 5, rounds = 2,
   k <- .imr_check_integer_scalar(k, "k", min = 2)
   rounds <- .imr_check_integer_scalar(rounds, "rounds", min = 1)
   max_models <- .imr_check_integer_scalar(max_models, "max_models", min = 1)
+  workers <- .imr_check_integer_scalar(workers, "workers", min = 1)
+  if (as.double(k) * rounds > .Machine$integer.max)
+    .imr_abort("The requested number of CV tasks exceeds the supported index limit.")
   control <- object$control
   model <- object$model
   preprocessing <- object$preprocessing
@@ -130,9 +151,9 @@ cv_imr <- function(object, k = 5, rounds = 2,
     .imr_abort("Refit this formula model to retain the raw formula data required for cross-validation.")
   }
   if (cv_method != "refit") {
-    return(.imr_cv_postfit(object, k, rounds, max_models, verbose, cv_method))
+    return(.imr_cv_postfit(object, k, rounds, max_models, verbose, cv_method, workers))
   }
-  .imr_cv_refit_result(object, k, rounds, max_models, verbose)
+  .imr_cv_refit_result(object, k, rounds, max_models, verbose, workers)
 }
 
 .imr_cv_refit_result <- function(object, k, rounds, max_models, verbose,

@@ -1,6 +1,6 @@
-# Development-only timing for the staged, internal refit task dispatcher.
+# Development-only timing of public refit CV at different worker counts.
 # Run in a fresh process with single-threaded math libraries. Do not run other
-# benchmarks concurrently. This is not a paper experiment or a public API.
+# benchmarks concurrently. This is not a paper experiment.
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) != 4L) stop("Usage: fit.rds new-output-directory folds rounds")
 library(IntegMultiReg)
@@ -20,8 +20,8 @@ for (workers in c(1L, 2L)) {
     set.seed(739)
     rng <- .Random.seed
     elapsed <- system.time({
-      result <- IntegMultiReg:::.imr_cv_refit_result(
-        fit, k, rounds, 100L, FALSE, workers)
+      result <- cv_imr(fit, k = k, rounds = rounds, max_models = 100L,
+                       cv_method = "refit", workers = workers)
     })[["elapsed"]]
     stopifnot(identical(.Random.seed, rng))
     if (is.null(reference)) reference <- result

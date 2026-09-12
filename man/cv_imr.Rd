@@ -11,7 +11,8 @@ cv_imr(
   method = NULL,
   max_models = 100,
   verbose = FALSE,
-  cv_method = c("legacy", "refit", "importance")
+  cv_method = c("legacy", "refit", "importance"),
+  workers = 1L
 )
 }
 \arguments{
@@ -38,6 +39,10 @@ diagnostics.  Defaults to `FALSE`.}
 
 \item{cv_method}{Validation algorithm: `"legacy"` (default), `"refit"`,
 or `"importance"`. This is independent of the fitted IMR/BMS `method`.}
+
+\item{workers}{Positive integer number of PSOCK worker processes (default
+`1L`, serial). Applies to all three CV methods. At most `k * rounds`
+processes are used; no automatic CPU detection is performed.}
 }
 \value{
 A named list. `pooled` and `fold_mean` are numeric matrices of dimension
@@ -93,6 +98,20 @@ stratifies binary outcomes by class. Identical seeds therefore do not give
 identical partitions across refit and post-fit modes. Within each mode,
 results are reproducible and the caller's R RNG state is preserved.
 Hyperparameters are fixed; data-driven tuning needs an outer validation layer.
+
+Parallel execution preserves each method's partitions, seeds and output
+ordering. Each process holds its own fit and training-fold workspace, with
+single-threaded mathematical libraries; memory use grows with `workers`.
+Process startup can make short jobs slower. Use only one parallel layer
+when running multiple experiments. Worker failures stop the entire call;
+no partial result or silent serial fallback is returned. Worker warnings
+are relayed in task order after computation. Verbose worker output is not
+guaranteed to appear in the calling console.
+
+For parallel formula refits, custom functions must be available in a
+serializable formula environment (for example a local closure), or use a
+package-qualified function name. The caller's global workspace is not
+exported to workers. `workers = 1L` retains ordinary formula evaluation.
 }
 \examples{
 \donttest{

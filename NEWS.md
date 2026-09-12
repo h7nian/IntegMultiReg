@@ -1,5 +1,12 @@
 # IntegMultiReg 0.2.0
 
+* Add `workers = 1L` to `cv_imr()` for optional PSOCK process parallelism in
+  all three CV modes. Serial execution and the legacy default are unchanged.
+  Partitions, refit seeds, draw contributions and metric aggregation order are
+  preserved. Workers use single-threaded math libraries and report failures
+  without returning partial results; process startup and memory costs are
+  documented in `?cv_imr`.
+
 * Importance CV reuses fold-local calculations for identical retained selection
   states. State identities are indexed once per call with collision verification
   and a bounded auxiliary cache; every draw still contributes in its original

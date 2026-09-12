@@ -78,19 +78,26 @@ failures/warnings/skips, including cache-off, bounded-capacity and collision tes
 The refit path now uses a deterministic task dispatcher. Its internal PSOCK
 route is tested at 2 and 3 workers against the serial result for all six
 outcome/model combinations, plus formula transformations, serialization,
-RNG preservation, worker errors and socket/environment cleanup. The public
-`workers` argument is not enabled yet: post-fit task boundaries must first be
-implemented and verified. `performance-refit-workers.R` measures this staged
+RNG preservation, worker errors and socket/environment cleanup. Post-fit
+partition/prediction/scoring stages now preserve the full native output under
+nonconsecutive fold batches, including survival's carried-over shuffle state.
+Both post-fit modes pass exact 2/3-worker comparisons on all six simulated
+outcome/model combinations and the frozen 448-subject KIRC fit (5 folds,
+2 rounds). The public `workers` argument is now connected to all three modes.
+`performance-refit-workers.R` measures the refit
 dispatcher (one warm-up and five repeats at each worker count); use the same
 frozen fit and an otherwise idle machine. Short tasks may not amortize process
 startup, and each child holds its own fit and training-fold allocations.
-The staged installed suite passes 784 assertions with zero failures, warnings
-or skips. Six saved-baseline refit comparisons and the final worker executor
-on the frozen KIRC fit return exactly identical complete results. This is
-correctness evidence, not final performance or cross-platform acceptance.
+The internal post-fit dispatch stage passed 999 installed assertions with zero
+failures, warnings or skips. Eighteen saved-baseline comparisons (all CV modes
+for all outcome/model combinations) return exactly identical complete results.
+The public API also validates worker counts and relays worker warnings in task
+order. Parallel formula refits require serializable custom-function bindings
+or package-qualified functions; the caller's global workspace is not exported.
+These are correctness gates, not final performance or cross-platform acceptance.
 
 The existing draw-by-test prediction buffer is still present; its compression
 and the full memory-growth study remain undone. This is not the complete
-performance plan. Optional parallel CV workers, broader workspace reuse,
+performance plan. Final parallel CV measurements, broader workspace reuse,
 matrix-kernel experiments and final cross-platform/sanitizer/Valgrind gates
 remain pending. No changes were retained in the sampling kernel.

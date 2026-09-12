@@ -172,6 +172,15 @@ estimate. This is not an exact reproduction of the original study.
 and predictions. The post-fit GSL and refit R generators produce different
 partitions, even with the same seed. Data-driven tuning requires outer validation.
 
+All three methods accept `workers = 2L` (or another positive integer) for
+PSOCK process parallelism. The default `workers = 1L` remains serial. Each
+method preserves its own partitions, seeds, prediction order and scoring;
+changing the worker count does not select a different validation algorithm.
+Process startup may outweigh the benefit for short runs, and each worker needs
+its own fit/workspace memory. Avoid nesting CV workers inside parallel experiment
+runs. For custom formula functions, use a serializable local formula environment
+or a package-qualified function name; the global workspace is not exported.
+
 
 ### Compare prespecified covariate formulas
 
