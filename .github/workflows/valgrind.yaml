@@ -11,6 +11,48 @@ permissions:
   contents: read
 
 jobs:
+  valgrind-workers:
+    name: R-devel / Linux / valgrind PSOCK children
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      CLI_NO_THREAD: "1"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: devel
+          use-public-rspm: true
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libgsl-dev valgrind
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          needs: check
+      - name: Install package
+        run: |
+          mkdir -p "${RUNNER_TEMP}/worker-library"
+          R CMD INSTALL --preclean --library="${RUNNER_TEMP}/worker-library" .
+      - name: Check instrumented PSOCK children
+        shell: bash
+        run: |
+          export IMR_VALGRIND_LOG_DIR="${RUNNER_TEMP}/valgrind-workers"
+          mkdir -p "${IMR_VALGRIND_LOG_DIR}"
+          chmod +x .github/scripts/valgrind-worker-rscript.sh
+          R_LIBS="${RUNNER_TEMP}/worker-library" \
+            Rscript .github/scripts/verify-valgrind-workers.R 2>&1 | \
+            tee "${IMR_VALGRIND_LOG_DIR}/verification.log"
+      - name: Upload worker logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: valgrind-worker-logs
+          path: ${{ runner.temp }}/valgrind-workers
+          if-no-files-found: error
+
   valgrind:
     name: R-devel / Linux / valgrind
     runs-on: ubuntu-latest
