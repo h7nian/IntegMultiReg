@@ -22,6 +22,7 @@
 #include "my_header.h"
 #include "utils.h"
 #include "cv_precision.h"
+#include "cv_prediction_rows.h"
 
 static double legacy_max(int n, double *values);
 
@@ -106,16 +107,30 @@ static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covari
                 int model_sample_size, int test_sample_size, int *test_index, int *train_index,
                 double *latent_response, double **covariates, double ***features, _Bool ****gamma_sample, double residual_shape, double residual_rate,
                 int max_models, int *model_index, int *high_model_index, int n_draws,
-                int importance, const int *model_representatives)
+                int importance, const int *model_representatives, int *allocation_failed)
 {
 
   int l, i, j, in, i1, i2;
+  postfit_prediction_rows prediction_rows;
+  *allocation_failed = 0;
+  if (!postfit_rows_init(&prediction_rows, max_models, test_sample_size,
+                         model_representatives, malloc, free)) {
+    *allocation_failed = 1;
+    return NULL;
+  }
   double *weight = malloc(max_models * sizeof(double));
   // Latent predictions, transformed to probabilities for binary outcomes.
-  double *prediction = dvector(0, test_sample_size - 1);
+  double *prediction = malloc((size_t)(test_sample_size > 0 ? test_sample_size : 1) * sizeof(double));
+  if (!weight || !prediction) {
+    free(weight);
+    free(prediction);
+    postfit_rows_destroy(&prediction_rows);
+    *allocation_failed = 1;
+    return NULL;
+  }
   for (i = 0; i < test_sample_size; i++)
     prediction[i] = 0;
-  double **model_predictions = dmatrix(0, max_models - 1, 0, test_sample_size - 1);
+  double **model_predictions = prediction_rows.rows;
   for (l = 0; l < max_models; l++)
   {
     int ranked_model = high_model_index[l];
@@ -124,12 +139,17 @@ static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covari
       int row = model_representatives[l];
       if (row < l && R_FINITE(weight[row])) {
         weight[l] = weight[row];
-        memcpy(model_predictions[l], model_predictions[row],
-               (size_t)test_sample_size * sizeof(double));
-        continue;
+        if (postfit_rows_alias(&prediction_rows, l)) continue;
       }
     }
 
+    if (!postfit_rows_allocate(&prediction_rows, l)) {
+      free(weight);
+      free(prediction);
+      postfit_rows_destroy(&prediction_rows);
+      *allocation_failed = 1;
+      return NULL;
+    }
     int **selected_feature_index = malloc(n_selected_platforms * sizeof(int *));
     int n_selected_features[n_selected_platforms];
     for (int i = 0; i < n_selected_platforms; i++)
@@ -312,7 +332,7 @@ static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covari
 
   free(weight);
 
-  free_dmatrix(model_predictions, 0, max_models - 1, 0, test_sample_size - 1);
+  postfit_rows_destroy(&prediction_rows);
 
   if ((outcome_type == IMR_OUTCOME_SURVIVAL) || (outcome_type == IMR_OUTCOME_CONTINUOUS)) // survival outcome or continuous
   {
@@ -493,6 +513,8 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
     clock_t started = clock();
     int importance = asLogical(importance_R);
     int protect_count = 0;
+    int failed_round = -1, failed_fold = -1;
+    SEXP list = R_NilValue;
 
     double forced_scale = REAL(forced_scale_R)[0];
     double molecular_scale = REAL(molecular_scale_R)[0];
@@ -767,12 +789,22 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
                     for (int i = 0; i < test_sample_size; ++i)
                         prediction[i] = REAL(supplied_predictions_R)[subgroup_offset + test_index[i] + n_subjects * cv_round];
                 } else {
+                    int prediction_allocation_failed = 0;
                     prediction = postfit_predict_fold(outcome_type, m, n_covariates, n_model_platforms_c[m], model_platforms_c[m],
                                         n_platform_models_c, platform_models_c, n_features,
                                         sample_size_ptr[m], test_sample_size, test_index, train_index,
                                         latent_response[m], covariates[m], features[m], gamma_sample, residual_shape, residual_rate,
                                         max_models, model_index, high_model_index, n_draws, importance,
-                                        model_representatives);
+                                        model_representatives, &prediction_allocation_failed);
+                    if (prediction_allocation_failed) {
+                        free(fold_response);
+                        free(fold_binary);
+                        free(fold_event);
+                        free(fold_prediction);
+                        failed_round = cv_round;
+                        failed_fold = fold;
+                        goto cleanup;
+                    }
                 }
                 for (int i = 0; i < test_sample_size; ++i)
                     REAL(predictions_R)[subgroup_offset + test_index[i] + n_subjects * cv_round] = prediction[i];
@@ -911,7 +943,6 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
     SEXP c_index_R = PROTECT(c_array_to_r_matrix(c_index_list, n_cv_rounds, n_subgroups + 1));
     protect_count++;
     int list_size = 4;
-    SEXP list;
     SEXP list_names;
     PROTECT(list = allocVector(VECSXP, list_size));
     protect_count++;
@@ -927,7 +958,8 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
     SET_STRING_ELT(list_names, 3, mkChar("folds"));
     setAttrib(list, R_NamesSymbol, list_names);
 
-    /* We free allocated memories */
+cleanup:
+    /* The allocation-failure path also releases fully prepared native inputs. */
     free_r_list_list_matrix_to_c(features, n_subgroups, features_R);
     features = NULL;
     for (int m = 0; m < n_subgroups; m++)
@@ -1025,5 +1057,8 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
     /* Printing can allocate through R's output connection. Keep the result
      * protected until the last allocation-capable operation is finished. */
     UNPROTECT(protect_count);
+    if (failed_round >= 0)
+        Rf_error("Unable to allocate CV predictions (round %d, fold %d)",
+                 failed_round + 1, failed_fold + 1);
     return list;
 }

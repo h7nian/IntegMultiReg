@@ -75,6 +75,15 @@ jobs:
             $(pkg-config --cflags --libs gsl) -o "${RUNNER_TEMP}/cv-precision-test"
           "${RUNNER_TEMP}/cv-precision-test"
 
+      - name: Check prediction-row ownership and allocation failures
+        shell: bash
+        run: |
+          clang -O1 -g -fsanitize=address,undefined \
+            -fno-sanitize-recover=undefined -fno-omit-frame-pointer \
+            .github/scripts/test-cv-prediction-rows.c src/cv_prediction_rows.c \
+            -o "${RUNNER_TEMP}/cv-prediction-rows-test"
+          "${RUNNER_TEMP}/cv-prediction-rows-test"
+
       - name: Install instrumented package and tests
         shell: bash
         run: |
@@ -165,6 +174,10 @@ jobs:
           if [[ ${status} -ne 0 || ${sanitizer_status} -ne 0 ]]; then
             exit 1
           fi
+
+      - name: Check native error cleanup in an isolated fault build
+        shell: bash
+        run: bash .github/scripts/verify-cv-row-failures.sh
 
       - name: Upload sanitizer logs
         if: always()

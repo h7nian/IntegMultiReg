@@ -1,0 +1,46 @@
+diff --git a/src/cv_postfit.c b/src/cv_postfit.c
+--- a/src/cv_postfit.c
++++ b/src/cv_postfit.c
+@@ -24,6 +24,31 @@
+ #include "cv_precision.h"
+ #include "cv_prediction_rows.h"
+ 
++/* Fault injection exists only in this isolated test build. */
++static size_t test_row_calls, test_row_live, test_row_fail_at;
++static void test_rows_reset(void)
++{
++    if (test_row_live) Rf_error("Test detected leaked prediction rows");
++    test_row_calls = 0;
++    const char *setting = getenv("IMR_TEST_ROW_FAIL_AT");
++    test_row_fail_at = setting ? (size_t)atoi(setting) : 0;
++}
++static void *test_rows_malloc(size_t bytes)
++{
++    if (++test_row_calls == test_row_fail_at) return NULL;
++    void *result = malloc(bytes);
++    if (result) ++test_row_live;
++    return result;
++}
++static void test_rows_free(void *pointer)
++{
++    if (pointer) {
++        if (!test_row_live) Rf_error("Test detected unowned prediction row");
++        --test_row_live;
++    }
++    free(pointer);
++}
++
+ static double legacy_max(int n, double *values);
+ 
+ /* Keys refer to immutable draws owned by this call. Hash equality is never
+@@ -113,8 +138,9 @@
+   int l, i, j, in, i1, i2;
+   postfit_prediction_rows prediction_rows;
+   *allocation_failed = 0;
++  test_rows_reset();
+   if (!postfit_rows_init(&prediction_rows, max_models, test_sample_size,
+-                         model_representatives, malloc, free)) {
++                         model_representatives, test_rows_malloc, test_rows_free)) {
+     *allocation_failed = 1;
+     return NULL;
+   }
