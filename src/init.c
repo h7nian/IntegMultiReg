@@ -26,6 +26,7 @@ extern SEXP imr_fit(
     SEXP type_outcome, SEXP newCC_list, SEXP draws_R, SEXP burnin_R);
 
 extern SEXP imr_concordance(SEXP prediction, SEXP time, SEXP status);
+extern SEXP imr_pmom_standardized_draw(SEXP, SEXP, SEXP);
 
 extern SEXP imr_predict(
     SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP beta0_R,
@@ -42,6 +43,7 @@ extern SEXP imr_cv_postfit(
     SEXP, SEXP, SEXP, SEXP, SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
+    {"imr_pmom_standardized_draw", (DL_FUNC) &imr_pmom_standardized_draw, 3},
     {"imr_cv_postfit", (DL_FUNC) &imr_cv_postfit,                29},
     {"imr_fit",         (DL_FUNC) &imr_fit,                      22},
     {"imr_concordance", (DL_FUNC) &imr_concordance,                3},
