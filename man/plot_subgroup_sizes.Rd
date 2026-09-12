@@ -21,39 +21,39 @@ plot_subgroup_sizes(
 )
 }
 \arguments{
-\item{object}{A fitted object of class `"imr"` returned by [imr()].}
+\item{object}{A fitted object of class \code{"imr"} returned by \code{\link[=imr]{imr()}}.}
 
-\item{base_cex}{Overall text-size multiplier. The `cex_*` arguments default
-to values derived from this multiplier (default `1`).}
+\item{base_cex}{Overall text-size multiplier. The \verb{cex_*} arguments default
+to values derived from this multiplier (default \code{1}).}
 
-\item{cex_axis}{Axis-label size multiplier. If `NULL`, a plot-specific
-default derived from `base_cex` is used.}
+\item{cex_axis}{Axis-label size multiplier. If \code{NULL}, a plot-specific
+default derived from \code{base_cex} is used.}
 
-\item{cex_lab}{Axis-title size multiplier. If `NULL`, a plot-specific
-default derived from `base_cex` is used.}
+\item{cex_lab}{Axis-title size multiplier. If \code{NULL}, a plot-specific
+default derived from \code{base_cex} is used.}
 
-\item{cex_main}{Main-title size multiplier. If `NULL`, a plot-specific
-default derived from `base_cex` is used.}
+\item{cex_main}{Main-title size multiplier. If \code{NULL}, a plot-specific
+default derived from \code{base_cex} is used.}
 
-\item{cex_values}{Bar-value label size multiplier. If `NULL`, a plot-specific
-default derived from `base_cex` is used.}
+\item{cex_values}{Bar-value label size multiplier. If \code{NULL}, a plot-specific
+default derived from \code{base_cex} is used.}
 
-\item{col}{Optional bar colours. If `NULL`, colours are generated from
-`palette`.}
+\item{col}{Optional bar colours. If \code{NULL}, colours are generated from
+\code{palette}.}
 
-\item{palette}{Palette name used when `col = NULL`; `"subgroup"` gives the
+\item{palette}{Palette name used when \code{col = NULL}; \code{"subgroup"} gives the
 package's standard neutral grey-blue subgroup colours (default).}
 
 \item{show_values}{Logical; should sample sizes be printed above the bars
-(default `TRUE`)?}
+(default \code{TRUE})?}
 
 \item{ylim}{Optional numeric vector of length two giving the vertical axis
-limits. If `NULL`, limits are chosen from the subgroup sizes.}
+limits. If \code{NULL}, limits are chosen from the subgroup sizes.}
 
 \item{mar, mgp}{Optional graphical margin and axis-title placement vectors
-passed to [graphics::par()] for finer layout control.}
+passed to \code{\link[graphics:par]{graphics::par()}} for finer layout control.}
 
-\item{...}{Further graphical parameters passed to [graphics::barplot()].}
+\item{...}{Further graphical parameters passed to \code{\link[graphics:barplot]{graphics::barplot()}}.}
 }
 \value{
 Invisibly, the named integer vector of subgroup sizes.
@@ -76,5 +76,5 @@ plot_subgroup_sizes(fit)
 }
 }
 \seealso{
-[imr()], [plot.imr()], [plot_top_features()]
+\code{\link[=imr]{imr()}}, \code{\link[=plot.imr]{plot.imr()}}, \code{\link[=plot_top_features]{plot_top_features()}}
 }

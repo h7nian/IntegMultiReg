@@ -10,15 +10,15 @@ posterior_summary(object, ...)
 \method{posterior_summary}{imr}(object, level = 0.95, ...)
 }
 \arguments{
-\item{object}{A fitted `"imr"` object.}
+\item{object}{A fitted \code{"imr"} object.}
 
 \item{...}{Unused; present for future methods.}
 
-\item{level}{Credible interval level between zero and one (default `0.95`).}
+\item{level}{Credible interval level between zero and one (default \code{0.95}).}
 }
 \value{
-An object of class `"posterior_summary.imr"` containing `selection`
-  and `theta` tables.
+An object of class \code{"posterior_summary.imr"} containing \code{selection}
+and \code{theta} tables.
 }
 \description{
 Summarizes retained MCMC draws for variable-selection indicators and MRF

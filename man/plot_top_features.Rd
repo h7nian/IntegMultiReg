@@ -25,58 +25,58 @@ plot_top_features(
 )
 }
 \arguments{
-\item{object}{A fitted object of class `"imr"` returned by [imr()].}
+\item{object}{A fitted object of class \code{"imr"} returned by \code{\link[=imr]{imr()}}.}
 
 \item{top}{Integer; the number of highest-mPIP features to display
-(default `10`).}
+(default \code{10}).}
 
-\item{base_cex}{Overall text-size multiplier. The `cex_*` arguments default
-to values derived from this multiplier (default `1`).}
+\item{base_cex}{Overall text-size multiplier. The \verb{cex_*} arguments default
+to values derived from this multiplier (default \code{1}).}
 
-\item{cex_names}{Feature-label size multiplier. If `NULL`, a plot-specific
-default derived from `base_cex` is used.}
+\item{cex_names}{Feature-label size multiplier. If \code{NULL}, a plot-specific
+default derived from \code{base_cex} is used.}
 
-\item{cex_axis}{Axis-label size multiplier. If `NULL`, a plot-specific
-default derived from `base_cex` is used.}
+\item{cex_axis}{Axis-label size multiplier. If \code{NULL}, a plot-specific
+default derived from \code{base_cex} is used.}
 
-\item{cex_lab}{Axis-title size multiplier. If `NULL`, a plot-specific
-default derived from `base_cex` is used.}
+\item{cex_lab}{Axis-title size multiplier. If \code{NULL}, a plot-specific
+default derived from \code{base_cex} is used.}
 
-\item{cex_main}{Main-title size multiplier. If `NULL`, a plot-specific
-default derived from `base_cex` is used.}
+\item{cex_main}{Main-title size multiplier. If \code{NULL}, a plot-specific
+default derived from \code{base_cex} is used.}
 
-\item{cex_legend}{Legend text size multiplier. If `NULL`, a plot-specific
-default derived from `base_cex` is used.}
+\item{cex_legend}{Legend text size multiplier. If \code{NULL}, a plot-specific
+default derived from \code{base_cex} is used.}
 
-\item{col}{Optional bar colours. If `NULL`, colours are generated from
-`palette`.}
+\item{col}{Optional bar colours. If \code{NULL}, colours are generated from
+\code{palette}.}
 
-\item{palette}{Palette name used when `col = NULL`; `"platform"` gives the
+\item{palette}{Palette name used when \code{col = NULL}; \code{"platform"} gives the
 package's standard muted platform colours (default).}
 
-\item{reference}{Optional vertical reference line; use `NULL` to suppress it
-(default `0.5`).}
+\item{reference}{Optional vertical reference line; use \code{NULL} to suppress it
+(default \code{0.5}).}
 
 \item{show_source}{Logical; should each bar be annotated with the
 availability subgroup (bitstring) in which the feature attained its maximum
-mPIP (default `TRUE`)?}
+mPIP (default \code{TRUE})?}
 
-\item{legend}{Logical; should the platform legend be drawn (default `TRUE`)?}
+\item{legend}{Logical; should the platform legend be drawn (default \code{TRUE})?}
 
 \item{xlim}{Numeric vector of length two giving the horizontal axis limits
-(default `c(0, 1)`).}
+(default \code{c(0, 1)}).}
 
 \item{mar, mgp}{Optional graphical margin and axis-title placement vectors
-passed to [graphics::par()] for finer layout control.}
+passed to \code{\link[graphics:par]{graphics::par()}} for finer layout control.}
 
-\item{...}{Further graphical parameters passed to [graphics::barplot()].}
+\item{...}{Further graphical parameters passed to \code{\link[graphics:barplot]{graphics::barplot()}}.}
 }
 \value{
 Invisibly, a data frame of the displayed features with columns
-  `platform`, `feature`, `mpip` and `subgroup`, where `mpip` is the maximum
-  subgroup mPIP for that platform-feature pair and `subgroup` is the
-  subgroup where the maximum is attained. Rows are ordered by decreasing
-  mPIP.
+\code{platform}, \code{feature}, \code{mpip} and \code{subgroup}, where \code{mpip} is the maximum
+subgroup mPIP for that platform-feature pair and \code{subgroup} is the
+subgroup where the maximum is attained. Rows are ordered by decreasing
+mPIP.
 }
 \description{
 Draws a horizontal bar chart of the features with the highest marginal
@@ -84,7 +84,7 @@ posterior inclusion probability (mPIP).  For each platform-feature pair, the
 plotted score is the highest mPIP attained among the availability subgroups
 containing that platform; the displayed bars are the largest such scores
 across all platforms.  This complements the per-platform heatmap of
-`plot(fit, type = "selection")`.
+\code{plot(fit, type = "selection")}.
 }
 \examples{
 \donttest{
@@ -99,5 +99,5 @@ plot_top_features(fit, top = 8)
 }
 }
 \seealso{
-[imr()], [plot.imr()], [plot_subgroup_sizes()]
+\code{\link[=imr]{imr()}}, \code{\link[=plot.imr]{plot.imr()}}, \code{\link[=plot_subgroup_sizes]{plot_subgroup_sizes()}}
 }

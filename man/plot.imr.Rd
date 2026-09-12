@@ -25,75 +25,75 @@
 )
 }
 \arguments{
-\item{x}{A fitted object of class `"imr"`.}
+\item{x}{A fitted object of class \code{"imr"}.}
 
-\item{type}{Character; one of `"selection"` (default), `"theta"`,
-`"trace"`, `"theta_trace"` or `"selection_trace"`.}
+\item{type}{Character; one of \code{"selection"} (default), \code{"theta"},
+\code{"trace"}, \code{"theta_trace"} or \code{"selection_trace"}.}
 
 \item{platform}{Optional integer vector selecting which platforms to display
-for the `"selection"` and `"theta"` plots; defaults to all platforms.}
+for the \code{"selection"} and \code{"theta"} plots; defaults to all platforms.}
 
-\item{base_cex}{Overall text-size multiplier. The `cex_*` arguments default
-to values derived from this multiplier (default `1`).}
+\item{base_cex}{Overall text-size multiplier. The \verb{cex_*} arguments default
+to values derived from this multiplier (default \code{1}).}
 
-\item{cex_axis}{Axis-label size multiplier. If `NULL`, a plot-specific
-default derived from `base_cex` is used.}
+\item{cex_axis}{Axis-label size multiplier. If \code{NULL}, a plot-specific
+default derived from \code{base_cex} is used.}
 
-\item{cex_lab}{Axis-title size multiplier. If `NULL`, a plot-specific
-default derived from `base_cex` is used.}
+\item{cex_lab}{Axis-title size multiplier. If \code{NULL}, a plot-specific
+default derived from \code{base_cex} is used.}
 
-\item{cex_main}{Main-title size multiplier. If `NULL`, a plot-specific
-default derived from `base_cex` is used.}
+\item{cex_main}{Main-title size multiplier. If \code{NULL}, a plot-specific
+default derived from \code{base_cex} is used.}
 
 \item{col}{Optional colours. For heatmaps this is the colour scale; for
 trace plots this is the line colour.}
 
-\item{palette}{Optional heatmap palette name used when `col = NULL`.
-Selection plots default to `"grey"` to preserve the mPIP intensity scale;
-theta plots default to the muted grey-blue `"heatmap"` palette.}
+\item{palette}{Optional heatmap palette name used when \code{col = NULL}.
+Selection plots default to \code{"grey"} to preserve the mPIP intensity scale;
+theta plots default to the muted grey-blue \code{"heatmap"} palette.}
 
-\item{legend}{Logical; for `"selection"` plots, should the mPIP intensity
-legend be drawn (default `TRUE`)?}
+\item{legend}{Logical; for \code{"selection"} plots, should the mPIP intensity
+legend be drawn (default \code{TRUE})?}
 
 \item{legend_width}{Relative width of the intensity-legend panel for
-`"selection"` plots (default `0.28`).}
+\code{"selection"} plots (default \code{0.28}).}
 
 \item{mar, mgp}{Optional graphical margin and axis-title placement vectors
-passed to [graphics::par()] for finer layout control.}
+passed to \code{\link[graphics:par]{graphics::par()}} for finer layout control.}
 
 \item{parameter}{Positive integer selecting a theta-pair column for
-`type = "theta_trace"`.}
+\code{type = "theta_trace"}.}
 
 \item{subgroup}{Positive integer selecting a platform-specific subgroup row
-for `type = "selection_trace"`.}
+for \code{type = "selection_trace"}.}
 
 \item{feature}{Positive integer selecting a feature column for
-`type = "selection_trace"`.}
+\code{type = "selection_trace"}.}
 
 \item{...}{Further graphical parameters passed to the underlying plotting
 functions.}
 }
 \value{
-`NULL`, invisibly; called for the side effect of producing a plot.
+\code{NULL}, invisibly; called for the side effect of producing a plot.
 }
 \description{
-Visualizes a fitted `"imr"` object.  Three plot types are available:
+Visualizes a fitted \code{"imr"} object. Five plot types are available:
 \describe{
-  \item{`"selection"`}{Heatmap of the marginal posterior inclusion
-    probabilities (mPIP), one panel per platform, with features on the
-    horizontal axis, availability subgroups on the vertical axis and a small
-    intensity legend showing that darker values are closer to 1.}
-  \item{`"theta"`}{Heatmap of the posterior mean MRF interaction parameters
-    between availability subgroups, one panel per platform.}
-  \item{`"trace"`}{Trace plot of the log-posterior across MCMC iterations.}
-  \item{`"theta_trace"`}{Trace plot for one retained MRF interaction
-    parameter, selected by `platform` and `parameter`.}
-  \item{`"selection_trace"`}{Trace plot for one retained selection
-    indicator, selected by `platform`, `subgroup` and `feature`.}
+\item{\code{"selection"}}{Heatmap of the marginal posterior inclusion
+probabilities (mPIP), one panel per platform, with features on the
+horizontal axis, availability subgroups on the vertical axis and a small
+intensity legend showing that darker values are closer to 1.}
+\item{\code{"theta"}}{Heatmap of the posterior mean MRF interaction parameters
+between availability subgroups, one panel per platform.}
+\item{\code{"trace"}}{Trace plot of the log-posterior across MCMC iterations.}
+\item{\code{"theta_trace"}}{Trace plot for one retained MRF interaction
+parameter, selected by \code{platform} and \code{parameter}.}
+\item{\code{"selection_trace"}}{Trace plot for one retained selection
+indicator, selected by \code{platform}, \code{subgroup} and \code{feature}.}
 }
-See [plot_top_features()] and [plot_subgroup_sizes()] for two further ready
+See \code{\link[=plot_top_features]{plot_top_features()}} and \code{\link[=plot_subgroup_sizes]{plot_subgroup_sizes()}} for two further ready
 made displays.
 }
 \seealso{
-[imr()], [plot_top_features()], [plot_subgroup_sizes()]
+\code{\link[=imr]{imr()}}, \code{\link[=plot_top_features]{plot_top_features()}}, \code{\link[=plot_subgroup_sizes]{plot_subgroup_sizes()}}
 }

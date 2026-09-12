@@ -7,12 +7,12 @@
 upgrade_imr_fit(object)
 }
 \arguments{
-\item{object}{A fitted `imr` object created by IntegMultiReg 0.1.x.}
+\item{object}{A fitted \code{imr} object created by IntegMultiReg 0.1.x.}
 }
 \value{
-A validated schema-version-2 `imr` object.
+A validated schema-version-2 \code{imr} object.
 }
 \description{
-Convert a structurally complete 0.1.x `imr` object to the named schema used
+Convert a structurally complete 0.1.x \code{imr} object to the named schema used
 by version 0.2.0. Corrupted or incomplete objects must be refitted.
 }

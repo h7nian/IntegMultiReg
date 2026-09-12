@@ -14,27 +14,27 @@ posterior_draws(
 )
 }
 \arguments{
-\item{object}{An `imr` fit with stored data and selection draws.}
+\item{object}{An \code{imr} fit with stored data and selection draws.}
 
-\item{draws}{Number of model-averaged draws to return (default `1000`).}
+\item{draws}{Number of model-averaged draws to return (default \code{1000}).}
 
 \item{burnin}{Conditional Gibbs burn-in iterations for each distinct
-subgroup selection model and each chain (default `1000`).}
+subgroup selection model and each chain (default \code{1000}).}
 
-\item{chains}{Number of conditional chains, at least two (default `2`).}
+\item{chains}{Number of conditional chains, at least two (default \code{2}).}
 
 \item{conditional_draws}{Minimum retained iterations per conditional chain
-used for sampling and split R-hat (default `200`). Increase with `burnin`
+used for sampling and split R-hat (default \code{200}). Increase with \code{burnin}
 if the reported conditional diagnostics are poor.}
 
 \item{seed}{Integer seed. The caller's random-number state is restored.}
 }
 \value{
-An `imr_posterior` object containing `beta` (one draws-by-coefficients
-  matrix per subgroup), `variance`, source `model_draw` indices, conditional
-  `diagnostics`, and the originating `fit`. Coefficient column names distinguish
-  clinical variables from platform features. Use `summary()`, `confint()`,
-  `coef()` and `predict()` on this object.
+An \code{imr_posterior} object containing \code{beta} (one draws-by-coefficients
+matrix per subgroup), \code{variance}, source \code{model_draw} indices, conditional
+\code{diagnostics}, and the originating \code{fit}. Coefficient column names distinguish
+clinical variables from platform features. Use \code{summary()}, \code{confint()},
+\code{coef()} and \code{predict()} on this object.
 }
 \description{
 Augments the retained selection models with conditional coefficient and
@@ -61,7 +61,7 @@ conditional Gibbs draws do not make those weights exact. Classical split
 R-hat is reported for each conditional model and does not diagnose the
 original selection chain. Inspect both stages and increase simulation effort
 before interpreting intervals. Runtime grows with the number of distinct
-subgroup selection models, not just `draws`.
+subgroup selection models, not just \code{draws}.
 
 Old survival fits without explicit response-scale metadata must be refitted.
 Log-time fits return coefficients for log time; identity-scale fits are

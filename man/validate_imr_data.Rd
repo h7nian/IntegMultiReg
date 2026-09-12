@@ -7,12 +7,12 @@
 validate_imr_data(x)
 }
 \arguments{
-\item{x}{An `"imr_data"` object.}
+\item{x}{An \code{"imr_data"} object.}
 }
 \value{
-`TRUE`, invisibly.
+\code{TRUE}, invisibly.
 }
 \description{
 Rechecks the structure and subject alignment of an object created by
-[imr_data()]. Invalid objects fail with an informative error.
+\code{\link[=imr_data]{imr_data()}}. Invalid objects fail with an informative error.
 }

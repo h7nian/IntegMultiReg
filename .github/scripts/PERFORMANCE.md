@@ -306,3 +306,68 @@ differentials and 2,020 suite assertions pass with zero failures/warnings/skips.
 Four new assertions preserve legacy logging and verbose/quiet return equivalence
 while excluding obsolete importance score output. Fresh build/check and CI are
 still required for this R dispatch change.
+
+All five workflows subsequently passed at `23fdc9c`, including full Valgrind
+34693088222 with 2,020 assertions and zero errors/definite leaks.
+
+## Shared prediction-row ownership
+
+Repeated importance states now share an explicitly owned prediction row instead
+of copying the same test predictions for every draw. The original contribution
+and accumulation order of every draw are retained. Row cleanup distinguishes
+owners from aliases; allocation failures unwind through the native entry point.
+This is not a general repair of every historical native allocation path.
+
+On the synthetic 3,000-subject, 10,000-identical-state workload, whole-process
+peak RSS decreased from 145,260,544 to 92,553,216 bytes (about 36%). Median CV
+time decreased from 0.264 to 0.156 seconds. Complete results and caller RNG were
+identical; representative unique-state and KIRC workloads remained within the
+5% regression bound. These artificial states are not inferential posteriors.
+
+All five workflows passed at `bd4c6b2`, including full Valgrind 34697466450
+with 2,032 assertions and zero errors/definite leaks. Sanitizer jobs also run
+standalone row-ownership tests and 72 native allocation-failure/recovery cases
+using a test-only patched library, including instrumented PSOCK children.
+
+## Conditional pMOM rejection loop
+
+The conditional sampler's rejection loop now calls R's random distributions
+from C. R retains input validation, normalization and the final affine transform.
+RNG call order is unchanged; separate volatile products prevent fused operations
+from changing the original R expression rounding. No sampler update order,
+prior, fit schema or public default changes.
+
+Against `bd4c6b2`, whole `posterior_draws()` measurements use one warm-up and
+five repetitions per case, single-thread libraries, fixed seeds and
+100 draws / 100 burn-in / 100 conditional draws:
+
+| Outcome / model | Baseline median seconds | `5a09ec2` median seconds |
+| --- | ---: | ---: |
+| Continuous / IMR | 0.537 | 0.329 |
+| Continuous / BMS | 0.860 | 0.522 |
+| Binary / IMR | 0.968 | 0.660 |
+| Binary / BMS | 0.856 | 0.596 |
+| Survival / IMR | 0.611 | 0.399 |
+| Survival / BMS | 0.461 | 0.304 |
+
+All complete posterior results and caller RNG states matched exactly. These
+30-39% reductions apply to these conditional-posterior workloads, not whole
+fits, CV, KIRC or paper experiments. Short-chain diagnostic warnings are retained
+in the evidence and are not convergence evidence. An independent-process grid
+also verified 2,205 cases across seven uniform and five normal RNG kinds,
+including follow-on draws and named/subnormal parameters, bitwise identically.
+
+All five workflows passed at `5a09ec2`. Full Valgrind run 34701662632 verified
+2,447 assertions with zero failures/warnings/skips, zero parent Memcheck errors
+and zero definite leaks. It verified 136 instrumented full-suite workers; a
+separate job verified another 36 workers with zero errors/definite leaks.
+
+## Outstanding release gates
+
+The 128 MiB limit currently bounds model-identity indexing, not all prediction
+payloads. An all-unique prediction workload can still exceed it. A bounded
+payload-cache experiment remains isolated and has not entered production.
+Final current-source end-to-end performance/memory comparisons, clean-checkout
+release validation and complete evidence collation remain outstanding. Do not
+use intermediate acceptance of one optimization as acceptance of the entire
+performance plan or as authorization for formal long-chain paper experiments.

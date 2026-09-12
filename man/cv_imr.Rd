@@ -16,65 +16,65 @@ cv_imr(
 )
 }
 \arguments{
-\item{object}{A fitted object of class `"imr"` returned by [imr()].}
+\item{object}{A fitted object of class \code{"imr"} returned by \code{\link[=imr]{imr()}}.}
 
-\item{k}{Integer number of cross-validation folds per round (default `5`).
-Must be at least `2`, and each availability subgroup must contain at least
-`k` subjects.}
+\item{k}{Integer number of cross-validation folds per round (default \code{5}).
+Must be at least \code{2}, and each availability subgroup must contain at least
+\code{k} subjects.}
 
 \item{rounds}{Integer number of independent cross-validation rounds to
-average over (default `2`).  Must be positive.}
+average over (default \code{2}).  Must be positive.}
 
 \item{method}{Optional compatibility argument.  If supplied, it must match
-the method stored in `object`; `cv_imr()` cannot turn an IMR fit into a BMS
+the method stored in \code{object}; \code{cv_imr()} cannot turn an IMR fit into a BMS
 fit or vice versa.}
 
 \item{max_models}{Integer maximum number of selection models used for
-Bayesian model averaging in legacy and refit modes (default `100`). Must
+Bayesian model averaging in legacy and refit modes (default \code{100}). Must
 be positive. Importance mode uses every retained draw, including repeated
 states, and does not truncate using this argument.}
 
-\item{verbose}{Logical; if `TRUE`, print fold progress and sampler
-diagnostics.  Defaults to `FALSE`.}
+\item{verbose}{Logical; if \code{TRUE}, print fold progress and sampler
+diagnostics.  Defaults to \code{FALSE}.}
 
-\item{cv_method}{Validation algorithm: `"legacy"` (default), `"refit"`,
-or `"importance"`. This is independent of the fitted IMR/BMS `method`.}
+\item{cv_method}{Validation algorithm: \code{"legacy"} (default), \code{"refit"},
+or \code{"importance"}. This is independent of the fitted IMR/BMS \code{method}.}
 
 \item{workers}{Positive integer number of PSOCK worker processes (default
-`1L`, serial). Applies to all three CV methods. At most `k * rounds`
+\code{1L}, serial). Applies to all three CV methods. At most \code{k * rounds}
 processes are used; no automatic CPU detection is performed.}
 }
 \value{
-A named list. `pooled` and `fold_mean` are numeric matrices of dimension
-  `rounds` x `(n_subgroups + 1)`, whose last column corresponds to all
-  subjects pooled and whose remaining columns are named by the availability
-  subgroup bitstrings:
-  \item{pooled}{Accuracy computed on the pooled cross-validated
-    predictions within each availability subgroup (and overall).}
-  \item{fold_mean}{Accuracy computed fold-by-fold within each
-    availability subgroup.}
-  `predictions` contains subject IDs, subgroups, rounds, folds and out-of-fold
-  predictions. `metric` names the accuracy measure and `validation` records
-  the selected `cv_method` as a character string.
-  Undefined AUCs (single class) and C-indices (no comparable pairs) are `NA`.
+A named list. \code{pooled} and \code{fold_mean} are numeric matrices of dimension
+\code{rounds} x \code{(n_subgroups + 1)}, whose last column corresponds to all
+subjects pooled and whose remaining columns are named by the availability
+subgroup bitstrings:
+\item{pooled}{Accuracy computed on the pooled cross-validated
+predictions within each availability subgroup (and overall).}
+\item{fold_mean}{Accuracy computed fold-by-fold within each
+availability subgroup.}
+\code{predictions} contains subject IDs, subgroups, rounds, folds and out-of-fold
+predictions. \code{metric} names the accuracy measure and \code{validation} records
+the selected \code{cv_method} as a character string.
+Undefined AUCs (single class) and C-indices (no comparable pairs) are \code{NA}.
 }
 \description{
-`cv_imr()` evaluates predictive accuracy of a model fitted with [imr()] using
-repeated \eqn{K}-fold splits. `cv_method` selects historical post-fit
-validation (`"legacy"`, the default), training-fold refitting (`"refit"`),
-or a paper-derived importance average over retained draws (`"importance"`).
-Fit a separate object with `method = "bms"` for a no-borrowing comparison.
+\code{cv_imr()} evaluates predictive accuracy of a model fitted with \code{\link[=imr]{imr()}} using
+repeated \eqn{K}-fold splits. \code{cv_method} selects historical post-fit
+validation (\code{"legacy"}, the default), training-fold refitting (\code{"refit"}),
+or a paper-derived importance average over retained draws (\code{"importance"}).
+Fit a separate object with \code{method = "bms"} for a no-borrowing comparison.
 The accuracy measure depends on the outcome type: the concordance index
 (C-index) for right-censored outcomes, the area under the ROC curve (AUC) for
 binary outcomes, and the mean squared error (MSE) for continuous outcomes.
 }
 \details{
-Only subgroups retained in `object` are evaluated. Their training subsets
+Only subgroups retained in \code{object} are evaluated. Their training subsets
 remain included even when they are smaller than the original
-`min_subgroup_size`.
+\code{min_subgroup_size}.
 In refit mode, preprocessing, formula transformations, selection MCMC and
 prediction weights are recomputed on training rows. Runtime is roughly
-`k * rounds` full fits. This is the algorithm used by version 0.1.4.
+\code{k * rounds} full fits. This is the algorithm used by version 0.1.4.
 
 Legacy mode restores the post-fit CV algorithm from version 0.1.0: ranked
 distinct full-fit selection models, full-fit standardization and augmented
@@ -101,7 +101,7 @@ Hyperparameters are fixed; data-driven tuning needs an outer validation layer.
 
 Parallel execution preserves each method's partitions, seeds and output
 ordering. Each process holds its own fit and training-fold workspace, with
-single-threaded mathematical libraries; memory use grows with `workers`.
+single-threaded mathematical libraries; memory use grows with \code{workers}.
 Post-fit matrix products may use up to 8 MiB of temporary training-column
 storage per worker, in addition to the model-index cache and fitted data.
 Process startup can make short jobs slower. Use only one parallel layer
@@ -113,7 +113,7 @@ guaranteed to appear in the calling console.
 For parallel formula refits, custom functions must be available in a
 serializable formula environment (for example a local closure), or use a
 package-qualified function name. The caller's global workspace is not
-exported to workers. `workers = 1L` retains ordinary formula evaluation.
+exported to workers. \code{workers = 1L} retains ordinary formula evaluation.
 }
 \examples{
 \donttest{
@@ -129,5 +129,5 @@ cv$pooled
 }
 }
 \seealso{
-[imr()], [predict.imr()]
+\code{\link[=imr]{imr()}}, \code{\link[=predict.imr]{predict.imr()}}
 }

@@ -7,20 +7,20 @@
 \format{
 A named list with the components:
 \describe{
-  \item{platforms}{A list of three data frames, `genomic` (20 features,
-    subjects 1--240), `proteomic` (10 features, subjects 1--180) and
-    `metabolomic` (8 features, subjects 121--300).  Each has an `id` column
-    followed by the feature columns.}
-  \item{covariates}{A data frame of three clinical covariates (`age`, `sex`,
-    `stage`) with an `id` column, available for all 300 subjects.}
-  \item{outcome}{The binary outcome data frame (alias of
-    `outcome.binary`), used as the canonical demonstration outcome.}
-  \item{outcome.binary}{Data frame with `id` and a 0/1 response `y`.}
-  \item{outcome.continuous}{Data frame with `id` and a numeric response `y`.}
-  \item{outcome.survival}{Data frame with `id`, observed `time` and event
-    indicator `status` (1 = event, 0 = censored).}
-  \item{truth}{A list giving, per platform, the column indices of the
-    features with non-zero effects used to generate the outcomes.}
+\item{platforms}{A list of three data frames, \code{genomic} (20 features,
+subjects 1--240), \code{proteomic} (10 features, subjects 1--180) and
+\code{metabolomic} (8 features, subjects 121--300).  Each has an \code{id} column
+followed by the feature columns.}
+\item{covariates}{A data frame of three clinical covariates (\code{age}, \code{sex},
+\code{stage}) with an \code{id} column, available for all 300 subjects.}
+\item{outcome}{The binary outcome data frame (alias of
+\code{outcome.binary}), used as the canonical demonstration outcome.}
+\item{outcome.binary}{Data frame with \code{id} and a 0/1 response \code{y}.}
+\item{outcome.continuous}{Data frame with \code{id} and a numeric response \code{y}.}
+\item{outcome.survival}{Data frame with \code{id}, observed \code{time} and event
+indicator \code{status} (1 = event, 0 = censored).}
+\item{truth}{A list giving, per platform, the column indices of the
+features with non-zero effects used to generate the outcomes.}
 }
 }
 \usage{
@@ -36,9 +36,9 @@ driven by the same latent signal.
 \details{
 The platforms are observed on the following subjects, which induces four
 non-empty availability subgroups (bitstrings over genomic/proteomic/
-metabolomic): `011` (120 subjects), `111` (60), `101` (60) and `100` (60).
+metabolomic): \code{011} (120 subjects), \code{111} (60), \code{101} (60) and \code{100} (60).
 
-The generating script is provided in `data-raw/make_simIMR.R`.
+The generating script is provided in \code{data-raw/make_simIMR.R}.
 }
 \examples{
 data("simIMR", package = "IntegMultiReg")

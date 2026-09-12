@@ -7,10 +7,10 @@
 validate_imr(object)
 }
 \arguments{
-\item{object}{A fitted `"imr"` object.}
+\item{object}{A fitted \code{"imr"} object.}
 }
 \value{
-`TRUE`, invisibly. Invalid objects fail with an informative error.
+\code{TRUE}, invisibly. Invalid objects fail with an informative error.
 }
 \description{
 Checks the public structure, dimensions and numerical ranges of a fitted IMR

@@ -7,27 +7,27 @@
 \format{
 A named list with the components:
 \describe{
-  \item{platforms}{A list of three data frames, `mrna`, `mirna` and
-    `methylation`.  Each has an `id` column containing package-internal
-    patient labels followed by screened molecular features.}
-  \item{covariates}{Clinical covariates with an `id` column: age at initial
-    diagnosis, female sex indicator, pathologic stage and histologic grade.}
-  \item{outcome}{Alias of `outcome.survival`, for convenience.}
-  \item{outcome.survival}{Data frame with `id`, observed survival/follow-up
-    time in days and event indicator `status` (1 = deceased, 0 = censored).}
-  \item{feature_screening}{Per-platform feature-ranking information and a
-    short description of the screening procedure used to create the reduced
-    panel.}
-  \item{platform_availability}{Patient-level logical matrix indicating which
-    of the three platforms are available.}
-  \item{subgroup_sizes}{Counts of the non-empty availability subgroups
-    induced by the reduced data.}
-  \item{model_subgroup_sizes}{The availability subgroups that would be
-    modelled under the default real-data illustration threshold
-    `min_subgroup_size = 30`.}
-  \item{paper_alignment}{Metadata describing how the reduced example maps to
-    the Biometrics KIRC case study.}
-  \item{source}{Source URLs and reference metadata.}
+\item{platforms}{A list of three data frames, \code{mrna}, \code{mirna} and
+\code{methylation}.  Each has an \code{id} column containing package-internal
+patient labels followed by screened molecular features.}
+\item{covariates}{Clinical covariates with an \code{id} column: age at initial
+diagnosis, female sex indicator, pathologic stage and histologic grade.}
+\item{outcome}{Alias of \code{outcome.survival}, for convenience.}
+\item{outcome.survival}{Data frame with \code{id}, observed survival/follow-up
+time in days and event indicator \code{status} (1 = deceased, 0 = censored).}
+\item{feature_screening}{Per-platform feature-ranking information and a
+short description of the screening procedure used to create the reduced
+panel.}
+\item{platform_availability}{Patient-level logical matrix indicating which
+of the three platforms are available.}
+\item{subgroup_sizes}{Counts of the non-empty availability subgroups
+induced by the reduced data.}
+\item{model_subgroup_sizes}{The availability subgroups that would be
+modelled under the default real-data illustration threshold
+\code{min_subgroup_size = 30}.}
+\item{paper_alignment}{Metadata describing how the reduced example maps to
+the Biometrics KIRC case study.}
+\item{source}{Source URLs and reference metadata.}
 }
 }
 \usage{
@@ -45,14 +45,14 @@ covariates and right-censored survival outcome.
 The full TCGA source files are not distributed with the package.  Instead,
 this object stores a small screened feature panel suitable for examples and
 vignette analyses.  Patient identifiers are package-internal labels
-(`KIRC001`, `KIRC002`, ...) rather than TCGA barcodes; no barcode mapping is
+(\code{KIRC001}, \code{KIRC002}, ...) rather than TCGA barcodes; no barcode mapping is
 distributed with the package.  Users should not attempt participant
 re-identification or linkage to external resources.  The generating script is
-provided in the source repository under `data-raw/make_kircIMR.R`.
+provided in the source repository under \code{data-raw/make_kircIMR.R}.
 
 The source data are public UCSC Xena TCGA-KIRC sampleMap files:
-mRNA expression (`HiSeqV2`), miRNA expression (`miRNA_HiSeq_gene`), DNA
-methylation (`HumanMethylation450`) and the KIRC clinical matrix.  Molecular
+mRNA expression (\code{HiSeqV2}), miRNA expression (\code{miRNA_HiSeq_gene}), DNA
+methylation (\code{HumanMethylation450}) and the KIRC clinical matrix.  Molecular
 features are screened with univariable Cox models after basic filtering, and
 missing molecular values in the retained panel are median-imputed within
 feature.  The full Biometrics analysis used 776 mRNA, 91 miRNA and 729 DNA

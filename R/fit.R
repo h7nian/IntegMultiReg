@@ -70,7 +70,7 @@
 #'   the original AFT model. `"identity"` reproduces historical package analyses
 #'   and does not fit a log-time AFT model. Ignored for other outcome types.
 #' @param ... Additional fitting arguments passed from the formula or
-#'   `imr_data` method to the default method. Unused arguments are rejected.
+#'   `imr_data` method to the list method. Unused arguments are rejected.
 #'
 #' @details
 #' All feature and covariate data are standardized internally (mean 0, standard

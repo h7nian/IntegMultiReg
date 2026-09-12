@@ -10,22 +10,22 @@
 \method{print}{summary.imr}(x, ...)
 }
 \arguments{
-\item{object}{A fitted object of class `"imr"`.}
+\item{object}{A fitted object of class \code{"imr"}.}
 
 \item{threshold}{Inclusion-probability threshold for selection (default
-`0.5`).}
+\code{0.5}).}
 
 \item{...}{Unused; present for S3 compatibility.}
 
-\item{x}{A `"summary.imr"` object.}
+\item{x}{A \code{"summary.imr"} object.}
 }
 \value{
-An object of class `"summary.imr"`: a list with the run metadata and,
-  for each platform, a data frame of selected features with their maximum
-  mPIP and the subgroup achieving it.
+An object of class \code{"summary.imr"}: a list with the run metadata and,
+for each platform, a data frame of selected features with their maximum
+mPIP and the subgroup achieving it.
 }
 \description{
 Produces a per-platform summary of the selected features (those whose
-marginal posterior inclusion probability exceeds `threshold` in at least one
+marginal posterior inclusion probability exceeds \code{threshold} in at least one
 subgroup), ranked by their maximum inclusion probability.
 }

@@ -7,19 +7,19 @@
 \method{coef}{imr}(object, ...)
 }
 \arguments{
-\item{object}{A fitted object of class `"imr"`.}
+\item{object}{A fitted object of class \code{"imr"}.}
 
 \item{...}{Unused; present for S3 compatibility.}
 }
 \value{
 A named list with one matrix per platform.  Rows are the subgroups
-  containing that platform (labelled by their availability bitstrings) and
-  columns are the platform features.
+containing that platform (labelled by their availability bitstrings) and
+columns are the platform features.
 }
 \description{
 Extracts the posterior mean variable-selection probabilities (the marginal
 posterior inclusion probabilities, mPIP) of a fitted model.
 }
 \seealso{
-[imr()]
+\code{\link[=imr]{imr()}}
 }

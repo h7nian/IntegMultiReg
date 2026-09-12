@@ -232,7 +232,7 @@ print.summary.imr <- function(x, ...) {
 #' Plot Method for IMR Fits
 #'
 #' @description
-#' Visualizes a fitted `"imr"` object.  Three plot types are available:
+#' Visualizes a fitted `"imr"` object. Five plot types are available:
 #' \describe{
 #'   \item{`"selection"`}{Heatmap of the marginal posterior inclusion
 #'     probabilities (mPIP), one panel per platform, with features on the

@@ -14,33 +14,33 @@ imr_data(
 }
 \arguments{
 \item{platforms}{A non-empty named list of data frames, one per platform.
-Platform names must be unique and cannot be `id` or `subgroup`, which are
+Platform names must be unique and cannot be \code{id} or \code{subgroup}, which are
 reserved for availability metadata.
 Every data frame must contain the subject identifier and at least one
 finite numeric feature.}
 
 \item{outcome}{Optional outcome data frame. It is required when the object is
-passed to [imr()] and may be omitted for prediction data. For binary and
+passed to \code{\link[=imr]{imr()}} and may be omitted for prediction data. For binary and
 continuous outcomes it contains the identifier and response; for
 right-censored outcomes it contains the identifier, time and status.}
 
 \item{covariates}{Optional data frame containing the identifier followed by
 clinical covariates.}
 
-\item{outcome_type}{Optional outcome type: `"binary"`, `"continuous"` or
-`"right.censored"`. It is required when `outcome` is supplied.}
+\item{outcome_type}{Optional outcome type: \code{"binary"}, \code{"continuous"} or
+\code{"right.censored"}. It is required when \code{outcome} is supplied.}
 
 \item{id}{Name of the subject-identifier column in every supplied data frame.}
 }
 \value{
-An object of class `"imr_data"` with components `platforms`,
-  `outcome`, `covariates`, `outcome_type`, `id`, `availability` and
-  `subgroup_sizes`, `n_platform_subjects` and `excluded_ids`. Availability
-  summaries include only subjects with all required outcome/covariate rows.
+An object of class \code{"imr_data"} with components \code{platforms},
+\code{outcome}, \code{covariates}, \code{outcome_type}, \code{id}, \code{availability} and
+\code{subgroup_sizes}, \code{n_platform_subjects} and \code{excluded_ids}. Availability
+summaries include only subjects with all required outcome/covariate rows.
 }
 \description{
-`imr_data()` creates a validated data object shared by model fitting and
-prediction. It standardizes the subject identifier to `id`, records the
+\code{imr_data()} creates a validated data object shared by model fitting and
+prediction. It standardizes the subject identifier to \code{id}, records the
 observed-platform pattern for every subject and catches alignment problems
 before the MCMC sampler is called.
 }

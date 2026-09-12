@@ -19,11 +19,11 @@ regression coefficients.
 \details{
 The main entry points are:
 \describe{
-  \item{\code{\link{imr}}}{Fit the model by MCMC and return an object of
-    class \code{"imr"}.}
-  \item{\code{\link{predict.imr}}}{Predict outcomes for new subjects.}
-  \item{\code{\link{cv_imr}}}{Assess predictive performance by
-    cross-validation.}
+\item{\code{\link{imr}}}{Fit the model by MCMC and return an object of
+class \code{"imr"}.}
+\item{\code{\link{predict.imr}}}{Predict outcomes for new subjects.}
+\item{\code{\link{cv_imr}}}{Assess predictive performance by
+cross-validation.}
 }
 Standard methods \code{\link{print.imr}}, \code{\link{summary.imr}},
 \code{\link{coef.imr}}, \code{\link{plot.imr}} and \code{\link{predict.imr}}

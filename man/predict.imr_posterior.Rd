@@ -16,14 +16,14 @@
 )
 }
 \arguments{
-\item{object}{An `imr_posterior` object.}
+\item{object}{An \code{imr_posterior} object.}
 
-\item{newdata, platform_names, covariates}{As in [predict.imr()].}
+\item{newdata, platform_names, covariates}{As in \code{\link[=predict.imr]{predict.imr()}}.}
 
-\item{type}{`"mean"` returns uncertainty in the conditional response mean
-(event probability for binary data). `"response"` additionally generates
+\item{type}{\code{"mean"} returns uncertainty in the conditional response mean
+(event probability for binary data). \code{"response"} additionally generates
 new outcomes, including residual variability. Binary response intervals
-are discrete 0/1; use `"mean"` for event-probability intervals.}
+are discrete 0/1; use \code{"mean"} for event-probability intervals.}
 
 \item{level}{Equal-tail interval level.}
 
@@ -32,22 +32,22 @@ are discrete 0/1; use `"mean"` for event-probability intervals.}
 \item{...}{Unused.}
 }
 \value{
-A list of data frames by subgroup, with `id`, `prediction`, `lower`
-  and `upper`. The point prediction is the Monte Carlo mean except for
-  log-time survival fits, where it is the median.
+A list of data frames by subgroup, with \code{id}, \code{prediction}, \code{lower}
+and \code{upper}. The point prediction is the Monte Carlo mean except for
+log-time survival fits, where it is the median.
 }
 \description{
 Predict Using Coefficient Posterior Draws
 }
 \details{
-Log-time survival fits return time-scale results: for `"mean"`,
-  each draw is exp(eta + variance/2); for `"response"`, each draw is
-  exp(eta + error). Censoring times for future observations are not generated.
-  Identity-scale fits return their historical working scale. These results
-  integrate conditional parameter uncertainty and may differ from the
-  existing plug-in `predict.imr()` point predictions. Their model weights
-  inherit the approximation described in [posterior_draws()].
-  For log-time fits, point predictions are medians of the simulated
-  quantities. A time-scale posterior mean need not exist under an
-  inverse-gamma variance mixture, so a sample mean is not reported.
+Log-time survival fits return time-scale results: for \code{"mean"},
+each draw is exp(eta + variance/2); for \code{"response"}, each draw is
+exp(eta + error). Censoring times for future observations are not generated.
+Identity-scale fits return their historical working scale. These results
+integrate conditional parameter uncertainty and may differ from the
+existing plug-in \code{predict.imr()} point predictions. Their model weights
+inherit the approximation described in \code{\link[=posterior_draws]{posterior_draws()}}.
+For log-time fits, point predictions are medians of the simulated
+quantities. A time-scale posterior mean need not exist under an
+inverse-gamma variance mixture, so a sample mean is not reported.
 }
