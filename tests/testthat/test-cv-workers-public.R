@@ -84,3 +84,12 @@ test_that("worker bootstrap finds a library not inherited through R_LIBS", {
   }, 2L)
   expect_identical(paths, rep(list(expected), 2L))
 })
+
+test_that("unexpected worker exit closes every socket without masking the error", {
+  connections <- showConnections(all = TRUE)
+  expect_error(IntegMultiReg:::.imr_cv_map(list(1L, 2L), function(task) {
+    quit(save = "no", status = 1L, runLast = FALSE)
+  }, 2L), "connection")
+  expect_identical(showConnections(all = TRUE), connections)
+  expect_identical(IntegMultiReg:::.imr_cv_map(list(1L, 2L), identity, 2L), list(1L, 2L))
+})

@@ -22,7 +22,7 @@
   do.call(Sys.setenv, as.list(stats::setNames(rep("1", length(thread_variables)),
                                             thread_variables)))
   cluster <- parallel::makePSOCKcluster(workers)
-  on.exit(parallel::stopCluster(cluster), add = TRUE)
+  on.exit(.imr_cv_stop_workers(cluster), add = TRUE)
   package_path <- getNamespaceInfo(asNamespace("IntegMultiReg"), "path")
   library_paths <- unique(c(dirname(package_path), .libPaths()))
   initialize <- function(paths, expected_path, rng_kind, model_options) {
@@ -39,6 +39,9 @@
   # Bootstrap must deserialize before the package's library path is known.
   # A base-only closure also avoids serializing the parent's task/cluster frame.
   environment(initialize) <- baseenv()
+  # Kept source references can themselves retain the package namespace. Remove
+  # them as well, so deserializing bootstrap cannot load a different install.
+  initialize <- utils::removeSource(initialize)
   parallel::clusterCall(cluster, initialize, library_paths, package_path,
                         RNGkind(), options()[c("contrasts", "na.action")])
   results <- parallel::parLapply(cluster, tasks, .imr_cv_worker_result,
@@ -47,6 +50,16 @@
     for (condition in result$warnings) warning(condition)
     result$value
   })
+}
+
+.imr_cv_stop_workers <- function(cluster) {
+  # stopCluster() can fail while sending DONE to a dead node, before closing
+  # any sockets. Close each node independently without masking the task error.
+  for (node in cluster) {
+    tryCatch(parallel::stopCluster(structure(list(node), class = class(cluster))),
+             error = function(error) try(close(node$con), silent = TRUE))
+  }
+  invisible(NULL)
 }
 
 # Child stderr is not a reliable diagnostic channel. Relay conditions through
