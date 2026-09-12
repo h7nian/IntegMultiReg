@@ -217,4 +217,27 @@ The local installed suite passes 1,979 assertions with zero failures, warnings
 or skips, including 300 randomized edge cases with exact output/input/RNG
 checks. All six outcome/model full-pipeline differential cases still match
 the original baseline exactly. Fresh package/CI and whole-fit measurements
-for this new runtime change remain required.
+for this new runtime change have completed. All five CI workflows pass at
+`5a87093`, including Valgrind run 34678684207 (1,979 assertions and zero
+Memcheck errors/definite leaks). Whole-fit medians are 23.066 versus 22.924
+seconds; this small difference is not evidence of a whole-fit speedup.
+
+## Allocation-free selection-state comparisons
+
+Native model discovery previously allocated temporary Boolean arrays for every
+candidate comparison. It now uses the existing mismatch flag directly, keeping
+the complete-state comparison, historical reverse traversal, first-seen model
+order and `100 * max_models` cutoff. No floating-point or sampling code changes.
+
+Isolated installed-engine measurements against `5a87093`, one warm-up and five
+repeats, give prediction median seconds of 0.615 to 0.529 on KIRC and 1.265 to
+1.035 on artificial unique states. Artificial repeated states give 0.158 to
+0.162, within the 5% regression bound. KIRC legacy CV gives 0.843 to 0.763.
+All prediction values and the complete CV return match exactly. Artificial
+states are development workloads, not posterior samples for scientific use.
+
+The candidate passes 2,016 assertions with zero failures/warnings/skips,
+including repeated/unique/mixed state counts and model cutoffs. All six
+outcome/model full-pipeline differentials match the original baseline exactly.
+Fresh source/package checks and all five CI workflows remain required for
+this new native change; prior commit validation is not its acceptance.

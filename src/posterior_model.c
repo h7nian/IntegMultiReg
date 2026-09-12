@@ -102,9 +102,6 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
 
 {
 
-  _Bool *all_true = calloc(n_subgroups, sizeof(_Bool));
-  for (int m = 0; m < n_subgroups; m++)
-    all_true[m] = 1;
   int i, j;
   int n_unique_models = 0;
   model_index[n_unique_models] = 0;
@@ -112,22 +109,12 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
   {
     for (j = 0; j < n_unique_models; j++)
     {
-      _Bool **result = calloc(n_platforms, sizeof(_Bool *));
-      for (int l = 0; l < n_platforms; l++)
-      {
-        result[l] = calloc(n_platform_models_c[l], sizeof(_Bool));
-        for (int m = 0; m < n_platform_models_c[l]; m++)
-        {
-          result[l][m] = 1;
-        }
-      }
       int model_differs = 0;
       for (int l = 0; l < n_platforms; l++)
       {
         for (int k = 0; k < n_platform_models_c[l]; k++)
         {
-          result[l][k] = bool_vectors_equal(G[l], gamma_sample[n_draws - 1 - i][l][k], gamma_sample[n_draws - 1 - model_index[j]][l][k]);
-          if (result[l][k] == 0)
+          if (!bool_vectors_equal(G[l], gamma_sample[n_draws - 1 - i][l][k], gamma_sample[n_draws - 1 - model_index[j]][l][k]))
           {
             model_differs = 1;
             break;
@@ -138,16 +125,8 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
           break; // breaks outer loop
         }
       }
-      double sumres = 0;
-
-      for (int l = 0; l < n_platforms; l++)
-      {
-        sumres += bool_vectors_equal(n_platform_models_c[l], result[l], all_true);
-        free(result[l]);
-      }
-      free(result);
-      if (sumres == n_platforms)
-        break; // if compar is 1 for each platform
+      if (!model_differs)
+        break; // The complete selection state matches this representative.
 
     } // end of the j loop
 
@@ -162,7 +141,6 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
     }
   } // end of the i loop
   *n_unique_models_out = n_unique_models;
-  free(all_true);
   Rprintf("\n\n\nNumber of different gamma values for variable selection (nbr of models) = %d", n_unique_models);
   Rprintf("\n");
   double ***beta = malloc(n_unique_models * sizeof(double **));
