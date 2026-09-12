@@ -1,6 +1,9 @@
 # Performance development evidence
 
 Baseline source: `5bd24487ae94d151f3f7faf715115123b3cd3792`.
+After the maintainer-approved attribution-only history rewrite, this baseline
+is `caf9f622a65e29a71a9502994635eb7554567700`. Their source trees are identical.
+Existing evidence retains its original SHA; it is not relabelled as a new run.
 Keep the baseline and candidate installed in separate libraries built with the
 same compiler, flags and numerical dependencies. Do not load both into one R
 process. Scripts here are development tools, not published inference results.
@@ -71,6 +74,20 @@ hashes once per call. The final local test suite passes 737 assertions with zero
 failures/warnings/skips, including cache-off, bounded-capacity and collision tests.
 
 ## Remaining acceptance and implementation
+
+The refit path now uses a deterministic task dispatcher. Its internal PSOCK
+route is tested at 2 and 3 workers against the serial result for all six
+outcome/model combinations, plus formula transformations, serialization,
+RNG preservation, worker errors and socket/environment cleanup. The public
+`workers` argument is not enabled yet: post-fit task boundaries must first be
+implemented and verified. `performance-refit-workers.R` measures this staged
+dispatcher (one warm-up and five repeats at each worker count); use the same
+frozen fit and an otherwise idle machine. Short tasks may not amortize process
+startup, and each child holds its own fit and training-fold allocations.
+The staged installed suite passes 784 assertions with zero failures, warnings
+or skips. Six saved-baseline refit comparisons and the final worker executor
+on the frozen KIRC fit return exactly identical complete results. This is
+correctness evidence, not final performance or cross-platform acceptance.
 
 The existing draw-by-test prediction buffer is still present; its compression
 and the full memory-growth study remain undone. This is not the complete

@@ -132,6 +132,14 @@ cv_imr <- function(object, k = 5, rounds = 2,
   if (cv_method != "refit") {
     return(.imr_cv_postfit(object, k, rounds, max_models, verbose, cv_method))
   }
+  .imr_cv_refit_result(object, k, rounds, max_models, verbose)
+}
+
+.imr_cv_refit_result <- function(object, k, rounds, max_models, verbose,
+                                 workers = 1L) {
+  control <- object$control
+  model <- object$model
+  preprocessing <- object$preprocessing
   dat <- preprocessing$input_data
   subjects <- dat$availability[
     dat$availability$subgroup %in% model$subgroup_names, c("id", "subgroup"), drop = FALSE]
@@ -153,6 +161,16 @@ cv_imr <- function(object, k = 5, rounds = 2,
     folds
   })
   seeds <- matrix(sample.int(.Machine$integer.max, rounds * k, replace = TRUE), rounds, k)
+  tasks <- unlist(lapply(seq_len(rounds), function(r) {
+    lapply(seq_len(k), function(fold) {
+      list(round = r, fold = fold, seed = seeds[r, fold],
+           train_ids = subjects$id[partitions[[r]] != fold],
+           test_ids = subjects$id[partitions[[r]] == fold])
+    })
+  }), recursive = FALSE)
+  fold_predictions <- .imr_cv_map(tasks, .imr_cv_refit_task, workers,
+                                 object = object, max_models = max_models,
+                                 verbose = verbose)
   labels <- c(model$subgroup_names, "all")
   total <- subset <- matrix(NA_real_, rounds, length(labels), dimnames = list(NULL, labels))
   records <- vector("list", rounds)
@@ -163,12 +181,8 @@ cv_imr <- function(object, k = 5, rounds = 2,
     prediction <- rep(NA_real_, nrow(subjects))
     fold_scores <- matrix(NA_real_, k, length(labels))
     for (fold in seq_len(k)) {
-      if (verbose) cat(sprintf("CV round %d/%d, fold %d/%d\n", r, rounds, fold, k))
       test <- which(folds == fold)
-      train <- which(folds != fold)
-      prediction[test] <- .imr_cv_refit_fold(
-        object, subjects$id[train], subjects$id[test], seeds[r, fold],
-        max_models, verbose)
+      prediction[test] <- fold_predictions[[(r - 1L) * k + fold]]
       for (g in seq_along(groups)) fold_scores[fold, g] <- score(intersect(test, groups[[g]]), prediction)
       fold_scores[fold, length(labels)] <- score(test, prediction)
     }

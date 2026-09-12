@@ -30,6 +30,7 @@ Depends:
 Imports:
     graphics,
     grDevices,
+    parallel,
     stats,
     utils
 Suggests:
