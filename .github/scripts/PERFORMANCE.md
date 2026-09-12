@@ -190,3 +190,31 @@ model/preprocessing, predictions, all CV modes and conditional draws exactly.
 Short conditional chains retain their existing R-hat warnings and are not
 convergence evidence. Fresh package checks and CI for this runtime change
 remain required; the worker-phase CI results do not substitute for them.
+
+At `117ab8f`, those fresh checks now pass, including Valgrind run 34674587041:
+1,077 assertions, zero failures/warnings/skips, zero root Memcheck errors and
+definite leaks, 136 verified suite workers and a separate 36-worker job.
+Whole-fit KIRC 2000/1000 measurements give 23.881 seconds before and 23.012 after
+(medians of five repeats following warm-up); all 12 saved fits match exactly.
+
+## Fused training-matrix preparation
+
+Training preparation previously computed means and SDs for storage, then
+recomputed them for normalization. `.imr_prepare_matrix` now computes each
+column's moments once and returns the same means, safe SDs and normalized
+matrix. The original mean/SD arithmetic, degenerate-scale rule, dimnames and
+drop behavior are preserved. Six obsolete private helper functions were
+removed after reference scanning; prediction's known-moment helpers remain.
+
+Installed-engine measurements (100 preparations per repetition, one warm-up
+and five repeats) give median seconds of 3.359 to 1.674, 0.277 to 0.127 and
+2.466 to 1.142 on KIRC's platforms. Covariate/small fixtures did not regress.
+A prototype allocation profile records 58,037,632 to 28,285,744 total R-heap
+allocated bytes for one platform; this is allocation volume, not peak memory.
+Neither result should be reported as a whole-fit speedup.
+
+The local installed suite passes 1,979 assertions with zero failures, warnings
+or skips, including 300 randomized edge cases with exact output/input/RNG
+checks. All six outcome/model full-pipeline differential cases still match
+the original baseline exactly. Fresh package/CI and whole-fit measurements
+for this new runtime change remain required.

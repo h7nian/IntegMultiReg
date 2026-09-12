@@ -321,21 +321,25 @@ imr.list <- function(x, outcome, covariates = NULL,
 
   dat_normalized <- dat_filtered
 
-  mean_train <- mean_nested_list(dat_filtered[[3]])
-  sd_train <- sd_nested_list(dat_filtered[[3]])
+  platform_preprocessing <- lapply(dat_filtered[[3]], function(platforms) {
+    lapply(platforms, .imr_prepare_matrix)
+  })
+  platform_field <- function(field) lapply(platform_preprocessing, function(platforms) {
+    lapply(platforms, `[[`, field)
+  })
+  mean_train <- platform_field("mean")
+  sd_train <- platform_field("sd")
+  dat_normalized[[3]] <- platform_field("normalized")
   if (!is.null(covariates)) {
-    mean_cov_train <- lapply(dat_filtered[[2]], mean_matrix)
-    sd_cov_train <- lapply(dat_filtered[[2]], sd_matrix)
+    covariate_preprocessing <- lapply(dat_filtered[[2]], .imr_prepare_matrix)
+    mean_cov_train <- lapply(covariate_preprocessing, `[[`, "mean")
+    sd_cov_train <- lapply(covariate_preprocessing, `[[`, "sd")
+    dat_normalized[[2]] <- lapply(covariate_preprocessing, `[[`, "normalized")
   } else {
     mean_cov_train <- NULL
     sd_cov_train <- NULL
   }
 
-  dat_normalized[[3]] <- normalize_nested_list(dat_filtered[[3]])
-  ### Normalized covariates
-  if (!is.null(covariates)) {
-    dat_normalized[[2]] <- lapply(dat_filtered[[2]], normalize_matrix)
-  }
   ## outcome: force double storage (the C sampler reads it with REAL())
   dat_normalized[[1]] <- lapply(dat_filtered[[1]], function(x) {
     m <- as.matrix(x)
@@ -656,44 +660,34 @@ subgroup_data <- function(outcome, covariates = NULL, platforms) {
 
 #' @keywords internal
 #' @noRd
-normalize_matrix <- function(mat) {
+.imr_prepare_matrix <- function(mat) {
   if (nrow(mat) == 0 || ncol(mat) == 0) {
-    return(matrix(numeric(0), nrow = nrow(mat), ncol = ncol(mat)))
+    return(list(mean = rep(0, ncol(mat)), sd = rep(1, ncol(mat)),
+                 normalized = matrix(numeric(0), nrow(mat), ncol(mat))))
   }
-  nm <- apply(mat, 2, function(col) {
-    m <- mean(col, na.rm = TRUE)
-    s <- sd(col, na.rm = TRUE)
-    if (is.na(s) || s == 0) {
-      rep(0, length(col))
+  mat <- as.matrix(mat)
+  centers <- scales <- numeric(ncol(mat))
+  names(centers) <- names(scales) <- colnames(mat)
+  column_index <- 0L
+  # Reuse exactly the moments used for training normalization. Keep apply's
+  # historical dimname/drop behavior and the raw degenerate-scale decision.
+  normalized <- apply(mat, 2, function(column) {
+    column_index <<- column_index + 1L
+    center <- mean(column, na.rm = TRUE)
+    scale <- sd(column, na.rm = TRUE)
+    degenerate <- is.na(scale) || scale == 0
+    centers[column_index] <<- center
+    scales[column_index] <<- if (degenerate) 1 else scale
+    if (degenerate) {
+      rep(0, length(column))
     } else {
-      (col - m) / s
+      (column - center) / scale
     }
   })
-  if (is.null(dim(nm))) {
-    nm <- matrix(nm, nrow = nrow(mat), ncol = ncol(mat))
+  if (is.null(dim(normalized))) {
+    normalized <- matrix(normalized, nrow = nrow(mat), ncol = ncol(mat))
   }
-  return(nm)
-}
-
-#' @keywords internal
-#' @noRd
-mean_matrix <- function(mat) {
-  if (nrow(mat) == 0 || ncol(mat) == 0) {
-    return(rep(0, ncol(mat)))
-  }
-  apply(mat, 2, function(col) mean(col, na.rm = TRUE))
-}
-
-#' @keywords internal
-#' @noRd
-sd_matrix <- function(mat) {
-  if (nrow(mat) == 0 || ncol(mat) == 0) {
-    return(rep(1, ncol(mat)))
-  }
-  apply(mat, 2, function(col) {
-    s <- sd(col, na.rm = TRUE)
-    if (is.na(s) || s == 0) 1 else s
-  })
+  list(mean = centers, sd = scales, normalized = normalized)
 }
 
 #' @keywords internal
@@ -709,24 +703,6 @@ normalize_matrix_known_mean_variance <- function(mat, mean, sd) {
     nm <- matrix(nm, nrow = nrow(mat), ncol = ncol(mat))
   }
   return(nm)
-}
-
-#' @keywords internal
-#' @noRd
-normalize_nested_list <- function(nested_list) {
-  lapply(nested_list, function(subgroup) lapply(subgroup, normalize_matrix))
-}
-
-#' @keywords internal
-#' @noRd
-mean_nested_list <- function(nested_list) {
-  lapply(nested_list, function(subgroup) lapply(subgroup, mean_matrix))
-}
-
-#' @keywords internal
-#' @noRd
-sd_nested_list <- function(nested_list) {
-  lapply(nested_list, function(subgroup) lapply(subgroup, sd_matrix))
 }
 
 #' @keywords internal
