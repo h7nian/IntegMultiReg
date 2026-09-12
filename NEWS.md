@@ -1,5 +1,10 @@
 # IntegMultiReg 0.2.0
 
+* Post-fit CV now stops with round, fold and subgroup context if Cholesky
+  decomposition or solving fails, releasing native resources before reporting
+  the error. Previously failed models could leave prediction rows uninitialized.
+  Successful calculations, model weights and random-number behavior are unchanged.
+
 * Add `workers = 1L` to `cv_imr()` for optional PSOCK process parallelism in
   all three CV modes. Serial execution and the legacy default are unchanged.
   Partitions, refit seeds, draw contributions and metric aggregation order are

@@ -107,7 +107,8 @@ static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covari
                 int model_sample_size, int test_sample_size, int *test_index, int *train_index,
                 double *latent_response, double **covariates, double ***features, _Bool ****gamma_sample, double residual_shape, double residual_rate,
                 int max_models, int *model_index, int *high_model_index, int n_draws,
-                int importance, const int *model_representatives, int *allocation_failed)
+                int importance, const int *model_representatives, int *allocation_failed,
+                int *solve_status)
 {
 
   int l, i, j, in, i1, i2;
@@ -210,10 +211,12 @@ static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covari
     gsl_vector *x = gsl_vector_alloc(n_coefficients);
     gsl_matrix_view Aip = gsl_matrix_view_array(precision, n_coefficients, n_coefficients);
     int status = gsl_linalg_cholesky_decomp(&Aip.matrix);
+    if (!status)
+      status = gsl_linalg_cholesky_solve(&Aip.matrix, &b.vector, x);
     if (status)
     {
-      Rprintf("Cholesky failed (subgroup %d): %s\n", subgroup, gsl_strerror(status));
-      weight[l] = -INFINITY;
+      /* Never average an unwritten prediction row after a failed solve. */
+      *solve_status = status;
       gsl_vector_free(x);
       free(xty);
       free(precision);
@@ -223,10 +226,11 @@ static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covari
       for (int platform = 0; platform < n_selected_platforms; platform++)
         free(selected_feature_index[platform]);
       free(selected_feature_index);
-      continue;
+      free(weight);
+      free(prediction);
+      postfit_rows_destroy(&prediction_rows);
+      return NULL;
     }
-
-    gsl_linalg_cholesky_solve(&Aip.matrix, &b.vector, x);
 
     double *beta = malloc(n_coefficients * sizeof(double));
     for (j = 0; j < n_coefficients; j++)
@@ -514,6 +518,7 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
     int importance = asLogical(importance_R);
     int protect_count = 0;
     int failed_round = -1, failed_fold = -1;
+    int failed_subgroup = -1, solve_status = 0;
     SEXP list = R_NilValue;
 
     double forced_scale = REAL(forced_scale_R)[0];
@@ -795,14 +800,16 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
                                         sample_size_ptr[m], test_sample_size, test_index, train_index,
                                         latent_response[m], covariates[m], features[m], gamma_sample, residual_shape, residual_rate,
                                         max_models, model_index, high_model_index, n_draws, importance,
-                                        model_representatives, &prediction_allocation_failed);
-                    if (prediction_allocation_failed) {
+                                        model_representatives, &prediction_allocation_failed,
+                                        &solve_status);
+                    if (prediction_allocation_failed || solve_status) {
                         free(fold_response);
                         free(fold_binary);
                         free(fold_event);
                         free(fold_prediction);
                         failed_round = cv_round;
                         failed_fold = fold;
+                        failed_subgroup = m;
                         goto cleanup;
                     }
                 }
@@ -959,7 +966,7 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
     setAttrib(list, R_NamesSymbol, list_names);
 
 cleanup:
-    /* The allocation-failure path also releases fully prepared native inputs. */
+    /* Prediction allocation and solve failures release prepared native inputs. */
     free_r_list_list_matrix_to_c(features, n_subgroups, features_R);
     features = NULL;
     for (int m = 0; m < n_subgroups; m++)
@@ -1057,6 +1064,10 @@ cleanup:
     /* Printing can allocate through R's output connection. Keep the result
      * protected until the last allocation-capable operation is finished. */
     UNPROTECT(protect_count);
+    if (solve_status)
+        Rf_error("CV Cholesky solve failed (round %d, fold %d, subgroup %d): %s",
+                 failed_round + 1, failed_fold + 1, failed_subgroup + 1,
+                 gsl_strerror(solve_status));
     if (failed_round >= 0)
         Rf_error("Unable to allocate CV predictions (round %d, fold %d)",
                  failed_round + 1, failed_fold + 1);
