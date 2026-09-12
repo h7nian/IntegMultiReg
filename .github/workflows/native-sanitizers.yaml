@@ -89,6 +89,15 @@ jobs:
           test -f "${sanitizer_runtime%%:*}"
           echo "SANITIZER_RUNTIME=${sanitizer_runtime}" >> "${GITHUB_ENV}"
 
+      - name: Check fold precision kernel and bounded fallback
+        shell: bash
+        run: |
+          ${{ matrix.compiler }} -O1 -g -fsanitize=${{ matrix.flags }} \
+            -fno-sanitize-recover=undefined -fno-omit-frame-pointer \
+            .github/scripts/test-cv-precision.c src/cv_precision.c \
+            $(pkg-config --cflags --libs gsl) -o "${RUNNER_TEMP}/cv-precision-test"
+          "${RUNNER_TEMP}/cv-precision-test"
+
       - name: Install instrumented package and tests
         shell: bash
         run: |

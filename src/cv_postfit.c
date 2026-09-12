@@ -21,6 +21,7 @@
 #include <gsl/gsl_sf.h>
 #include "my_header.h"
 #include "utils.h"
+#include "cv_precision.h"
 
 static double legacy_max(int n, double *values);
 
@@ -108,7 +109,7 @@ static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covari
                 int importance, const int *model_representatives)
 {
 
-  int l, i, j, j1, in, i1, i2;
+  int l, i, j, in, i1, i2;
   double *weight = malloc(max_models * sizeof(double));
   // Latent predictions, transformed to probabilities for binary outcomes.
   double *prediction = dvector(0, test_sample_size - 1);
@@ -166,37 +167,9 @@ static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covari
     }
     int n_coefficients = 1 + n_covariates + n_selected_total;
 
-    double *precision = malloc(n_coefficients * n_coefficients * sizeof(double));
-    for (j = 0; j < n_coefficients; j++)
-    {
-      for (j1 = 0; j1 <= j; j1++)
-      {
-        double a = 0;
-        if ((j == 0) && (j1 == 0))
-        {
-          a = train_sample_size;
-        }
-        else if (j1 == 0)
-        {
-          for (i2 = 0; i2 < train_sample_size; i2++)
-          {
-            i1 = train_index[i2];
-            a += design[i1][j - 1];
-          }
-        }
-        else if ((j != 0) && (j1 != 0))
-        {
-          for (i2 = 0; i2 < train_sample_size; i2++)
-          {
-            i1 = train_index[i2];
-            a += design[i1][j - 1] * design[i1][j1 - 1];
-          }
-        }
-        if (j == j1)
-          a += .001; // To always make the matrix positive definite
-        precision[j * n_coefficients + j1] = precision[j1 * n_coefficients + j] = a;
-      }
-    }
+    double *precision = malloc((size_t)n_coefficients * n_coefficients * sizeof(double));
+    postfit_build_precision(precision, design, n_coefficients, train_sample_size,
+                            train_index, IMR_CV_WORKSPACE_BYTES);
 
     double *xty = calloc(n_coefficients, sizeof(double));
     for (j = 0; j < n_coefficients; j++)

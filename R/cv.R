@@ -78,6 +78,8 @@
 #' Parallel execution preserves each method's partitions, seeds and output
 #' ordering. Each process holds its own fit and training-fold workspace, with
 #' single-threaded mathematical libraries; memory use grows with `workers`.
+#' Post-fit matrix products may use up to 8 MiB of temporary training-column
+#' storage per worker, in addition to the model-index cache and fitted data.
 #' Process startup can make short jobs slower. Use only one parallel layer
 #' when running multiple experiments. Worker failures stop the entire call;
 #' no partial result or silent serial fallback is returned. Worker warnings

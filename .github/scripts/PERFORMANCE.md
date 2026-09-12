@@ -241,3 +241,43 @@ including repeated/unique/mixed state counts and model cutoffs. All six
 outcome/model full-pipeline differentials match the original baseline exactly.
 Fresh source/package checks and all five CI workflows remain required for
 this new native change; prior commit validation is not its acceptance.
+
+All five workflows subsequently passed at `22ddf40`, including full Valgrind
+34682932068: 2,016 assertions, zero failures/warnings/skips, zero root errors
+and definite leaks. Synthetic three-outcome/two-model/list-and-formula
+benchmarks also preserved all complete prediction/CV returns exactly.
+
+## Training-fold matrix products
+
+Native sampling identified training-fold precision crossproducts as the main
+remaining importance-CV hotspot. A contiguous-column scalar prototype failed
+the performance gate and was not retained. The retained candidate uses the
+existing GSL symmetric matrix product on training rows only, keeping intercept
+sums, diagonal ridge, solving, model order and draw-wise reductions unchanged.
+No full-data subtraction or new mathematical dependency is used.
+
+`postfit_build_precision` owns at most 8 MiB of temporary column storage for
+one selected model. Oversized designs or scratch-allocation failure use the
+scalar path. Scratch is released before return and is neither persisted in
+the fit nor shared between folds. This workspace is separate from the bounded
+model-index cache; each CV worker has its own memory budget.
+
+Final isolated helper measurements, one warm-up plus five repeats, baseline
+`22ddf40` versus candidate, median seconds:
+
+| Workload | Baseline | Candidate |
+| --- | ---: | ---: |
+| KIRC importance | 2.341 | 1.002 |
+| Artificial unique importance | 4.964 | 2.058 |
+| Artificial repeated importance | 0.164 | 0.153 |
+| KIRC legacy | 0.774 | 0.610 |
+| Artificial unique legacy | 1.256 | 1.082 |
+| Artificial repeated legacy | 0.149 | 0.155 |
+
+All complete CV returns were identical on this toolchain. The candidate passes
+2,016 suite assertions and six exact full-pipeline differential scenarios.
+A standalone harness links the actual helper and checks 73 shapes, degeneracy,
+training-row order and scratch fallback cases against a test-only scalar oracle,
+including Cholesky status. It passes local ASAN/UBSAN and is added to the
+Linux GCC/Clang and macOS ARM sanitizer jobs. Fresh package build/check and CI
+remain required before accepting this new matrix implementation across platforms.

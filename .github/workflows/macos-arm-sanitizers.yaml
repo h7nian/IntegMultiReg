@@ -66,6 +66,15 @@ jobs:
           test -f "${ubsan_runtime}"
           echo "SANITIZER_RUNTIME=${asan_runtime}:${ubsan_runtime}" >> "${GITHUB_ENV}"
 
+      - name: Check fold precision kernel and bounded fallback
+        shell: bash
+        run: |
+          clang -O1 -g -fsanitize=address,undefined \
+            -fno-sanitize-recover=undefined -fno-omit-frame-pointer \
+            .github/scripts/test-cv-precision.c src/cv_precision.c \
+            $(pkg-config --cflags --libs gsl) -o "${RUNNER_TEMP}/cv-precision-test"
+          "${RUNNER_TEMP}/cv-precision-test"
+
       - name: Install instrumented package and tests
         shell: bash
         run: |
