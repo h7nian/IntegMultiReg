@@ -19,9 +19,13 @@ test_that("post-fit solve failures stop cleanly without partial results", {
   expect_true(validate_imr(broken))
   set.seed(731)
   rng <- .Random.seed
+  # R CMD check permits at most two simultaneous workers. Unrestricted tests
+  # (including the native sanitizer suite) also exercise three workers.
+  limited <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))
+  worker_counts <- if (nzchar(limited) && limited != "false") 1:2 else 1:3
   for (mode in c("legacy", "importance")) {
     expected <- cv_imr(fit, k = 2L, rounds = 2L, cv_method = mode)
-    for (workers in 1:3) {
+    for (workers in worker_counts) {
       connections <- rownames(showConnections(all = TRUE))
       expect_error(cv_imr(broken, k = 2L, rounds = 2L,
         cv_method = mode, workers = workers),
