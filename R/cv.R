@@ -166,23 +166,9 @@ cv_imr <- function(object, k = 5, rounds = 2,
       if (verbose) cat(sprintf("CV round %d/%d, fold %d/%d\n", r, rounds, fold, k))
       test <- which(folds == fold)
       train <- which(folds != fold)
-      fitted <- .imr_cv_refit(object, subjects$id[train], seeds[r, fold], verbose)
-      test_platforms <- lapply(dat$platforms, function(x) x[x$id %in% subjects$id[test], , drop = FALSE])
-      present <- which(vapply(test_platforms, nrow, integer(1L)) > 0L)
-      covariates <- if (!is.null(preprocessing$terms)) {
-        preprocessing$formula_data[
-          preprocessing$formula_data[[preprocessing$id]] %in% subjects$id[test], , drop = FALSE]
-      } else if (!is.null(dat$covariates)) {
-        .imr_match_rows(dat$covariates, subjects$id[test], "covariates")
-      } else NULL
-      if (length(fitted$model$covariate_names) == 0L) covariates <- NULL
-      predicted <- do.call(rbind, stats::predict(fitted, test_platforms[present],
-        platform_names = as.character(present), covariates = covariates,
-        max_models = max_models, verbose = verbose))
-      prediction[test] <- predicted$prediction[match(subjects$id[test], predicted$id)]
-      if (any(!is.finite(prediction[test]))) {
-        .imr_abort("A training-fold model did not return finite predictions for every held-out subject.")
-      }
+      prediction[test] <- .imr_cv_refit_fold(
+        object, subjects$id[train], subjects$id[test], seeds[r, fold],
+        max_models, verbose)
       for (g in seq_along(groups)) fold_scores[fold, g] <- score(intersect(test, groups[[g]]), prediction)
       fold_scores[fold, length(labels)] <- score(test, prediction)
     }
