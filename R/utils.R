@@ -148,8 +148,15 @@
       arg, bad_type[1]
     ))
   }
-  vals <- as.matrix(x[columns])
-  if (any(!is.finite(vals))) {
+  values <- x[columns]
+  # Ordinary numeric columns need no combined matrix copy. Retain matrix
+  # conversion for classed columns, whose coercion/finite methods may differ.
+  finite <- if (any(vapply(values, is.object, logical(1)))) {
+    all(is.finite(as.matrix(values)))
+  } else {
+    all(vapply(values, function(column) all(is.finite(column)), logical(1)))
+  }
+  if (!finite) {
     .imr_abort(sprintf("All non-id values in `%s` must be finite.", arg))
   }
   invisible(x)

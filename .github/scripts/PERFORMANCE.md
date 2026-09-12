@@ -169,3 +169,24 @@ workspace reuse, prediction/conditional-posterior profiling and appropriate
 matrix-kernel experiments remain. This is not the complete performance plan;
 later runtime changes need fresh validation. No sampling-kernel optimization
 has been retained.
+
+## Next optimization: numeric-column validation allocations
+
+Rprofmem attribution on a frozen KIRC fit found repeated full data-frame to
+matrix copies in `.imr_check_numeric_columns`. Ordinary columns now undergo
+the same numeric and finite checks without combining them into a matrix;
+classed columns retain the historical matrix-coercion path. Error priority,
+invisible return value and validation coverage are unchanged.
+
+Isolated installed-engine measurements (1,000 calls per repetition; one warm-up
+and five repeats) give median seconds of 3.274 to 1.317, 0.310 to 0.130 and
+2.469 to 1.005 on the three KIRC platforms. The small covariate and one-feature
+fixtures did not regress in these measurements. These are validation-hotspot
+times, not an end-to-end fit speed claim or a demonstrated RSS reduction.
+
+The local installed suite passes 1,077 assertions with zero failures, warnings
+or skips. All six outcome/model differential cases preserve fit posterior,
+model/preprocessing, predictions, all CV modes and conditional draws exactly.
+Short conditional chains retain their existing R-hat warnings and are not
+convergence evidence. Fresh package checks and CI for this runtime change
+remain required; the worker-phase CI results do not substitute for them.
