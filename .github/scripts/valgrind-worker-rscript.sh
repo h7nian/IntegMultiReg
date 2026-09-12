@@ -18,6 +18,6 @@ worker_expression=$2
 shift 2
 exec valgrind --tool=memcheck --leak-check=full --show-leak-kinds=definite \
   --errors-for-leak-kinds=definite --track-origins=yes --error-exitcode=1 \
-  --log-file="${IMR_VALGRIND_LOG_DIR}/worker-%p.log" \
+  --log-file="${IMR_VALGRIND_LOG_DIR}/worker-$$-%p.log" \
   "${R_HOME}/bin/exec/R" --no-echo --no-restore \
   -e "${worker_expression}" --args "$@"

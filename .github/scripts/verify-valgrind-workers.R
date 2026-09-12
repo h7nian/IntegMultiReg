@@ -38,9 +38,12 @@ for (type in names(outcomes)) {
 
 # stopCluster sends DONE but does not join the OS processes. Require every
 # child's final Memcheck report, so a late error cannot escape the CI gate.
+# R startup also forks short-lived system helpers. The launcher PID prefix
+# distinguishes each actual worker's report from these inherited log files.
 for (attempt in seq_len(60L)) {
   logs <- list.files(Sys.getenv("IMR_VALGRIND_LOG_DIR"),
-                     pattern = "^worker-[0-9]+[.]log$", full.names = TRUE)
+                     pattern = "^worker-[0-9]+-[0-9]+[.]log$", full.names = TRUE)
+  logs <- logs[grepl("^worker-([0-9]+)-\\1[.]log$", basename(logs))]
   contents <- lapply(logs, readLines, warn = FALSE)
   complete <- vapply(contents, function(lines) any(grepl("ERROR SUMMARY:", lines,
                                                         fixed = TRUE)), logical(1L))
