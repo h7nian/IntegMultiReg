@@ -1,5 +1,10 @@
 # IntegMultiReg 0.2.0
 
+* Importance CV reuses fold-local calculations for identical retained selection
+  states. State identities are indexed once per call with collision verification
+  and a bounded auxiliary cache; every draw still contributes in its original
+  order. This does not change the sampler, legacy default or scoring definitions.
+
 * Add `cv_method = c("legacy", "refit", "importance")`, defaulting to
   `"legacy"`. The legacy mode preserves historical post-fit computation;
   `"refit"` retains the 0.1.4 workflow. The paper-derived importance mode

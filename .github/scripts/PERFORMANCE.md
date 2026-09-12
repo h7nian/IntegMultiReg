@@ -42,7 +42,38 @@ the unmodified baseline reproduced its results exactly. The candidate was
 removed: exact sampler outputs are required, not merely unchanged selection
 indicators. No tolerance was relaxed.
 
-## Current status
+## First optimization: importance state reuse
 
-Only measurement infrastructure is accepted so far. No runtime improvement,
-parallel CV interface or complete performance acceptance is claimed yet.
+The implementation indexes immutable, full selection states once per native
+call. Each hash hit is verified against every indicator. Only state identities
+are shared across folds: coefficients, predictions and weights are fold-local.
+Every draw retains its original position in the numerical accumulation.
+The auxiliary index/table payload is bounded at 128 MiB; a half-full table
+retains its first entries and uncached states use the ordinary calculation.
+Insufficient index budget disables caching. Internal adapter arguments permit
+small budgets and forced collisions for tests, without a public tuning option.
+
+On this macOS ARM machine, the same frozen KIRC fit (2,000 draws, 1,000 burn-in;
+847 unique full states) gave the following 5-fold, 2-round importance timings.
+Each value is the median of five repeats following a separate warm-up:
+
+| Selection-state workload | Baseline seconds | Indexed seconds | Change |
+|---|---:|---:|---:|
+| Fitted KIRC states | 5.476 | 2.431 | 55.6% less time |
+| Artificial all-unique states | 5.141 | 5.167 | 0.5% more time |
+| Artificial all-repeated states | 5.021 | 0.176 | 96.5% less time |
+
+These are local workload measurements, not universal speed guarantees or
+published predictive results. The artificial fixtures are not posterior draws
+for inference. An earlier per-fold hash implementation was rejected because it
+increased the all-unique workload by about 11%; the retained implementation
+hashes once per call. The final local test suite passes 737 assertions with zero
+failures/warnings/skips, including cache-off, bounded-capacity and collision tests.
+
+## Remaining acceptance and implementation
+
+The existing draw-by-test prediction buffer is still present; its compression
+and the full memory-growth study remain undone. This is not the complete
+performance plan. Optional parallel CV workers, broader workspace reuse,
+matrix-kernel experiments and final cross-platform/sanitizer/Valgrind gates
+remain pending. No changes were retained in the sampling kernel.

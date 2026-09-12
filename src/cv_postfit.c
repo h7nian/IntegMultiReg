@@ -15,6 +15,7 @@
 #include <gsl/gsl_randist.h>
 #include <stdlib.h>
 #include <math.h>
+#include <stdint.h>
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_sf.h>
 #include "my_header.h"
@@ -22,16 +23,88 @@
 
 static double legacy_max(int n, double *values);
 
+/* Keys refer to immutable draws owned by this call. Hash equality is never
+ * sufficient: verify every selection indicator before reusing a result. */
+typedef struct {
+    uint64_t hash;
+    int row;
+} postfit_cache_entry;
+
+static uint64_t postfit_state_hash(_Bool ***state, int n_platforms,
+                                  const int *n_platform_models,
+                                  const int *n_features)
+{
+    uint64_t hash = UINT64_C(14695981039346656037);
+    for (int p = 0; p < n_platforms; ++p)
+        for (int g = 0; g < n_platform_models[p]; ++g)
+            for (int j = 0; j < n_features[p]; ++j) {
+                hash ^= (uint64_t)state[p][g][j];
+                hash *= UINT64_C(1099511628211);
+            }
+    return hash;
+}
+
+static int postfit_same_state(_Bool ***left, _Bool ***right, int n_platforms,
+                              const int *n_platform_models,
+                              const int *n_features)
+{
+    for (int p = 0; p < n_platforms; ++p)
+        for (int g = 0; g < n_platform_models[p]; ++g)
+            if (memcmp(left[p][g], right[p][g],
+                       (size_t)n_features[p] * sizeof(_Bool)) != 0) return 0;
+    return 1;
+}
+
 /*
- * Fit coefficients on training rows for the supplied proposal states, then
- * average test predictions using inverse predictive-density weights.
+ * Identify repeated immutable selection states once per native call. The
+ * temporary hash table and retained index together obey the cache budget.
  */
+static int *postfit_model_representatives(_Bool ****gamma_sample, int n_draws,
+                                         int n_platforms, const int *n_platform_models,
+                                         const int *n_features, size_t cache_bytes,
+                                         int cache_hash_bits)
+{
+    size_t index_bytes = (size_t)n_draws * sizeof(int);
+    if (index_bytes > cache_bytes ||
+        cache_bytes - index_bytes < 2 * sizeof(postfit_cache_entry)) return NULL;
+    int *representatives = (int *)R_alloc(n_draws, sizeof(int));
+    void *allocation_mark = vmaxget();
+    size_t limit = (cache_bytes - index_bytes) / sizeof(postfit_cache_entry);
+    size_t slots = 2, used = 0;
+    while (slots < (size_t)n_draws * 2 && slots <= limit / 2) slots *= 2;
+    postfit_cache_entry *cache = (postfit_cache_entry *)R_alloc(slots, sizeof(*cache));
+    for (size_t slot = 0; slot < slots; ++slot) cache[slot].row = -1;
+    for (int draw = 0; draw < n_draws; ++draw) {
+        _Bool ***state = gamma_sample[n_draws - 1 - draw];
+        uint64_t hash = postfit_state_hash(state, n_platforms, n_platform_models, n_features);
+        if (cache_hash_bits == 0) hash = 0;
+        else if (cache_hash_bits < 64) hash &= UINT64_MAX >> (64 - cache_hash_bits);
+        size_t slot = (size_t)hash & (slots - 1);
+        while (cache[slot].row >= 0) {
+            if (cache[slot].hash == hash &&
+                postfit_same_state(state, gamma_sample[n_draws - 1 - cache[slot].row],
+                                   n_platforms, n_platform_models, n_features)) break;
+            slot = (slot + 1) & (slots - 1);
+        }
+        representatives[draw] = cache[slot].row >= 0 ? cache[slot].row : draw;
+        /* Bound probing at half capacity; uncached states are still computed. */
+        if (cache[slot].row < 0 && used < slots / 2) {
+            cache[slot].hash = hash;
+            cache[slot].row = draw;
+            ++used;
+        }
+    }
+    vmaxset(allocation_mark);
+    return representatives;
+}
+
+/* Fit fold coefficients and retain the original draw-wise averaging order. */
 static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covariates, int n_selected_platforms, int *selected_platforms,
                 int *n_platform_models, int **platform_models, int *n_features,
                 int model_sample_size, int test_sample_size, int *test_index, int *train_index,
                 double *latent_response, double **covariates, double ***features, _Bool ****gamma_sample, double residual_shape, double residual_rate,
                 int max_models, int *model_index, int *high_model_index, int n_draws,
-                int importance)
+                int importance, const int *model_representatives)
 {
 
   int l, i, j, j1, in, i1, i2;
@@ -45,6 +118,15 @@ static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covari
   {
     int ranked_model = high_model_index[l];
     int draw_index = model_index[ranked_model];
+    if (model_representatives != NULL) {
+      int row = model_representatives[l];
+      if (row < l && R_FINITE(weight[row])) {
+        weight[l] = weight[row];
+        memcpy(model_predictions[l], model_predictions[row],
+               (size_t)test_sample_size * sizeof(double));
+        continue;
+      }
+    }
 
     int **selected_feature_index = malloc(n_selected_platforms * sizeof(int *));
     int n_selected_features[n_selected_platforms];
@@ -420,8 +502,17 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
                             SEXP features_R, SEXP response_R, SEXP covariates_R,
                             SEXP outcome_type_R,
                             SEXP draws_R, SEXP folds_R_input, SEXP rounds_R,
-                            SEXP max_models_R, SEXP importance_R)
+                            SEXP max_models_R, SEXP importance_R, SEXP cache_control_R)
 {
+    if (!isReal(cache_control_R) || XLENGTH(cache_control_R) != 2 ||
+        !R_FINITE(REAL(cache_control_R)[0]) || !R_FINITE(REAL(cache_control_R)[1]) ||
+        REAL(cache_control_R)[0] < 0 || REAL(cache_control_R)[0] > 128.0 * 1024 * 1024 ||
+        REAL(cache_control_R)[1] < 0 || REAL(cache_control_R)[1] > 64 ||
+        floor(REAL(cache_control_R)[0]) != REAL(cache_control_R)[0] ||
+        floor(REAL(cache_control_R)[1]) != REAL(cache_control_R)[1])
+        Rf_error("Invalid internal post-fit cache controls");
+    size_t cache_bytes = (size_t)REAL(cache_control_R)[0];
+    int cache_hash_bits = (int)REAL(cache_control_R)[1];
     clock_t started = clock();
     int importance = asLogical(importance_R);
     int protect_count = 0;
@@ -530,6 +621,10 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
     } else {
         max_models = MIN(n_unique_models, max_models_requested);
     }
+    /* Share only immutable state identities, never fold-specific estimates. */
+    int *model_representatives = importance ? postfit_model_representatives(
+        gamma_sample, n_draws, n_platforms, n_platform_models_c, n_features,
+        cache_bytes, cache_hash_bits) : NULL;
     int n_subjects = 0;
     for (int l = 0; l < n_subgroups; l++)
         n_subjects += sample_size_ptr[l];
@@ -652,7 +747,8 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
                                         n_platform_models_c, platform_models_c, n_features,
                                         sample_size_ptr[m], test_sample_size, test_index, train_index,
                                         latent_response[m], covariates[m], features[m], gamma_sample, residual_shape, residual_rate,
-                                        max_models, model_index, high_model_index, n_draws, importance);
+                                        max_models, model_index, high_model_index, n_draws, importance,
+                                        model_representatives);
 
                 /* A fold cannot exceed its validated subgroup size. Allocate
                  * that capacity so allocation does not depend on GCC's range

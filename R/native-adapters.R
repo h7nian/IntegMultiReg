@@ -2,7 +2,15 @@
 ## validate and prepare named data, then hand it to these narrow adapters.
 
 .imr_call_cv_postfit_native <- function(object, k, rounds, max_models,
-                                        verbose, importance) {
+                                        verbose, importance,
+                                        cache_bytes = 128 * 1024^2,
+                                        cache_hash_bits = 64L) {
+  # Internal controls exercise bounded-cache and collision paths in tests.
+  # They never change which draws contribute to the statistical calculation.
+  cache_bytes <- .imr_check_integer_scalar(cache_bytes, "cache_bytes", min = 0)
+  cache_hash_bits <- .imr_check_integer_scalar(cache_hash_bits, "cache_hash_bits", min = 0)
+  if (cache_bytes > 128 * 1024^2 || cache_hash_bits > 64L)
+    .imr_abort("Invalid internal post-fit cache controls.")
   control <- object$control
   model <- object$model
   preprocessing <- object$preprocessing
@@ -25,7 +33,8 @@
     as.integer(match(control$outcome_type,
                      c("right.censored", "binary", "continuous"))),
     as.integer(control$mcmc$draws), as.integer(k), as.integer(rounds),
-    as.integer(max_models), importance, PACKAGE = "IntegMultiReg"
+    as.integer(max_models), importance, as.double(c(cache_bytes, cache_hash_bits)),
+    PACKAGE = "IntegMultiReg"
   ))
 }
 
