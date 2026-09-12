@@ -101,6 +101,167 @@ static int *postfit_model_representatives(_Bool ****gamma_sample, int n_draws,
     return representatives;
 }
 
+/* Read-only view of the current fold's inputs; no cross-fold state is retained. */
+typedef struct {
+  int subgroup;
+  int n_covariates;
+  int n_selected_platforms;
+  int *selected_platforms;
+  int *n_platform_models;
+  int **platform_models;
+  int *n_features;
+  int model_sample_size;
+  int test_sample_size;
+  int *test_index;
+  int *train_index;
+  double *latent_response;
+  double **covariates;
+  double ***features;
+  _Bool ****gamma_sample;
+  double residual_shape;
+  double residual_rate;
+  int n_draws;
+  int importance;
+} postfit_fold_data;
+
+/* Compute one selected model without changing arithmetic or solver order. */
+static int postfit_predict_model(const postfit_fold_data *fold, int draw_index,
+                                  double *model_prediction, double *log_weight)
+{
+  int i, j, in, i1, i2;
+  int **selected_feature_index = malloc(fold->n_selected_platforms * sizeof(int *));
+  int n_selected_features[fold->n_selected_platforms];
+  for (int i = 0; i < fold->n_selected_platforms; i++)
+  {
+    int platform_index = fold->selected_platforms[i];
+    int platform_model_index = -1;
+    for (int ss = 0; ss < fold->n_platform_models[platform_index]; ss++)
+    {
+      if (fold->platform_models[platform_index][ss] == fold->subgroup)
+      {
+        platform_model_index = ss;
+        break;
+      }
+    }
+    if (platform_model_index == -1)
+    {
+      Rf_error("Subgroup %d not found for platform %d\n", 1 + fold->subgroup, 1 + platform_index);
+    }
+    selected_feature_index[i] = malloc(fold->n_features[platform_index] * sizeof(int));
+    if (!selected_feature_index[i])
+    {
+      Rf_error("malloc failed for selected_feature_index[%d]\n", i);
+    }
+    n_selected_features[i] = 0;
+    find_indices_not_equal(fold->n_features[platform_index], fold->gamma_sample[fold->n_draws - 1 - draw_index][platform_index][platform_model_index], 0, selected_feature_index[i], &n_selected_features[i]);
+  }
+
+  double **design = build_design_matrix(fold->n_covariates, fold->n_selected_platforms, n_selected_features, selected_feature_index, fold->covariates, fold->features, fold->selected_platforms, fold->model_sample_size);
+
+  int train_sample_size = fold->model_sample_size - fold->test_sample_size;
+  int n_selected_total = 0;
+  for (int p = 0; p < fold->n_selected_platforms; p++)
+  {
+    n_selected_total += n_selected_features[p];
+  }
+  int n_coefficients = 1 + fold->n_covariates + n_selected_total;
+
+  double *precision = malloc((size_t)n_coefficients * n_coefficients * sizeof(double));
+  postfit_build_precision(precision, design, n_coefficients, train_sample_size,
+                          fold->train_index, IMR_CV_WORKSPACE_BYTES);
+
+  double *xty = calloc(n_coefficients, sizeof(double));
+  for (j = 0; j < n_coefficients; j++)
+  {
+    double a1 = 0;
+    for (i2 = 0; i2 < train_sample_size; i2++)
+    {
+      i1 = fold->train_index[i2];
+      if (j == 0)
+        a1 += fold->latent_response[i1];
+      else
+        a1 += design[i1][j - 1] * fold->latent_response[i1];
+    }
+    xty[j] = a1;
+  }
+  gsl_vector_view b = gsl_vector_view_array(xty, n_coefficients);
+
+  gsl_vector *x = gsl_vector_alloc(n_coefficients);
+  gsl_matrix_view Aip = gsl_matrix_view_array(precision, n_coefficients, n_coefficients);
+  int status = gsl_linalg_cholesky_decomp(&Aip.matrix);
+  if (!status)
+    status = gsl_linalg_cholesky_solve(&Aip.matrix, &b.vector, x);
+  if (status)
+  {
+    /* The caller releases fold resources before reporting the failed solve. */
+    gsl_vector_free(x);
+    free(xty);
+    free(precision);
+    for (i = 0; i < fold->model_sample_size; i++)
+      free(design[i]);
+    free(design);
+    for (int platform = 0; platform < fold->n_selected_platforms; platform++)
+      free(selected_feature_index[platform]);
+    free(selected_feature_index);
+    return status;
+  }
+
+  double *beta = malloc(n_coefficients * sizeof(double));
+  for (j = 0; j < n_coefficients; j++)
+  {
+    beta[j] = gsl_vector_get(x, j);
+  }
+  gsl_vector_free(x);
+  double test_sse = 0;
+  for (in = 0; in < fold->test_sample_size; in++)
+  {
+    model_prediction[in] = 0;
+    i = fold->test_index[in];
+    for (j = 0; j < n_coefficients; j++)
+    {
+      if (j == 0)
+        model_prediction[in] += beta[0];
+      else
+        model_prediction[in] += design[i][j - 1] * beta[j];
+    }
+    test_sse += pow(fold->latent_response[i] - model_prediction[in], 2);
+  }
+  double train_sse = 0;
+  double *train_predictions = malloc(train_sample_size * sizeof(double));
+  for (in = 0; in < train_sample_size; in++)
+  {
+    train_predictions[in] = 0;
+    i = fold->train_index[in];
+    for (j = 0; j < n_coefficients; j++)
+    {
+      if (j == 0)
+        train_predictions[in] += beta[0];
+      else
+        train_predictions[in] += design[i][j - 1] * beta[j];
+    }
+    train_sse += pow(fold->latent_response[i] - train_predictions[in], 2);
+  }
+  free(beta);
+  free(train_predictions);
+  free(xty);
+  /* The historical code truncates this value to an integer. The paper
+   * density uses the fractional degrees of freedom implied by the prior. */
+  double degrees_freedom = 2 * fold->residual_shape + train_sample_size;
+  if (!fold->importance) degrees_freedom = (int)degrees_freedom;
+  double residual_scale = (fold->residual_rate + train_sse) / degrees_freedom;
+  *log_weight = (fold->test_sample_size / 2.0) * log(residual_scale) + 0.5 * (2 * fold->residual_shape + fold->model_sample_size) * log(1 + test_sse / (degrees_freedom * residual_scale));
+  for (i = 0; i < fold->model_sample_size; i++)
+    free(design[i]);
+  free(design);
+  free(precision);
+  for (int i = 0; i < fold->n_selected_platforms; i++)
+  {
+    free(selected_feature_index[i]);
+  }
+  free(selected_feature_index);
+  return 0;
+}
+
 /* Fit fold coefficients and retain the original draw-wise averaging order. */
 static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covariates, int n_selected_platforms, int *selected_platforms,
                 int *n_platform_models, int **platform_models, int *n_features,
@@ -111,7 +272,28 @@ static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covari
                 int *solve_status)
 {
 
-  int l, i, j, in, i1, i2;
+  const postfit_fold_data fold = {
+    .subgroup = subgroup,
+    .n_covariates = n_covariates,
+    .n_selected_platforms = n_selected_platforms,
+    .selected_platforms = selected_platforms,
+    .n_platform_models = n_platform_models,
+    .platform_models = platform_models,
+    .n_features = n_features,
+    .model_sample_size = model_sample_size,
+    .test_sample_size = test_sample_size,
+    .test_index = test_index,
+    .train_index = train_index,
+    .latent_response = latent_response,
+    .covariates = covariates,
+    .features = features,
+    .gamma_sample = gamma_sample,
+    .residual_shape = residual_shape,
+    .residual_rate = residual_rate,
+    .n_draws = n_draws,
+    .importance = importance,
+  };
+  int l, i, in;
   postfit_prediction_rows prediction_rows;
   *allocation_failed = 0;
   if (!postfit_rows_init(&prediction_rows, max_models, test_sample_size,
@@ -151,140 +333,13 @@ static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covari
       *allocation_failed = 1;
       return NULL;
     }
-    int **selected_feature_index = malloc(n_selected_platforms * sizeof(int *));
-    int n_selected_features[n_selected_platforms];
-    for (int i = 0; i < n_selected_platforms; i++)
-    {
-      int platform_index = selected_platforms[i];
-      int platform_model_index = -1;
-      for (int ss = 0; ss < n_platform_models[platform_index]; ss++)
-      {
-        if (platform_models[platform_index][ss] == subgroup)
-        {
-          platform_model_index = ss;
-          break;
-        }
-      }
-      if (platform_model_index == -1)
-      {
-        Rf_error("Subgroup %d not found for platform %d\n", 1 + subgroup, 1 + platform_index);
-      }
-      selected_feature_index[i] = malloc(n_features[platform_index] * sizeof(int));
-      if (!selected_feature_index[i])
-      {
-        Rf_error("malloc failed for selected_feature_index[%d]\n", i);
-      }
-      n_selected_features[i] = 0;
-      find_indices_not_equal(n_features[platform_index], gamma_sample[n_draws - 1 - draw_index][platform_index][platform_model_index], 0, selected_feature_index[i], &n_selected_features[i]);
-    }
-
-    double **design = build_design_matrix(n_covariates, n_selected_platforms, n_selected_features, selected_feature_index, covariates, features, selected_platforms, model_sample_size);
-
-    int train_sample_size = model_sample_size - test_sample_size;
-    int n_selected_total = 0;
-    for (int p = 0; p < n_selected_platforms; p++)
-    {
-      n_selected_total += n_selected_features[p];
-    }
-    int n_coefficients = 1 + n_covariates + n_selected_total;
-
-    double *precision = malloc((size_t)n_coefficients * n_coefficients * sizeof(double));
-    postfit_build_precision(precision, design, n_coefficients, train_sample_size,
-                            train_index, IMR_CV_WORKSPACE_BYTES);
-
-    double *xty = calloc(n_coefficients, sizeof(double));
-    for (j = 0; j < n_coefficients; j++)
-    {
-      double a1 = 0;
-      for (i2 = 0; i2 < train_sample_size; i2++)
-      {
-        i1 = train_index[i2];
-        if (j == 0)
-          a1 += latent_response[i1];
-        else
-          a1 += design[i1][j - 1] * latent_response[i1];
-      }
-      xty[j] = a1;
-    }
-    gsl_vector_view b = gsl_vector_view_array(xty, n_coefficients);
-
-    gsl_vector *x = gsl_vector_alloc(n_coefficients);
-    gsl_matrix_view Aip = gsl_matrix_view_array(precision, n_coefficients, n_coefficients);
-    int status = gsl_linalg_cholesky_decomp(&Aip.matrix);
-    if (!status)
-      status = gsl_linalg_cholesky_solve(&Aip.matrix, &b.vector, x);
-    if (status)
-    {
-      /* Never average an unwritten prediction row after a failed solve. */
-      *solve_status = status;
-      gsl_vector_free(x);
-      free(xty);
-      free(precision);
-      for (i = 0; i < model_sample_size; i++)
-        free(design[i]);
-      free(design);
-      for (int platform = 0; platform < n_selected_platforms; platform++)
-        free(selected_feature_index[platform]);
-      free(selected_feature_index);
+    *solve_status = postfit_predict_model(&fold, draw_index, model_predictions[l], &weight[l]);
+    if (*solve_status) {
       free(weight);
       free(prediction);
       postfit_rows_destroy(&prediction_rows);
       return NULL;
     }
-
-    double *beta = malloc(n_coefficients * sizeof(double));
-    for (j = 0; j < n_coefficients; j++)
-    {
-      beta[j] = gsl_vector_get(x, j);
-    }
-    gsl_vector_free(x);
-    double test_sse = 0;
-    for (in = 0; in < test_sample_size; in++)
-    {
-      model_predictions[l][in] = 0;
-      i = test_index[in];
-      for (j = 0; j < n_coefficients; j++)
-      {
-        if (j == 0)
-          model_predictions[l][in] += beta[0];
-        else
-          model_predictions[l][in] += design[i][j - 1] * beta[j];
-      }
-      test_sse += pow(latent_response[i] - model_predictions[l][in], 2);
-    }
-    double train_sse = 0;
-    double *train_predictions = malloc(train_sample_size * sizeof(double));
-    for (in = 0; in < train_sample_size; in++)
-    {
-      train_predictions[in] = 0;
-      i = train_index[in];
-      for (j = 0; j < n_coefficients; j++)
-      {
-        if (j == 0)
-          train_predictions[in] += beta[0];
-        else
-          train_predictions[in] += design[i][j - 1] * beta[j];
-      }
-      train_sse += pow(latent_response[i] - train_predictions[in], 2);
-    }
-    free(beta);
-    free(train_predictions);
-    free(xty);
-    /* The historical code truncates this value to an integer. The paper
-     * density uses the fractional degrees of freedom implied by the prior. */
-    double degrees_freedom = 2 * residual_shape + train_sample_size;
-    if (!importance) degrees_freedom = (int)degrees_freedom;
-    double residual_scale = (residual_rate + train_sse) / degrees_freedom;
-    weight[l] = (test_sample_size / 2.0) * log(residual_scale) + 0.5 * (2 * residual_shape + model_sample_size) * log(1 + test_sse / (degrees_freedom * residual_scale));
-    for (i = 0; i < model_sample_size; i++)
-      free(design[i]);
-    free(design);
-    free(precision);
-    for (int i = 0; i < n_selected_platforms; i++)
-    {
-      free(selected_feature_index[i]);
-    }
-    free(selected_feature_index);
   }
   double max_log_weight = legacy_max(max_models, weight);
   double weight_sum = 0;

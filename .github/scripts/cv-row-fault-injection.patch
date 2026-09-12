@@ -33,8 +33,7 @@ diff --git a/src/cv_postfit.c b/src/cv_postfit.c
  static double legacy_max(int n, double *values);
  
  /* Keys refer to immutable draws owned by this call. Hash equality is never
-@@ -113,8 +138,9 @@
-   int l, i, j, in, i1, i2;
+@@ -114,7 +139,8 @@
    postfit_prediction_rows prediction_rows;
    *allocation_failed = 0;
 +  test_rows_reset();
