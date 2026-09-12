@@ -2,16 +2,9 @@
 # No private data, custom CV folds, or production instrumentation branches.
 library(IntegMultiReg)
 options(warn = 2)
-launcher <- file.path(Sys.getenv("GITHUB_WORKSPACE"), ".github", "scripts",
-                      "valgrind-worker-rscript.sh")
-stopifnot(identical(Sys.info()[["sysname"]], "Linux"), file.exists(launcher),
-          dir.exists(Sys.getenv("IMR_VALGRIND_LOG_DIR")))
-cluster_options <- get("defaultClusterOptions", envir = asNamespace("parallel"))
-stopifnot(is.environment(cluster_options),
-          exists("rscript", envir = cluster_options, inherits = FALSE),
-          identical(cluster_options$rscript_args, character()))
-cluster_options$rscript <- normalizePath(launcher)
-cluster_options$outfile <- ""
+scripts <- file.path(Sys.getenv("GITHUB_WORKSPACE"), ".github", "scripts")
+source(file.path(scripts, "configure-valgrind-workers.R"))
+source(file.path(scripts, "verify-valgrind-logs.R"))
 
 platform <- data.frame(id = 1:12, marker = sin(1:12))
 outcomes <- list(binary = data.frame(id = 1:12, y = rep(0:1, 6)),
@@ -36,25 +29,4 @@ for (type in names(outcomes)) {
   }
 }
 
-# stopCluster sends DONE but does not join the OS processes. Require every
-# child's final Memcheck report, so a late error cannot escape the CI gate.
-# R startup also forks short-lived system helpers. The launcher PID prefix
-# distinguishes each actual worker's report from these inherited log files.
-for (attempt in seq_len(60L)) {
-  logs <- list.files(Sys.getenv("IMR_VALGRIND_LOG_DIR"),
-                     pattern = "^worker-[0-9]+-[0-9]+[.]log$", full.names = TRUE)
-  logs <- logs[grepl("^worker-([0-9]+)-\\1[.]log$", basename(logs))]
-  contents <- lapply(logs, readLines, warn = FALSE)
-  complete <- vapply(contents, function(lines) any(grepl("ERROR SUMMARY:", lines,
-                                                        fixed = TRUE)), logical(1L))
-  if (length(logs) == 36L && all(complete)) break
-  Sys.sleep(1)
-}
-stopifnot(length(logs) == 36L, all(complete))
-for (lines in contents) {
-  stopifnot(any(grepl("ERROR SUMMARY: 0 errors from 0 contexts", lines, fixed = TRUE)),
-            any(grepl("definitely lost: 0 bytes in 0 blocks", lines, fixed = TRUE)) ||
-              any(grepl("All heap blocks were freed -- no leaks are possible", lines,
-                         fixed = TRUE)))
-}
-cat("Verified 36 instrumented worker processes: zero Memcheck errors and definite leaks.\n")
+verify_valgrind_worker_logs(36L)

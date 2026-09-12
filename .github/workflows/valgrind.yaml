@@ -56,7 +56,8 @@ jobs:
   valgrind:
     name: R-devel / Linux / valgrind
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Full instrumentation also covers every PSOCK refit and its R startup.
+    timeout-minutes: 120
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
@@ -92,11 +93,14 @@ jobs:
         shell: bash
         run: |
           tests_dir="${RUNNER_TEMP}/valgrind-library/IntegMultiReg/tests"
+          export IMR_VALGRIND_LOG_DIR="${RUNNER_TEMP}/valgrind-suite-workers"
+          mkdir -p "${IMR_VALGRIND_LOG_DIR}"
+          chmod +x "${GITHUB_WORKSPACE}/.github/scripts/valgrind-worker-rscript.sh"
           cd "${tests_dir}"
           set +e
           R_LIBS="${RUNNER_TEMP}/valgrind-library" \
             R -d "valgrind --tool=memcheck --leak-check=full --show-leak-kinds=definite --errors-for-leak-kinds=definite --track-origins=yes --error-exitcode=1" \
-              --vanilla -f "${GITHUB_WORKSPACE}/.github/scripts/verify-tests.R" \
+              --vanilla -f "${GITHUB_WORKSPACE}/.github/scripts/verify-valgrind-suite.R" \
               2>&1 | tee "${RUNNER_TEMP}/valgrind-tests.log"
           status=${PIPESTATUS[0]}
           set -e
@@ -117,4 +121,5 @@ jobs:
           path: |
             ${{ runner.temp }}/valgrind-tests.log
             ${{ runner.temp }}/test-evidence
+            ${{ runner.temp }}/valgrind-suite-workers
           if-no-files-found: error
