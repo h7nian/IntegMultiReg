@@ -1,6 +1,8 @@
 # Post-fit modes use the full-fit transformed data and augmented responses.
 # Reconstruct row IDs with the same subgroup builder used by imr().
-.imr_cv_postfit <- function(object, k, rounds, max_models, verbose, cv_method) {
+.imr_cv_postfit <- function(object, k, rounds, max_models, verbose, cv_method,
+                            workers = 1L) {
+  workers <- .imr_check_integer_scalar(workers, "workers", min = 1)
   model <- object$model
   control <- object$control
   dat <- object$preprocessing$input_data
@@ -19,8 +21,13 @@
     .imr_abort("Stored inputs do not match the fitted subgroup rows.")
   }
   max_models <- min(max_models, control$mcmc$draws)
-  result <- .imr_call_cv_postfit_native(object, k, rounds, max_models,
-                                        verbose, cv_method == "importance")
+  result <- if (workers == 1L) {
+    .imr_call_cv_postfit_native(object, k, rounds, max_models,
+                                verbose, cv_method == "importance")
+  } else {
+    .imr_cv_postfit_parallel(object, k, rounds, max_models, verbose,
+                              cv_method == "importance", workers)
+  }
   labels <- c(model$subgroup_names, "all")
   colnames(result$total_cindex) <- colnames(result$subset_cindex) <- labels
   records <- do.call(rbind, lapply(seq_len(rounds), function(round) {
