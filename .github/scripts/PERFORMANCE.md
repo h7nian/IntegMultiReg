@@ -85,16 +85,46 @@ Both post-fit modes pass exact 2/3-worker comparisons on all six simulated
 outcome/model combinations and the frozen 448-subject KIRC fit (5 folds,
 2 rounds). The public `workers` argument is now connected to all three modes.
 `performance-refit-workers.R` measures the refit
-dispatcher (one warm-up and five repeats at each worker count); use the same
+dispatcher (one warm-up and five repeats at each of 1, 2 and 3 workers); use the same
 frozen fit and an otherwise idle machine. Short tasks may not amortize process
 startup, and each child holds its own fit and training-fold allocations.
-The internal post-fit dispatch stage passed 999 installed assertions with zero
-failures, warnings or skips. Eighteen saved-baseline comparisons (all CV modes
+The public worker implementation and bootstrap/cleanup fixes passed 1,049
+installed assertions with zero failures, warnings or skips, including an
+installation that retains R source references. Eighteen saved-baseline comparisons (all CV modes
 for all outcome/model combinations) return exactly identical complete results.
 The public API also validates worker counts and relays worker warnings in task
 order. Parallel formula refits require serializable custom-function bindings
 or package-qualified functions; the caller's global workspace is not exported.
-These are correctness gates, not final performance or cross-platform acceptance.
+These are correctness gates, not acceptance of the complete performance plan.
+
+### Public worker measurements and validation
+
+The following post-fit measurements use commit `eb9b213`, one warm-up followed
+by five repeats, 5 folds and 2 rounds, and the same frozen 448-subject KIRC fit.
+All saved complete CV results are exactly identical to the isolated baseline.
+Times are medians in seconds; raw timings retain the individual ranges.
+
+| Workload | Baseline serial | Optimized serial | 2 workers | 3 workers |
+|---|---:|---:|---:|---:|
+| KIRC legacy | 0.918 | 0.897 | 1.289 | 1.411 |
+| KIRC importance | 5.366 | 2.418 | 1.866 | 1.668 |
+| Artificial unique importance | 5.095 | 5.103 | 3.286 | 3.006 |
+| Artificial repeated importance | 4.860 | 0.178 | 0.693 | 0.866 |
+
+Process startup makes short workloads slower; the default remains one worker.
+The artificial states are not inferential posterior samples. These timings
+predate the bootstrap and error-cleanup fixes; they must not be relabelled as
+measurements of the later source. Full-size refit timing remains separate.
+
+CI exposed two worker startup issues: retained source metadata could load a
+different installation before worker library initialization, and macOS PSOCK
+children needed sanitizer preloading before R startup. Commit `227ada1` strips
+bootstrap source references and closes each worker independently after failure.
+Commit `942762d` adds a CI-only macOS launcher; production execution does not
+have a sanitizer-specific path. At `942762d`, Linux/macOS/Windows checks,
+GCC/Clang ASAN/UBSAN and macOS ARM ASAN/UBSAN pass. Valgrind is still pending
+at the time of this record. The macOS sanitizer log executes all 1,049 assertions
+with zero failures, warnings or skips. No failed test was disabled.
 
 The existing draw-by-test prediction buffer is still present; its compression
 and the full memory-growth study remain undone. This is not the complete

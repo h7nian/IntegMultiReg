@@ -12,9 +12,14 @@ dir.create(output, recursive = TRUE)
 k <- as.integer(args[[3L]])
 rounds <- as.integer(args[[4L]])
 stopifnot(!is.na(k), k >= 2L, !is.na(rounds), rounds >= 1L)
+writeLines(capture.output(sessionInfo()), file.path(output, "sessionInfo.txt"))
+saveRDS(list(input_md5 = tools::md5sum(args[[1L]]), folds = k, rounds = rounds,
+             source_sha = Sys.getenv("IMR_SOURCE_SHA", unset = NA_character_),
+             library = getNamespaceInfo(asNamespace("IntegMultiReg"), "path")),
+        file.path(output, "provenance.rds"))
 reference <- NULL
 timings <- list()
-for (workers in c(1L, 2L)) {
+for (workers in c(1L, 2L, 3L)) {
   for (iteration in 0:5) {
     gc()
     set.seed(739)
@@ -24,17 +29,23 @@ for (workers in c(1L, 2L)) {
                        cv_method = "refit", workers = workers)
     })[["elapsed"]]
     stopifnot(identical(.Random.seed, rng))
-    if (is.null(reference)) reference <- result
+    if (is.null(reference)) {
+      reference <- result
+      saveRDS(reference, file.path(output, "result.rds"))
+    }
     stopifnot(identical(result, reference))
     timings[[length(timings) + 1L]] <- data.frame(
       workers = workers, iteration = iteration, seconds = elapsed)
+    # Preserve completed measurements if a later long-running task fails.
+    write.csv(do.call(rbind, timings), file.path(output, "timings.csv"),
+              row.names = FALSE)
     cat(workers, iteration, elapsed, "EXACT\n")
   }
 }
-write.csv(do.call(rbind, timings), file.path(output, "timings.csv"), row.names = FALSE)
-saveRDS(reference, file.path(output, "result.rds"))
-saveRDS(list(input_md5 = tools::md5sum(args[[1L]]), folds = k, rounds = rounds,
-             source_sha = Sys.getenv("IMR_SOURCE_SHA", unset = NA_character_),
-             library = getNamespaceInfo(asNamespace("IntegMultiReg"), "path")),
-        file.path(output, "provenance.rds"))
-writeLines(capture.output(sessionInfo()), file.path(output, "sessionInfo.txt"))
+measured <- do.call(rbind, timings)
+measured <- measured[measured$iteration > 0L, ]
+summary <- do.call(rbind, lapply(split(measured$seconds, measured$workers),
+  function(seconds) c(median = median(seconds), minimum = min(seconds),
+                      maximum = max(seconds))))
+write.csv(summary, file.path(output, "summary.csv"))
+print(summary)
