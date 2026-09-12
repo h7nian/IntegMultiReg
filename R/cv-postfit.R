@@ -22,8 +22,10 @@
   }
   max_models <- min(max_models, control$mcmc$draws)
   result <- if (workers == 1L) {
+    # Importance is scored below; do not compute historical scores to discard.
     .imr_call_cv_postfit_native(object, k, rounds, max_models,
-                                verbose, cv_method == "importance")
+                                verbose, cv_method == "importance",
+                                stage = if (cv_method == "importance") "predict" else "full")
   } else {
     .imr_cv_postfit_parallel(object, k, rounds, max_models, verbose,
                               cv_method == "importance", workers)

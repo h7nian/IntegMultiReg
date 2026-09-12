@@ -281,3 +281,28 @@ training-row order and scratch fallback cases against a test-only scalar oracle,
 including Cholesky status. It passes local ASAN/UBSAN and is added to the
 Linux GCC/Clang and macOS ARM sanitizer jobs. Fresh package build/check and CI
 remain required before accepting this new matrix implementation across platforms.
+
+All five workflows subsequently passed at `a8da0b1`, including full Valgrind
+34688771265 with 2,016 assertions and zero errors/definite leaks. The twelve-case
+synthetic matrix preserved all complete prediction/CV returns exactly; 24
+isolated KIRC fits at 2,000/10,000 draws matched their baseline exactly.
+
+## Avoid overwritten importance scores
+
+Serial importance CV now requests the existing prediction-only native stage,
+as the parallel path already did. Corrected public scoring remains in R;
+legacy keeps its historical native scoring. Obsolete historical score printouts
+are no longer emitted for importance. No kernel or RNG implementation changed.
+
+Against `a8da0b1`, one warm-up plus five repeats gave baseline/candidate median
+seconds of 1.037/1.032 for KIRC, 0.163/0.159 for repeated KIRC states and
+2.144/2.126 for unique states. These are not meaningful KIRC speedup claims.
+Synthetic repeated-state survival workloads with 1,200 and 3,000 subjects gave
+0.037/0.021 and 0.164/0.065: redundant historical scoring matters for larger,
+cheap-model workloads. These artificial states are not inferential posteriors.
+
+All measured full returns and caller RNG match exactly; six full-pipeline
+differentials and 2,020 suite assertions pass with zero failures/warnings/skips.
+Four new assertions preserve legacy logging and verbose/quiet return equivalence
+while excluding obsolete importance score output. Fresh build/check and CI are
+still required for this R dispatch change.
