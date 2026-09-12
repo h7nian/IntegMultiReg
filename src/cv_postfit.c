@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdint.h>
+#include <limits.h>
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_sf.h>
 #include "my_header.h"
@@ -491,6 +492,8 @@ static double legacy_mse(int n, double *prediction, double *response) {
  * partitions. R reconstructs subject records and scores importance predictions
  * with the current metric definitions.
  */
+enum postfit_stage { POSTFIT_FULL, POSTFIT_PLAN, POSTFIT_PREDICT, POSTFIT_SCORE };
+
 SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
                             SEXP residual_shape_R, SEXP residual_rate_R,
                             SEXP interaction_shape_R, SEXP interaction_rate_R,
@@ -502,7 +505,8 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
                             SEXP features_R, SEXP response_R, SEXP covariates_R,
                             SEXP outcome_type_R,
                             SEXP draws_R, SEXP folds_R_input, SEXP rounds_R,
-                            SEXP max_models_R, SEXP importance_R, SEXP cache_control_R)
+                            SEXP max_models_R, SEXP importance_R, SEXP cache_control_R,
+                            SEXP execution_R)
 {
     if (!isReal(cache_control_R) || XLENGTH(cache_control_R) != 2 ||
         !R_FINITE(REAL(cache_control_R)[0]) || !R_FINITE(REAL(cache_control_R)[1]) ||
@@ -533,11 +537,46 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
     int n_subgroups = asInteger(n_subgroups_R);
     int max_models_requested = asInteger(max_models_R); // Maximum number of models to be used for prediction and Bayesian model averaging
 
-    int n_unique_models;
+    int n_unique_models = 0;
     int outcome_type = asInteger(outcome_type_R);
     double *nu = REAL(nu_R);
     int n_platforms = asInteger(n_platforms_R);
     int n_folds = asInteger(folds_R_input);
+    if (n_cv_rounds < 1 || n_folds < 2 ||
+        (double)n_cv_rounds * n_folds > INT_MAX ||
+        !isNewList(execution_R) || XLENGTH(execution_R) != 3)
+        Rf_error("Invalid internal post-fit execution controls");
+    SEXP stage_R = VECTOR_ELT(execution_R, 0);
+    SEXP tasks_R = VECTOR_ELT(execution_R, 1);
+    SEXP supplied_predictions_R = VECTOR_ELT(execution_R, 2);
+    if (!isInteger(stage_R) || XLENGTH(stage_R) != 1 ||
+        INTEGER(stage_R)[0] < POSTFIT_FULL || INTEGER(stage_R)[0] > POSTFIT_SCORE ||
+        !isLogical(tasks_R) || XLENGTH(tasks_R) != (R_xlen_t)n_cv_rounds * n_folds)
+        Rf_error("Invalid internal post-fit execution controls");
+    int stage = INTEGER(stage_R)[0];
+    for (R_xlen_t i = 0; i < XLENGTH(tasks_R); ++i)
+        if (LOGICAL(tasks_R)[i] == NA_LOGICAL ||
+            (stage != POSTFIT_PREDICT && !LOGICAL(tasks_R)[i]))
+            Rf_error("Invalid internal post-fit task mask");
+    R_xlen_t subject_count = 0;
+    for (int m = 0; m < n_subgroups; ++m) subject_count += INTEGER(sample_sizes_R)[m];
+    if (subject_count < 1 || subject_count > INT_MAX / n_cv_rounds)
+        Rf_error("Post-fit prediction matrix exceeds the native index limit");
+    int n_subjects = (int)subject_count;
+    if (stage == POSTFIT_SCORE) {
+        if (!isReal(supplied_predictions_R) ||
+            XLENGTH(supplied_predictions_R) != subject_count * n_cv_rounds)
+            Rf_error("Invalid internal post-fit scoring predictions");
+        for (R_xlen_t i = 0; i < XLENGTH(supplied_predictions_R); ++i)
+            if (!R_FINITE(REAL(supplied_predictions_R)[i]))
+                Rf_error("Invalid internal post-fit scoring predictions");
+    } else if (supplied_predictions_R != R_NilValue) {
+        Rf_error("Predictions may only be supplied to the internal scoring stage");
+    }
+    int compute_predictions = stage == POSTFIT_FULL || stage == POSTFIT_PREDICT;
+    int compute_scores = stage == POSTFIT_FULL || stage == POSTFIT_SCORE;
+    /* Allocate scoring scratch before owning any heap-backed model data. */
+    double *score_buffer = stage == POSTFIT_SCORE ? (double *)R_alloc(n_subjects, sizeof(double)) : NULL;
     int fold;
     double *post = dvector(0, n_draws - 1);
     int *model_index = malloc(n_draws * sizeof(int));
@@ -546,7 +585,7 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
     double **latent_response = r_list_vector_double_to_c(n_subgroups, latent_y_R);
     double ***covariates = r_list_matrix_to_c(n_subgroups, covariates_R);
     double ****features = r_list_list_matrix_to_c(n_subgroups, features_R);
-    _Bool ****gamma_sample = r_list_list_matrix_to_c_bool(n_draws, gamma_sample_R);
+    _Bool ****gamma_sample = compute_predictions ? r_list_list_matrix_to_c_bool(n_draws, gamma_sample_R) : NULL;
 
     double ***theta = r_list_matrix_to_c(n_platforms, theta_R);
     int **platform_models_c = malloc(n_platforms * sizeof(int *));
@@ -601,7 +640,7 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
 
     const char likelihood_type[] = "NonLocal";
     double ***beta = NULL;
-    if (!importance) beta = infer_posterior_models(latent_response, covariates, features, n_draws, gamma_sample,
+    if (compute_predictions && !importance) beta = infer_posterior_models(latent_response, covariates, features, n_draws, gamma_sample,
                                      nu, theta, mrf, slab_scales, covariate_scale, forced_scale,
                                      first_platform_scale, interaction_shape,
                                      residual_shape, residual_rate, n_features, n_subgroups, n_platforms,
@@ -622,15 +661,14 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
         max_models = MIN(n_unique_models, max_models_requested);
     }
     /* Share only immutable state identities, never fold-specific estimates. */
-    int *model_representatives = importance ? postfit_model_representatives(
+    int *model_representatives = compute_predictions && importance ? postfit_model_representatives(
         gamma_sample, n_draws, n_platforms, n_platform_models_c, n_features,
         cache_bytes, cache_hash_bits) : NULL;
-    int n_subjects = 0;
-    for (int l = 0; l < n_subgroups; l++)
-        n_subjects += sample_size_ptr[l];
     SEXP predictions_R = PROTECT(allocMatrix(REALSXP, n_subjects, n_cv_rounds));
     SEXP folds_R = PROTECT(allocMatrix(INTSXP, n_subjects, n_cv_rounds));
     protect_count += 2;
+    for (R_xlen_t i = 0; i < XLENGTH(predictions_R); ++i)
+        REAL(predictions_R)[i] = NA_REAL;
     double fold_score_sum[n_subgroups + 1], pooled_score[n_subgroups + 1];
     double **round_predictions = malloc((n_subgroups + 1) * sizeof(double *));
     double **round_response = NULL;
@@ -705,6 +743,8 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
     {
         c_index_list[cv_round] = calloc((n_subgroups + 1), sizeof(double));
         total_c_index_list[cv_round] = calloc((n_subgroups + 1), sizeof(double));
+        for (int m = 0; m <= n_subgroups; ++m)
+            c_index_list[cv_round][m] = total_c_index_list[cv_round][m] = NA_REAL;
         for (int m = 0; m < n_subgroups; m++)
         {
             if (n_censored[m] > 0)
@@ -743,12 +783,30 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
 
                 int subgroup_offset = 0;
                 for (int g = 0; g < m; ++g) subgroup_offset += sample_size_ptr[g];
-                double *prediction = postfit_predict_fold(outcome_type, m, n_covariates, n_model_platforms_c[m], model_platforms_c[m],
+                for (int i = 0; i < test_sample_size; ++i)
+                    INTEGER(folds_R)[subgroup_offset + test_index[i] + n_subjects * cv_round] = fold + 1;
+                if (stage == POSTFIT_PLAN ||
+                    (stage == POSTFIT_PREDICT && !LOGICAL(tasks_R)[cv_round * n_folds + fold]))
+                    continue;
+                double *prediction;
+                if (stage == POSTFIT_SCORE) {
+                    prediction = score_buffer;
+                    for (int i = 0; i < test_sample_size; ++i)
+                        prediction[i] = REAL(supplied_predictions_R)[subgroup_offset + test_index[i] + n_subjects * cv_round];
+                } else {
+                    prediction = postfit_predict_fold(outcome_type, m, n_covariates, n_model_platforms_c[m], model_platforms_c[m],
                                         n_platform_models_c, platform_models_c, n_features,
                                         sample_size_ptr[m], test_sample_size, test_index, train_index,
                                         latent_response[m], covariates[m], features[m], gamma_sample, residual_shape, residual_rate,
                                         max_models, model_index, high_model_index, n_draws, importance,
                                         model_representatives);
+                }
+                for (int i = 0; i < test_sample_size; ++i)
+                    REAL(predictions_R)[subgroup_offset + test_index[i] + n_subjects * cv_round] = prediction[i];
+                if (!compute_scores) {
+                    free(prediction);
+                    continue;
+                }
 
                 /* A fold cannot exceed its validated subgroup size. Allocate
                  * that capacity so allocation does not depend on GCC's range
@@ -797,42 +855,39 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
                     fold_prediction[i + j] = prediction[i];
                     round_predictions[m][i + round_offsets[m]] = prediction[i];
                 }
-                for (int i = 0; i < test_sample_size; ++i) {
-                    int row = subgroup_offset + test_index[i] + n_subjects * cv_round;
-                    REAL(predictions_R)[row] = prediction[i];
-                    INTEGER(folds_R)[row] = fold + 1;
-                }
                 j += test_sample_size;
                 round_offsets[m] += test_sample_size;
                 if (outcome_type == IMR_OUTCOME_BINARY)
                     free(test_binary);
                 else
                     free(test_response);
-                free(prediction);
+                if (stage != POSTFIT_SCORE) free(prediction);
             }
-            for (int i = 0; i < j; i++)
-            {
-                round_predictions[n_subgroups][i + round_offsets[n_subgroups]] = fold_prediction[i];
-                if (outcome_type == IMR_OUTCOME_BINARY)
+            if (compute_scores) {
+                for (int i = 0; i < j; i++)
                 {
-                    round_binary[n_subgroups][i + round_offsets[n_subgroups]] = fold_binary[i];
+                    round_predictions[n_subgroups][i + round_offsets[n_subgroups]] = fold_prediction[i];
+                    if (outcome_type == IMR_OUTCOME_BINARY)
+                    {
+                        round_binary[n_subgroups][i + round_offsets[n_subgroups]] = fold_binary[i];
+                    }
+                    else
+                        round_response[n_subgroups][i + round_offsets[n_subgroups]] = fold_response[i];
+
+                    round_event[n_subgroups][i + round_offsets[n_subgroups]] = fold_event[i];
                 }
+                round_offsets[n_subgroups] += j;
+                double ci4;
+
+                if (outcome_type == IMR_OUTCOME_SURVIVAL) // survival outcome
+                    ci4 = legacy_concordance(j, fold_prediction, fold_response, fold_event);
+                else if (outcome_type == IMR_OUTCOME_BINARY)                // binary outcome
+                    ci4 = legacy_auc(j, fold_prediction, fold_binary); // historical binary score
                 else
-                    round_response[n_subgroups][i + round_offsets[n_subgroups]] = fold_response[i];
+                    ci4 = legacy_mse(j, fold_prediction, fold_response); // continuous outcome
 
-                round_event[n_subgroups][i + round_offsets[n_subgroups]] = fold_event[i];
+                fold_score_sum[n_subgroups] += ci4;
             }
-            round_offsets[n_subgroups] += j;
-            double ci4;
-
-            if (outcome_type == IMR_OUTCOME_SURVIVAL) // survival outcome
-                ci4 = legacy_concordance(j, fold_prediction, fold_response, fold_event);
-            else if (outcome_type == IMR_OUTCOME_BINARY)                // binary outcome
-                ci4 = legacy_auc(j, fold_prediction, fold_binary); // historical binary score
-            else
-                ci4 = legacy_mse(j, fold_prediction, fold_response); // continuous outcome
-
-            fold_score_sum[n_subgroups] += ci4;
             if (outcome_type == IMR_OUTCOME_BINARY)
                 free(fold_binary);
             else
@@ -841,36 +896,38 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
             free(fold_event);
             free(fold_prediction);
         }
-        Rprintf("\nCV round %d/%d (%d folds)\n", cv_round + 1, n_cv_rounds, n_folds);
-        const char *metric_name[] = {"C-index", "AUC", "MSE"};
-        for (int m = 0; m < n_subgroups + 1; m++)
-        {
-            fold_score_sum[m] = fold_score_sum[m] / n_folds;
-            if (m < n_subgroups)
+        if (compute_scores) {
+            Rprintf("\nCV round %d/%d (%d folds)\n", cv_round + 1, n_cv_rounds, n_folds);
+            const char *metric_name[] = {"C-index", "AUC", "MSE"};
+            for (int m = 0; m < n_subgroups + 1; m++)
             {
-                Rprintf("Average of %s from %d-CVfold of group %d is  %f\n", metric_name[outcome_type - 1], n_folds, m + 1, fold_score_sum[m]);
+                fold_score_sum[m] = fold_score_sum[m] / n_folds;
+                if (m < n_subgroups)
+                {
+                    Rprintf("Average of %s from %d-CVfold of group %d is  %f\n", metric_name[outcome_type - 1], n_folds, m + 1, fold_score_sum[m]);
+                }
+                else
+                {
+                    Rprintf("Average of %s from %d-CVfold of all samples  is  %f\n", metric_name[outcome_type - 1], n_folds, fold_score_sum[m]);
+                }
+                int subset_size;
+                if (m == n_subgroups)
+                    subset_size = n_subjects;
+                else
+                    subset_size = sample_size_ptr[m];
+                if (outcome_type == IMR_OUTCOME_SURVIVAL) // survival outcome
+                    pooled_score[m] = legacy_concordance(subset_size, round_predictions[m], round_response[m], round_event[m]);
+                else if (outcome_type == IMR_OUTCOME_BINARY)                      // binary outcome
+                    pooled_score[m] = legacy_auc(subset_size, round_predictions[m], round_binary[m]);
+                else if (outcome_type == IMR_OUTCOME_CONTINUOUS)                      // continuous outcome
+                    pooled_score[m] = legacy_mse(subset_size, round_predictions[m], round_response[m]);
+                if (m < n_subgroups)
+                    Rprintf("\nTotal %s from group %d is %f\n", metric_name[outcome_type - 1], m + 1, pooled_score[m]);
+                else
+                    Rprintf("\nTotal %s from all samples is %f\n", metric_name[outcome_type - 1], pooled_score[m]);
+                c_index_list[cv_round][m] = fold_score_sum[m];
+                total_c_index_list[cv_round][m] = pooled_score[m];
             }
-            else
-            {
-                Rprintf("Average of %s from %d-CVfold of all samples  is  %f\n", metric_name[outcome_type - 1], n_folds, fold_score_sum[m]);
-            }
-            int subset_size;
-            if (m == n_subgroups)
-                subset_size = n_subjects;
-            else
-                subset_size = sample_size_ptr[m];
-            if (outcome_type == IMR_OUTCOME_SURVIVAL) // survival outcome
-                pooled_score[m] = legacy_concordance(subset_size, round_predictions[m], round_response[m], round_event[m]);
-            else if (outcome_type == IMR_OUTCOME_BINARY)                      // binary outcome
-                pooled_score[m] = legacy_auc(subset_size, round_predictions[m], round_binary[m]);
-            else if (outcome_type == IMR_OUTCOME_CONTINUOUS)                      // continuous outcome
-                pooled_score[m] = legacy_mse(subset_size, round_predictions[m], round_response[m]);
-            if (m < n_subgroups)
-                Rprintf("\nTotal %s from group %d is %f\n", metric_name[outcome_type - 1], m + 1, pooled_score[m]);
-            else
-                Rprintf("\nTotal %s from all samples is %f\n", metric_name[outcome_type - 1], pooled_score[m]);
-            c_index_list[cv_round][m] = fold_score_sum[m];
-            total_c_index_list[cv_round][m] = pooled_score[m];
         }
 
     }
@@ -957,7 +1014,7 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
     }
     free(theta);
     free(interaction_rates);
-    for (int s = 0; s < n_draws; s++)
+    for (int s = 0; gamma_sample && s < n_draws; s++)
     {
         for (int l = 0; l < n_platforms; l++)
         {

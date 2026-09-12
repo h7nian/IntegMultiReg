@@ -4,7 +4,9 @@
 .imr_call_cv_postfit_native <- function(object, k, rounds, max_models,
                                         verbose, importance,
                                         cache_bytes = 128 * 1024^2,
-                                        cache_hash_bits = 64L) {
+                                        cache_hash_bits = 64L,
+                                        stage = c("full", "plan", "predict", "score"),
+                                        tasks = NULL, predictions = NULL) {
   # Internal controls exercise bounded-cache and collision paths in tests.
   # They never change which draws contribute to the statistical calculation.
   cache_bytes <- .imr_check_integer_scalar(cache_bytes, "cache_bytes", min = 0)
@@ -16,6 +18,19 @@
   preprocessing <- object$preprocessing
   posterior <- object$posterior
   priors <- control$priors
+  stage <- match.arg(stage)
+  if (is.null(tasks)) tasks <- matrix(TRUE, k, rounds)
+  if (!is.logical(tasks) || anyNA(tasks) ||
+      !identical(dim(tasks), as.integer(c(k, rounds))) ||
+      (stage != "predict" && !all(tasks)))
+    .imr_abort("Invalid internal post-fit task mask.")
+  if (stage == "score") {
+    if (!is.double(predictions) || any(!is.finite(predictions)) ||
+        !identical(dim(predictions), as.integer(c(sum(model$sample_sizes), rounds))))
+      .imr_abort("Invalid internal post-fit scoring predictions.")
+  } else if (!is.null(predictions)) {
+    .imr_abort("Predictions may only be supplied to the internal scoring stage.")
+  }
   .quietly(verbose, .Call(
     "imr_cv_postfit",
     as.double(priors$forced_scale), as.double(priors$molecular_scale),
@@ -34,6 +49,8 @@
                      c("right.censored", "binary", "continuous"))),
     as.integer(control$mcmc$draws), as.integer(k), as.integer(rounds),
     as.integer(max_models), importance, as.double(c(cache_bytes, cache_hash_bits)),
+    list(match(stage, c("full", "plan", "predict", "score")) - 1L,
+         tasks, predictions),
     PACKAGE = "IntegMultiReg"
   ))
 }

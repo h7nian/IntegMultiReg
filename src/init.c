@@ -39,10 +39,10 @@ extern SEXP imr_cv_postfit(
     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-    SEXP, SEXP, SEXP, SEXP);
+    SEXP, SEXP, SEXP, SEXP, SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
-    {"imr_cv_postfit", (DL_FUNC) &imr_cv_postfit,                28},
+    {"imr_cv_postfit", (DL_FUNC) &imr_cv_postfit,                29},
     {"imr_fit",         (DL_FUNC) &imr_fit,                      22},
     {"imr_concordance", (DL_FUNC) &imr_concordance,                3},
     {"imr_predict",     (DL_FUNC) &imr_predict,                  27},
