@@ -122,12 +122,50 @@ children needed sanitizer preloading before R startup. Commit `227ada1` strips
 bootstrap source references and closes each worker independently after failure.
 Commit `942762d` adds a CI-only macOS launcher; production execution does not
 have a sanitizer-specific path. At `942762d`, Linux/macOS/Windows checks,
-GCC/Clang ASAN/UBSAN and macOS ARM ASAN/UBSAN pass. Valgrind is still pending
-at the time of this record. The macOS sanitizer log executes all 1,049 assertions
+GCC/Clang ASAN/UBSAN and macOS ARM ASAN/UBSAN pass. The macOS sanitizer log executes all 1,049 assertions
 with zero failures, warnings or skips. No failed test was disabled.
 
-The existing draw-by-test prediction buffer is still present; its compression
-and the full memory-growth study remain undone. This is not the complete
-performance plan. Final parallel CV measurements, broader workspace reuse,
-matrix-kernel experiments and final cross-platform/sanitizer/Valgrind gates
-remain pending. No changes were retained in the sampling kernel.
+### Completed worker-phase acceptance
+
+Run 34670333384 at `28e72b8` passes the complete Valgrind suite: 1,049 assertions,
+zero failures/warnings/skips, zero parent Memcheck errors, zero definite leaks
+and zero suppressions. All 136 instrumented suite workers also pass their
+individual memory reports. A separate focused job covers 36 workers across
+all outcome/model/CV combinations. These commits after `942762d` change CI
+tooling only, not package execution.
+
+The initial parent-only Valgrind run had small exact-refit comparison failures
+when its children ran outside Valgrind. Instrumenting both parent and children
+resolved those failures without changing production code or numerical tolerances.
+Startup helper forks also produce log files; launcher/process PID matching
+identifies the actual worker reports, all of which must finish and pass.
+
+Final-runtime KIRC measurements at `942762d`, again with one warm-up plus five
+repeats, give the following median seconds:
+
+| CV | Baseline serial | Candidate serial | 2 workers | 3 workers |
+|---|---:|---:|---:|---:|
+| Legacy | 0.874 | 0.856 | 1.273 | 1.480 |
+| Importance | 5.256 | 2.279 | 1.719 | 1.482 |
+| Refit | not timed in this run | 192.177 | 101.170 | 76.328 |
+
+The full refit return and caller RNG also match an isolated original-baseline
+run exactly. All 16 final post-fit benchmark cases match baseline exactly;
+all-unique serial importance is 5.018 versus 5.041 seconds. Short jobs remain
+slower with workers, so the default is unchanged. The complete covariate example
+was rebuilt twice: eight byte-identical CSVs, preserved RNG, unique held-out
+predictions and no outer-test IDs in inner folds. The manual compiles, but its
+local TeX overfull-box/font warnings still require layout review.
+
+A separate 24-process fit-only study covers 2,000 and 10,000 draws with 1,000
+burn-in. Posterior/model/preprocessing/control match exactly in every run.
+Median peak RSS (whole isolated process, not aggregate CV-worker memory) is
+275,972,096 versus 289,193,984 bytes at 2,000 draws and 646,905,856 versus
+691,830,784 bytes at 10,000 draws. Ranges overlap substantially; this is not
+evidence of memory savings. Investigate allocation behavior before optimizing.
+
+The draw-by-test prediction buffer is still present. Compression, broader
+workspace reuse, prediction/conditional-posterior profiling and appropriate
+matrix-kernel experiments remain. This is not the complete performance plan;
+later runtime changes need fresh validation. No sampling-kernel optimization
+has been retained.
