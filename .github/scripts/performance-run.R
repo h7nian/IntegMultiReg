@@ -78,6 +78,7 @@ state_keys <- unlist(lapply(fit$posterior$selection_draws, function(state) {
 }), use.names = FALSE)
 saveRDS(list(draws = length(state_keys), unique_states = length(unique(state_keys))),
         file.path(output, "state-counts.rds"))
+if (identical(Sys.getenv("IMR_PERFORMANCE_STAGES"), "fit")) quit(status = 0L)
 for (repeat_index in 1:2) {
   measure(paste0("predict-", repeat_index), predict(fit, data$platforms,
     covariates = if (interface == "formula") clinical else data$covariates))
