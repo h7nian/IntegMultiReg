@@ -1,9 +1,10 @@
 diff --git a/src/cv_postfit.c b/src/cv_postfit.c
 --- a/src/cv_postfit.c
 +++ b/src/cv_postfit.c
-@@ -24,6 +24,31 @@
+@@ -24,7 +24,32 @@
  #include "cv_precision.h"
  #include "cv_prediction_rows.h"
+ #include "cv_value_cache.h"
  
 +/* Fault injection exists only in this isolated test build. */
 +static size_t test_row_calls, test_row_live, test_row_fail_at;

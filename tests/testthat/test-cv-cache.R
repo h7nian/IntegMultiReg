@@ -27,3 +27,26 @@ test_that("internal cache controls cannot exceed the memory bound", {
   expect_error(call(128 * 1024^2 + 1), "cache controls")
   expect_error(call(32, 65L), "cache controls")
 })
+
+test_that("payload budgets and collisions preserve both post-fit methods", {
+  for (outcome_type in c("continuous", "binary", "right.censored")) {
+    fit <- fit_demo(outcome_type, total = 20, burn = 10, seed = 71)
+    # Fitting explicitly seeds R; this test checks the subsequent CV calls.
+    set.seed(773)
+    rng <- .Random.seed
+    for (importance in c(FALSE, TRUE)) {
+      native <- function(bytes, bits = 64L) {
+        IntegMultiReg:::.imr_call_cv_postfit_native(fit, k = 3L, rounds = 2L,
+          max_models = 20L, verbose = FALSE, importance = importance,
+          cache_bytes = bytes, cache_hash_bits = bits)
+      }
+      reference <- native(128 * 1024^2)
+      for (bytes in c(0, 32, 256, 1024, 4096, 16384)) {
+        for (bits in c(0L, 64L)) {
+          expect_identical(native(bytes, bits), reference)
+          expect_identical(.Random.seed, rng)
+        }
+      }
+    }
+  }
+})

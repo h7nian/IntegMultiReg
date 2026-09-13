@@ -84,6 +84,15 @@ jobs:
             -o "${RUNNER_TEMP}/cv-prediction-rows-test"
           "${RUNNER_TEMP}/cv-prediction-rows-test"
 
+      - name: Check bounded cache eviction and allocation failures
+        shell: bash
+        run: |
+          clang -O1 -g -fsanitize=address,undefined \
+            -fno-sanitize-recover=undefined -fno-omit-frame-pointer -Isrc \
+            .github/scripts/test-cv-value-cache.c src/cv_value_cache.c \
+            -o "${RUNNER_TEMP}/cv-value-cache-test"
+          "${RUNNER_TEMP}/cv-value-cache-test"
+
       - name: Install instrumented package and tests
         shell: bash
         run: |

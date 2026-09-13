@@ -19,6 +19,16 @@ test_that("post-fit solve failures stop cleanly without partial results", {
   expect_true(validate_imr(broken))
   set.seed(731)
   rng <- .Random.seed
+  # Force the bounded path as well as the ordinary row path on the same object.
+  for (importance in c(FALSE, TRUE)) {
+    for (cache_bytes in c(0, 256, 4096, 128 * 1024^2)) {
+      expect_error(IntegMultiReg:::.imr_call_cv_postfit_native(
+        broken, k = 2L, rounds = 2L, max_models = 4L, verbose = FALSE,
+        importance = importance, cache_bytes = cache_bytes),
+        "CV Cholesky solve failed \\(round 1, fold 1, subgroup 1\\)")
+      expect_identical(.Random.seed, rng)
+    }
+  }
   # R CMD check permits at most two simultaneous workers. Unrestricted tests
   # (including the native sanitizer suite) also exercise three workers.
   limited <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))

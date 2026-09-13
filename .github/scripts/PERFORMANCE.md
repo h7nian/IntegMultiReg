@@ -364,9 +364,16 @@ separate job verified another 36 workers with zero errors/definite leaks.
 
 ## Outstanding release gates
 
-The 128 MiB limit currently bounds model-identity indexing, not all prediction
-payloads. An all-unique prediction workload can still exceed it. A bounded
-payload-cache experiment remains isolated and has not entered production.
+The current candidate extends the 128 MiB model-cache budget to prediction or
+coefficient payloads, keys and entry metadata. Oversized workloads replay draws
+through a deterministic FIFO cache; misses recompute in the original order.
+This is not a limit on total process memory or required training workspaces.
+Against the accepted extracted runtime, the 10,000-subject, 4,096-distinct-state
+synthetic fixture used 106,430,464 versus 306,528,256 bytes median peak RSS
+(65.3% less), at 4.327 versus 4.233 seconds (2.2% more time). These are five
+independent measurements after one warm-up per engine, not inference results.
+Representative KIRC/repeated/unique post-fit medians changed by less than 2%.
+Candidate-specific remote checks and Valgrind remain required before acceptance.
 Final current-source end-to-end performance/memory comparisons, clean-checkout
 release validation and complete evidence collation remain outstanding. Do not
 use intermediate acceptance of one optimization as acceptance of the entire

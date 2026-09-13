@@ -23,6 +23,7 @@
 #include "utils.h"
 #include "cv_precision.h"
 #include "cv_prediction_rows.h"
+#include "cv_value_cache.h"
 
 static double legacy_max(int n, double *values);
 
@@ -124,9 +125,71 @@ typedef struct {
   int importance;
 } postfit_fold_data;
 
+/* A cached coefficient references an immutable source column in this fold.
+ * The intercept is stored first; other columns retain design-matrix order. */
+typedef struct {
+  double beta;
+  double **source_rows;
+  int column;
+} postfit_cached_coefficient;
+
+typedef struct {
+  double *predictions;
+  postfit_cached_coefficient *coefficients;
+  int n_coefficients;
+} postfit_cached_model;
+
+static void postfit_cache_coefficients(postfit_value_cache *cache, size_t key,
+                                      const postfit_fold_data *fold,
+                                      const double *beta, int n_coefficients,
+                                      const int *n_selected_features,
+                                      int **selected_feature_index)
+{
+  if ((size_t)n_coefficients >
+      (SIZE_MAX - sizeof(postfit_cached_model)) / sizeof(postfit_cached_coefficient))
+    return;
+  postfit_cached_model *model = postfit_value_cache_put(cache, key,
+    sizeof(*model) + (size_t)n_coefficients * sizeof(postfit_cached_coefficient));
+  if (!model) return;
+  model->predictions = NULL;
+  model->coefficients = (postfit_cached_coefficient *)(model + 1);
+  model->n_coefficients = n_coefficients;
+  int column = 0;
+  model->coefficients[column++] = (postfit_cached_coefficient){beta[0], NULL, 0};
+  for (int j = 0; j < fold->n_covariates; ++j) {
+    model->coefficients[column] =
+      (postfit_cached_coefficient){beta[column], fold->covariates, j};
+    ++column;
+  }
+  for (int p = 0; p < fold->n_selected_platforms; ++p) {
+    for (int j = 0; j < n_selected_features[p]; ++j) {
+      model->coefficients[column] = (postfit_cached_coefficient){
+        beta[column], fold->features[fold->selected_platforms[p]],
+        selected_feature_index[p][j]};
+      ++column;
+    }
+  }
+}
+
+static void postfit_cached_predictions(const postfit_cached_model *model,
+                                      const postfit_fold_data *fold,
+                                      double *prediction)
+{
+  for (int in = 0; in < fold->test_sample_size; ++in) {
+    prediction[in] = 0;
+    int row = fold->test_index[in];
+    for (int j = 0; j < model->n_coefficients; ++j) {
+      const postfit_cached_coefficient *coefficient = &model->coefficients[j];
+      if (j == 0) prediction[in] += coefficient->beta;
+      else prediction[in] += coefficient->source_rows[row][coefficient->column] * coefficient->beta;
+    }
+  }
+}
+
 /* Compute one selected model without changing arithmetic or solver order. */
 static int postfit_predict_model(const postfit_fold_data *fold, int draw_index,
-                                  double *model_prediction, double *log_weight)
+                                 double *model_prediction, double *log_weight,
+                                 postfit_value_cache *coefficient_cache, size_t key)
 {
   int i, j, in, i1, i2;
   int **selected_feature_index = malloc(fold->n_selected_platforms * sizeof(int *));
@@ -241,6 +304,9 @@ static int postfit_predict_model(const postfit_fold_data *fold, int draw_index,
     }
     train_sse += pow(fold->latent_response[i] - train_predictions[in], 2);
   }
+  if (coefficient_cache)
+    postfit_cache_coefficients(coefficient_cache, key, fold, beta, n_coefficients,
+                              n_selected_features, selected_feature_index);
   free(beta);
   free(train_predictions);
   free(xty);
@@ -262,14 +328,147 @@ static int postfit_predict_model(const postfit_fold_data *fold, int draw_index,
   return 0;
 }
 
+static void postfit_cache_predictions(postfit_value_cache *cache, size_t key,
+                                     const double *prediction, size_t n_test)
+{
+  if (n_test > (SIZE_MAX - sizeof(postfit_cached_model)) / sizeof(double)) return;
+  postfit_cached_model *model = postfit_value_cache_put(cache, key,
+    sizeof(*model) + n_test * sizeof(double));
+  if (!model) return;
+  model->predictions = (double *)(model + 1);
+  model->coefficients = NULL;
+  model->n_coefficients = 0;
+  memcpy(model->predictions, prediction, n_test * sizeof(double));
+}
+
+/* Retain bounded rows or coefficients, then replay every draw's contribution
+ * in order. No weights are grouped by multiplicity. Solve failures use the
+ * same cleanup and contextual error path as the ordinary prediction path. */
+static double *postfit_predict_bounded(const postfit_fold_data *fold,
+                                      int outcome_type, int max_models,
+                                      const int *model_index,
+                                      const int *high_model_index,
+                                      const int *representatives,
+                                      size_t cache_bytes, int *allocation_failed,
+                                      int *solve_status)
+{
+  size_t n_models = (size_t)max_models;
+  size_t n_test = (size_t)fold->test_sample_size;
+  size_t workspace_size = n_test > 0 ? n_test : 1;
+  double *weight = malloc(n_models * sizeof(double));
+  int *keys = NULL;
+  double *row = malloc(workspace_size * sizeof(double));
+  double *prediction = calloc(workspace_size, sizeof(double));
+  double *max_log_probability = outcome_type == IMR_OUTCOME_BINARY ?
+    malloc(workspace_size * sizeof(double)) : NULL;
+  postfit_value_cache cache;
+  size_t external_bytes = representatives ? (size_t)fold->n_draws * sizeof(int) : 0;
+  external_bytes += n_models * (sizeof(int) + sizeof(double));
+  /* A disabled cache remains usable: every miss takes the ordinary solver. */
+  postfit_value_cache_init(&cache, n_models, cache_bytes, external_bytes, malloc, free);
+  /* Reserve key bytes in the budget before allocation. Keys are unnecessary
+   * when the payload store cannot fit or either optional allocation fails. */
+  if (cache.entries) {
+    keys = malloc(n_models * sizeof(int));
+    if (!keys) postfit_value_cache_destroy(&cache);
+  }
+  *solve_status = 0;
+  *allocation_failed = 0;
+  if (!weight || !row || !prediction ||
+      (outcome_type == IMR_OUTCOME_BINARY && !max_log_probability)) {
+    *allocation_failed = 1;
+    goto cleanup;
+  }
+  size_t n_unique = 0;
+  for (int l = 0; l < max_models; ++l)
+    if (!representatives || representatives[l] == l) ++n_unique;
+  size_t payload_bytes = sizeof(postfit_cached_model) + n_test * sizeof(double);
+  int cache_rows = cache.entries && n_unique <=
+    (cache.budget_bytes - cache.used_bytes) / payload_bytes;
+  for (size_t in = 0; in < n_test; ++in)
+    if (max_log_probability) max_log_probability[in] = -INFINITY;
+
+  for (int l = 0; l < max_models; ++l) {
+    if (keys) keys[l] = l;
+    if (representatives && representatives[l] < l && R_FINITE(weight[representatives[l]])) {
+      if (keys) keys[l] = representatives[l];
+      weight[l] = weight[representatives[l]];
+      /* Identical finite-weight states already contributed to each maximum. */
+      continue;
+    }
+    int draw_index = model_index[high_model_index[l]];
+    *solve_status = postfit_predict_model(fold, draw_index, row, &weight[l],
+                                         cache_rows ? NULL : &cache, (size_t)l);
+    if (*solve_status) {
+      goto cleanup;
+    }
+    if (cache_rows) postfit_cache_predictions(&cache, (size_t)l, row, n_test);
+    if (max_log_probability) {
+      for (size_t in = 0; in < n_test; ++in) {
+        double log_probability = -log(2) + gsl_sf_log_erfc(-row[in] / sqrt(2));
+        if (log_probability > max_log_probability[in])
+          max_log_probability[in] = log_probability;
+      }
+    }
+  }
+  double max_log_weight = legacy_max(max_models, weight);
+  double weight_sum = 0;
+  for (int l = 0; l < max_models; ++l) {
+    weight[l] = exp(weight[l] - max_log_weight);
+    weight_sum += weight[l];
+  }
+  if (max_log_probability)
+    for (int l = 0; l < max_models; ++l) weight[l] = weight[l] / weight_sum;
+
+  for (int l = 0; l < max_models; ++l) {
+    size_t key = keys ? (size_t)keys[l] : (size_t)l;
+    postfit_cached_model *model = postfit_value_cache_get(&cache, key);
+    const double *values = row;
+    if (model && model->predictions) values = model->predictions;
+    else if (model) postfit_cached_predictions(model, fold, row);
+    else {
+      double unused_weight;
+      int draw_index = model_index[high_model_index[l]];
+      *solve_status = postfit_predict_model(fold, draw_index, row, &unused_weight,
+                                           cache_rows ? NULL : &cache, key);
+      if (*solve_status) {
+        goto cleanup;
+      }
+      if (cache_rows) postfit_cache_predictions(&cache, key, row, n_test);
+    }
+    /* Each test point sees the original l = 0, ..., max_models - 1 order. */
+    for (size_t in = 0; in < n_test; ++in) {
+      if (max_log_probability) {
+        double log_probability = -log(2) + gsl_sf_log_erfc(-values[in] / sqrt(2));
+        prediction[in] += weight[l] * exp(log_probability - max_log_probability[in]);
+      } else prediction[in] += values[in] * weight[l];
+    }
+  }
+  for (size_t in = 0; in < n_test; ++in) {
+    if (max_log_probability) prediction[in] *= exp(max_log_probability[in]);
+    else prediction[in] /= weight_sum;
+  }
+cleanup:
+  postfit_value_cache_destroy(&cache);
+  free(weight);
+  free(keys);
+  free(row);
+  free(max_log_probability);
+  if (*allocation_failed || *solve_status) {
+    free(prediction);
+    return NULL;
+  }
+  return prediction;
+}
+
 /* Fit fold coefficients and retain the original draw-wise averaging order. */
 static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covariates, int n_selected_platforms, int *selected_platforms,
                 int *n_platform_models, int **platform_models, int *n_features,
                 int model_sample_size, int test_sample_size, int *test_index, int *train_index,
                 double *latent_response, double **covariates, double ***features, _Bool ****gamma_sample, double residual_shape, double residual_rate,
                 int max_models, int *model_index, int *high_model_index, int n_draws,
-                int importance, const int *model_representatives, int *allocation_failed,
-                int *solve_status)
+                int importance, const int *model_representatives, size_t cache_bytes,
+                int *allocation_failed, int *solve_status)
 {
 
   const postfit_fold_data fold = {
@@ -293,6 +492,15 @@ static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covari
     .n_draws = n_draws,
     .importance = importance,
   };
+  size_t external_bytes = model_representatives ? (size_t)n_draws * sizeof(int) : 0;
+  size_t row_bytes = sizeof(double *) +
+    (size_t)(test_sample_size > 0 ? test_sample_size : 1) * sizeof(double);
+  if (external_bytes > cache_bytes || (size_t)max_models >
+      (cache_bytes - external_bytes) / row_bytes) {
+    return postfit_predict_bounded(&fold, outcome_type, max_models,
+      model_index, high_model_index, model_representatives, cache_bytes,
+      allocation_failed, solve_status);
+  }
   int l, i, in;
   postfit_prediction_rows prediction_rows;
   *allocation_failed = 0;
@@ -333,7 +541,8 @@ static double *postfit_predict_fold(int outcome_type, int subgroup, int n_covari
       *allocation_failed = 1;
       return NULL;
     }
-    *solve_status = postfit_predict_model(&fold, draw_index, model_predictions[l], &weight[l]);
+    *solve_status = postfit_predict_model(&fold, draw_index, model_predictions[l],
+                                         &weight[l], NULL, 0);
     if (*solve_status) {
       free(weight);
       free(prediction);
@@ -855,7 +1064,7 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
                                         sample_size_ptr[m], test_sample_size, test_index, train_index,
                                         latent_response[m], covariates[m], features[m], gamma_sample, residual_shape, residual_rate,
                                         max_models, model_index, high_model_index, n_draws, importance,
-                                        model_representatives, &prediction_allocation_failed,
+                                        model_representatives, cache_bytes, &prediction_allocation_failed,
                                         &solve_status);
                     if (prediction_allocation_failed || solve_status) {
                         free(fold_response);
