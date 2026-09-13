@@ -668,11 +668,10 @@ subgroup_data <- function(outcome, covariates = NULL, platforms) {
   mat <- as.matrix(mat)
   centers <- scales <- numeric(ncol(mat))
   names(centers) <- names(scales) <- colnames(mat)
-  column_index <- 0L
-  # Reuse exactly the moments used for training normalization. Keep apply's
-  # historical dimname/drop behavior and the raw degenerate-scale decision.
-  normalized <- apply(mat, 2, function(column) {
-    column_index <<- column_index + 1L
+  # Extract columns directly, avoiding apply's full matrix permutation copy.
+  # Keep moment arithmetic and the raw degenerate-scale decision unchanged.
+  normalized_columns <- lapply(seq_len(ncol(mat)), function(column_index) {
+    column <- mat[, column_index]
     center <- mean(column, na.rm = TRUE)
     scale <- sd(column, na.rm = TRUE)
     degenerate <- is.na(scale) || scale == 0
@@ -684,6 +683,24 @@ subgroup_data <- function(outcome, covariates = NULL, platforms) {
       (column - center) / scale
     }
   })
+  names(normalized_columns) <- colnames(mat)
+  normalized <- simplify2array(normalized_columns)
+  # apply retains result row names only when every column returns the same names.
+  if (nrow(mat) > 1L) {
+    result_names <- names(normalized_columns[[1L]])
+    if (!all(vapply(normalized_columns, function(column) {
+      identical(names(column), result_names)
+    }, logical(1)))) result_names <- NULL
+    result_dimnames <- list(result_names, colnames(mat))
+    dimension_names <- names(dimnames(mat))
+    if (!is.null(dimension_names)) {
+      names(result_dimnames) <- c(
+        if (length(result_names) == nrow(mat)) dimension_names[1L] else "",
+        dimension_names[2L])
+    }
+    dimnames(normalized) <- if (is.null(dimension_names) &&
+      all(vapply(result_dimnames, is.null, logical(1)))) NULL else result_dimnames
+  }
   if (is.null(dim(normalized))) {
     normalized <- matrix(normalized, nrow = nrow(mat), ncol = ncol(mat))
   }

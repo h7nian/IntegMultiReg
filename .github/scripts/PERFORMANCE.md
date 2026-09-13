@@ -362,6 +362,37 @@ All five workflows passed at `5a09ec2`. Full Valgrind run 34701662632 verified
 and zero definite leaks. It verified 136 instrumented full-suite workers; a
 separate job verified another 36 workers with zero errors/definite leaks.
 
+## Direct-column training preparation
+
+Training preparation extracts each matrix column directly instead of letting
+`apply` allocate a full matrix permutation copy. Moment arithmetic is unchanged.
+Result names still follow the historical rule: row names are retained only when
+every returned column has identical names, including degenerate columns. Named
+dimensions are covered by the randomized exact-reference tests.
+
+In isolated installed-engine measurements against the preceding runtime,
+five-repeat median preparation times were 0.298 versus 0.268 seconds for 30
+112-by-778 preparations, and 0.844 versus 0.682 seconds for three 448-by-10,000
+preparations. The other tested KIRC-sized shapes did not regress. These are
+function-level measurements, not whole-fit speedups.
+
+Against the original baseline, the full KIRC 2,000-draw pipeline used median
+peak RSS of 425,607,168 versus 394,493,952 bytes. Fit-only 10,000-draw medians
+were 612,335,616 versus 616,546,304 bytes. The separate 2,000-draw fit-only
+cohort used 251,576,320 versus 257,982,464 bytes. Each cohort uses independent
+processes, one warm-up and five measured repeats; full-pipeline and fit-only
+peaks must not be treated as the same workload when assessing memory growth.
+Whole-fit times were effectively unchanged. All KIRC comparisons preserved
+posterior/model/preprocessing and RNG exactly; the 2,000-draw runs also preserved
+complete prediction, all three CV and conditional-posterior outputs exactly.
+
+The isolated full suite passed 2,642 assertions without failures, warnings or
+skips, and all twelve synthetic outcome/method/input-interface cases passed
+complete fixed-seed comparisons. Millisecond-scale data-loading/prediction
+timing differences were investigated separately: five batches of 1,000 loads
+differed by less than 2%, and batches of 100 predictions did not regress.
+Candidate-specific remote validation remains required for this R-layer change.
+
 ## Outstanding release gates
 
 The current candidate extends the 128 MiB model-cache budget to prediction or
@@ -373,7 +404,10 @@ synthetic fixture used 106,430,464 versus 306,528,256 bytes median peak RSS
 (65.3% less), at 4.327 versus 4.233 seconds (2.2% more time). These are five
 independent measurements after one warm-up per engine, not inference results.
 Representative KIRC/repeated/unique post-fit medians changed by less than 2%.
-Candidate-specific remote checks and Valgrind remain required before acceptance.
+The bounded-cache runtime and platform-aware failure tests passed all five
+workflows at `e84436b`. Full Valgrind run 34733171477 verified 2,642 assertions,
+zero parent errors/definite leaks, 156 instrumented full-suite workers and
+another 36 focused workers with zero errors/definite leaks.
 Final current-source end-to-end performance/memory comparisons, clean-checkout
 release validation and complete evidence collation remain outstanding. Do not
 use intermediate acceptance of one optimization as acceptance of the entire

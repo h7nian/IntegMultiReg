@@ -30,6 +30,7 @@ test_that("matrix preparation exactly preserves historical moments and normaliza
     if (index %% 2L == 0L) dimnames(mat) <- list(
       if (n_rows) paste0("r", seq_len(n_rows)) else character(),
       if (n_columns) paste0("c", seq_len(n_columns)) else character())
+    if (index %% 4L == 0L) names(dimnames(mat)) <- c("samples", "features")
     original <- mat
     rng <- .Random.seed
     expect_identical(IntegMultiReg:::.imr_prepare_matrix(mat), reference(mat))
