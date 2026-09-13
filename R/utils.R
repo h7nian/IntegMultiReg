@@ -50,19 +50,6 @@
 
 #' @keywords internal
 #' @noRd
-.imr_check_integer_vector <- function(x, arg, length, min = -Inf) {
-  if (!is.numeric(x) || length(x) != length || !.imr_is_integerish(x) ||
-      any(x < min)) {
-    .imr_abort(sprintf(
-      "`%s` must be a numeric vector of %d whole number(s).",
-      arg, length
-    ))
-  }
-  as.integer(x)
-}
-
-#' @keywords internal
-#' @noRd
 .imr_check_numeric_vector <- function(x, arg, length = NULL,
                                       positive = FALSE,
                                       nonnegative = FALSE) {
