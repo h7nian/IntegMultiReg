@@ -391,7 +391,41 @@ skips, and all twelve synthetic outcome/method/input-interface cases passed
 complete fixed-seed comparisons. Millisecond-scale data-loading/prediction
 timing differences were investigated separately: five batches of 1,000 loads
 differed by less than 2%, and batches of 100 predictions did not regress.
-Candidate-specific remote validation remains required for this R-layer change.
+All five remote workflows passed for this R-layer change at `1ffe162`. Full
+Valgrind run 34748556067 verified 2,642 assertions, zero parent errors/definite
+leaks, 156 instrumented full-suite workers and another 36 focused workers with
+zero errors/definite leaks.
+
+## Final worker measurements
+
+The final runtime was installed from a fresh checkout. On the full KIRC fit,
+each method/worker combination was run in a fresh process once for warm-up and
+five times for measurement. Separate processes were used for memory sampling;
+instrumented timings were not included in the timing summaries. All 108 calls
+preserved complete results and caller RNG exactly against their own method's
+original serial baseline.
+
+| CV method | 1 worker (s) | 2 workers (s) | 3 workers (s) |
+| --- | ---: | ---: | ---: |
+| legacy | 0.606 | 1.050 | 1.216 |
+| importance | 1.045 | 1.079 | 1.098 |
+| refit | 189.019 | 99.746 | 74.400 |
+
+Median sampled aggregate parent-plus-worker RSS, in bytes:
+
+| CV method | 1 worker | 2 workers | 3 workers |
+| --- | ---: | ---: | ---: |
+| legacy | 228,392,960 | 524,451,840 | 670,728,192 |
+| importance | 229,752,832 | 522,190,848 | 674,349,056 |
+| refit | 377,536,512 | 752,287,744 | 904,953,856 |
+
+RSS was sampled at a nominal 50 ms interval using actual parent and PSOCK worker
+PIDs. These are sampled sums, not exact OS high-water marks or unique physical
+memory: shared pages can be counted more than once. Process startup makes
+parallel post-fit CV slower on this workload. Keep `workers = 1L` for those
+small tasks; opt into `workers = 2L` or `3L` for refit when memory permits.
+Do not extrapolate these machine-specific times to other workloads or use an
+additional layer of experiment-level parallelism simultaneously.
 
 ## Outstanding release gates
 
@@ -408,7 +442,13 @@ The bounded-cache runtime and platform-aware failure tests passed all five
 workflows at `e84436b`. Full Valgrind run 34733171477 verified 2,642 assertions,
 zero parent errors/definite leaks, 156 instrumented full-suite workers and
 another 36 focused workers with zero errors/definite leaks.
-Final current-source end-to-end performance/memory comparisons, clean-checkout
-release validation and complete evidence collation remain outstanding. Do not
-use intermediate acceptance of one optimization as acceptance of the entire
-performance plan or as authorization for formal long-chain paper experiments.
+End-to-end and worker measurements are recorded above and in the local evidence
+bundle. The fresh-checkout local source build rebuilt its vignette and passed
+examples, tests and PDF manual checks. Local `--as-cran` checking reported one
+toolchain warning from the installed R headers' unsupported warning pragma,
+plus incoming-feasibility and missing HTML-validator/V8 notes; it is not a
+zero-warning local check. The corresponding remote cross-platform checks are
+clean. Documentation-only delivery commits must retain a matching runtime tree
+and receive fresh package/cross-platform checks. Final source hashes and raw
+measurement ranges belong in the accompanying delivery report. No measurement
+here authorizes a release, main-branch merge or formal long-chain experiment.
