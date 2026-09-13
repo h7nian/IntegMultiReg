@@ -21,11 +21,19 @@ test_that("post-fit solve failures stop cleanly without partial results", {
   rng <- .Random.seed
   # Force the bounded path as well as the ordinary row path on the same object.
   for (importance in c(FALSE, TRUE)) {
-    for (cache_bytes in c(0, 256, 4096, 128 * 1024^2)) {
-      expect_error(IntegMultiReg:::.imr_call_cv_postfit_native(
+    native_failure <- function(cache_bytes) tryCatch(
+      IntegMultiReg:::.imr_call_cv_postfit_native(
         broken, k = 2L, rounds = 2L, max_models = 4L, verbose = FALSE,
-        importance = importance, cache_bytes = cache_bytes),
-        "CV Cholesky solve failed \\(round 1, fold 1, subgroup 1\\)")
+        importance = importance, cache_bytes = cache_bytes), error = identity)
+    # Floating-point tools can reject different folds of this near-singular
+    # fixture. Require every budget to match this platform's ordinary path.
+    reference_failure <- native_failure(128 * 1024^2)
+    expect_s3_class(reference_failure, "error")
+    reference_message <- conditionMessage(reference_failure)
+    expect_match(reference_message,
+      "CV Cholesky solve failed \\(round [12], fold [12], subgroup 1\\)")
+    for (cache_bytes in c(0, 256, 4096, 128 * 1024^2)) {
+      expect_identical(conditionMessage(native_failure(cache_bytes)), reference_message)
       expect_identical(.Random.seed, rng)
     }
   }
