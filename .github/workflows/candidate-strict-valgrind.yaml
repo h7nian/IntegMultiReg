@@ -39,8 +39,7 @@ jobs:
         id: runtime-cache
         with:
           path: ${{ runner.temp }}/strict-runtime
-          key: strict-runtime-${{ runner.os }}-${{ hashFiles('.github/strict/build-runtime.sh') }}
-          restore-keys: strict-runtime-${{ runner.os }}-
+          key: candidate-runtime-${{ runner.os }}-${{ hashFiles('.github/strict/build-candidate-runtime.sh') }}
       - name: Record graphics behavior of a restored non-Pango runtime
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         shell: bash
@@ -57,7 +56,7 @@ jobs:
       - name: Build Valgrind 3.27.1 and instrumented R-devel
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         shell: bash
-        run: bash .github/strict/build-runtime.sh
+        run: bash .github/strict/build-candidate-runtime.sh
       - name: Activate the audited runtime and retain provenance
         run: |
           echo "${RUNNER_TEMP}/strict-runtime/bin" >> "${GITHUB_PATH}"
@@ -75,6 +74,7 @@ jobs:
             > "${RUNNER_TEMP}/strict-evidence/graphics-after.log" 2>&1
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
+          pak-version: repo
           extra-packages: any::rcmdcheck, any::V8
           needs: check
       - uses: r-lib/actions/setup-tinytex@v2
