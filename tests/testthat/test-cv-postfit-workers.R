@@ -32,7 +32,9 @@ test_that("post-fit worker failures report assigned folds and close connections"
   connections <- showConnections(all = TRUE)
   expect_error(IntegMultiReg:::.imr_cv_map(list(1L, 2L),
     IntegMultiReg:::.imr_cv_postfit_task, 2L, object = fit_bin,
-    k = 2L, rounds = 1L, max_models = 4L, verbose = FALSE, importance = FALSE,
-    folds = damaged), "round 1/fold [12].*planned partitions")
+    k = 2L, rounds = 1L, max_models = 4L, verbose = FALSE,
+    settings = IntegMultiReg:::.imr_cv_settings("legacy"),
+    partitions = list(folds = NULL, row_order = NULL),
+    folds = damaged, row_order = plan$row_order), "round 1/fold [12].*planned partitions")
   expect_identical(showConnections(all = TRUE), connections)
 })

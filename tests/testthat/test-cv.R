@@ -1,6 +1,6 @@
 test_that("cv_imr returns labelled accuracy matrices", {
   cv <- cv_imr(cv_method = "refit", fit_bin, k = 5, rounds = 2)
-  expect_named(cv, c("pooled", "fold_mean", "predictions", "metric", "validation"))
+  expect_named(cv, c("pooled", "fold_mean", "predictions", "metric", "validation", "control"))
   expect_equal(ncol(cv$pooled), length(fit_bin$model$subgroup_names) + 1L)
   expect_equal(nrow(cv$pooled), 2L)
   expect_equal(tail(colnames(cv$pooled), 1), "all")

@@ -8,6 +8,6 @@
 /* Fills caller-owned storage; optional scratch failure uses the scalar path. */
 void postfit_build_precision(double *precision, double **design,
                              int n_coefficients, int train_sample_size,
-                             const int *train_index, size_t workspace_bytes);
+                             const int *train_index, size_t workspace_bytes, double ridge);
 
 #endif

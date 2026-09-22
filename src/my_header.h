@@ -6,6 +6,9 @@
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_rng.h>
 
+#include "sampler_math.h"
+#include "numerical_control.h"
+
 #define IMR_PI 3.1415926535897932384
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
@@ -32,7 +35,7 @@ void initialize_sampler_state(
     int **model_platforms, int *n_model_platforms, int *sample_size,
     double *log_likelihood, double *logdet, double *quadratic_form,
     double *slab_scale, double covariate_scale, double intercept_scale,
-    double first_platform_scale, double alpha, double psi, int n_covariates);
+    double first_platform_scale, double alpha, double psi, int n_covariates, const imr_numerical_control *numerical);
 
 void sample_gamma_indicators(
     int subgroup, int n_platforms, int *selected_platforms,
@@ -43,7 +46,7 @@ void sample_gamma_indicators(
     int *n_platform_models, int **platform_models, double **accept_gamma,
     gsl_rng *rng, const char *likelihood_type, double slab_scale,
     double covariate_scale, double intercept_scale, double first_platform_scale,
-    int n_covariates, double alpha, double psi);
+    int n_covariates, double alpha, double psi, int sampler_method, const imr_numerical_control *numerical);
 
 void sample_censored_latent_response(
     int subgroup, int n_platforms, int *selected_platforms,
@@ -54,7 +57,7 @@ void sample_censored_latent_response(
     double logdet, gsl_rng *rng, int *n_platform_models,
     int **platform_models, double *accept_y, double slab_scale,
     double covariate_scale, double intercept_scale, double first_platform_scale,
-    int n_covariates, double alpha, double psi);
+    int n_covariates, double alpha, double psi, const imr_numerical_control *numerical);
 
 void sample_binary_latent_response(
     int subgroup, int n_platforms, int *selected_platforms,
@@ -64,7 +67,7 @@ void sample_binary_latent_response(
     gsl_rng *rng, int *n_platform_models, int **platform_models,
     double *accept_y, double slab_scale, double covariate_scale,
     double intercept_scale, double first_platform_scale, int n_covariates,
-    double alpha, double psi);
+    double alpha, double psi, const imr_numerical_control *numerical);
 
 void sample_mrf_theta(
     int n_features, int n_models, double **theta, double **accept_theta,
@@ -80,7 +83,7 @@ double **build_design_matrix(
 double *build_posterior_precision(
     int n_coefficients, int n_covariates, int n_first_platform_features,
     int sample_size, double slab_scale, double covariate_scale,
-    double intercept_scale, double first_platform_scale, double **design);
+    double intercept_scale, double first_platform_scale, double **design, const imr_numerical_control *numerical);
 
 double log_likelihood_nonlocal(
     int n_coefficients, int n_covariates, int n_first_platform_features,
@@ -98,7 +101,8 @@ void maximize_nonlocal_beta(
 double log_posterior(
     double *log_likelihood, _Bool ***gamma, double *nu, double ***theta,
     double *mrf_log_normalizer, double alpha0, double ***beta_theta,
-    int n_subgroups, int n_platforms, int *n_features, int *n_platform_models);
+    int n_subgroups, int n_platforms, int *n_features, int *n_platform_models,
+    int sampler_method);
 
 void compute_mrf_log_normalizer(
     int n_models, double **theta, double nu, double *log_normalizer);
@@ -114,7 +118,7 @@ double ***infer_posterior_models(
     int **model_platforms, int **platform_models, int *sample_size,
     int n_covariates, double ***beta_theta, const char *likelihood_type,
     double *posterior_weight, int *model_index, int *high_model_index,
-    int *n_unique_models, int max_models);
+    int *n_unique_models, int max_models, const imr_numerical_control *numerical);
 
 double *predict_bma(
     int subgroup, int n_covariates, int n_selected_platforms, int sample_size,

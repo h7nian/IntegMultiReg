@@ -161,13 +161,29 @@ costs approximately `k * rounds` full fits.
 
 Use `cv_method = "importance"` for a paper-derived importance average over
 all retained states, preserving their empirical multiplicities. It conditions
-on full-fit preprocessing and augmented response means, and retains ridge
-stabilization. Its use of held-out responses in inverse-density weights is
+on full-fit preprocessing and augmented response means, and defaults to ridge
+stabilization (`ridge = 0` requests the unpenalized estimate). Its use of held-out responses in inverse-density weights is
 an importance correction, not by itself evidence of an implementation error.
 The augmented response mean plug-in is explicitly part of the paper's Section
 4.1, whereas the 0.001 ridge penalty differs from its unpenalized coefficient
 estimate. This is not an exact reproduction of the original study.
 
+`ridge`, `model_set`, `df_method`, `score_method`, `folds`, and `fold_rng`
+can override individual CV decisions. Fit-time `sampler_method`,
+`prior_indexing`, `laplace_max_iter`, and `laplace_tolerance` express the
+corresponding sampling and numerical conventions. Existing defaults are
+preserved. See [the coverage guide](inst/METHOD-COVERAGE.md) for paper and
+released-code combinations, known differences, and validation limits.
+
+Use `initial=list(selection=..., interaction=...)` for explicitly different
+chain starts. Matrices are named by platform and subgroup; selection uses
+zero/one entries in the layout returned by `coef(fit)`. Interaction starts are
+IMR-only symmetric matrices with positive off-diagonals and zero diagonals.
+Omitting `initial` preserves the original initialization. Refit CV reuses an
+explicit start. Different starts support convergence assessment, but do not
+recover unknown historical starting values or establish convergence by themselves.
+
+`cv$control` records effective settings and folds for replay.
 `cv$validation` identifies the algorithm; `cv$predictions` records actual folds
 and predictions. The post-fit GSL and refit R generators produce different
 partitions, even with the same seed. Data-driven tuning requires outer validation.

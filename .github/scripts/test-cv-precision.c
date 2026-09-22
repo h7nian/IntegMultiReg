@@ -48,7 +48,7 @@ static double *candidate(int n_coefficients, int train_sample_size,
   double *precision = malloc((size_t)n_coefficients * n_coefficients * sizeof(double));
   if (!precision) abort();
   postfit_build_precision(precision, design, n_coefficients, train_sample_size,
-                          train_index, IMR_CV_WORKSPACE_BYTES);
+                          train_index, IMR_CV_WORKSPACE_BYTES, .001);
   return precision;
 }
 static double *forced_fallback(int n_coefficients, int train_sample_size,
@@ -56,7 +56,7 @@ static double *forced_fallback(int n_coefficients, int train_sample_size,
   double *precision = malloc((size_t)n_coefficients * n_coefficients * sizeof(double));
   if (!precision) abort();
   postfit_build_precision(precision, design, n_coefficients, train_sample_size,
-                          train_index, 0);
+                          train_index, 0, .001);
   return precision;
 }
 static void verify(int rows, int columns, int pattern) {

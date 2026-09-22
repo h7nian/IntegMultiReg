@@ -6,7 +6,10 @@
                                         cache_bytes = 128 * 1024^2,
                                         cache_hash_bits = 64L,
                                         stage = c("full", "plan", "predict", "score"),
-                                        tasks = NULL, predictions = NULL) {
+                                        tasks = NULL, predictions = NULL,
+                                        settings = NULL, folds = NULL, row_order = NULL) {
+  if (is.null(settings)) settings <- .imr_cv_settings(
+    if (importance) "importance" else "legacy")
   # Internal controls exercise bounded-cache and collision paths in tests.
   # They never change which draws contribute to the statistical calculation.
   cache_bytes <- .imr_check_integer_scalar(cache_bytes, "cache_bytes", min = 0)
@@ -48,9 +51,14 @@
     as.integer(match(control$outcome_type,
                      c("right.censored", "binary", "continuous"))),
     as.integer(control$mcmc$draws), as.integer(k), as.integer(rounds),
-    as.integer(max_models), importance, as.double(c(cache_bytes, cache_hash_bits)),
+    as.integer(max_models),
+    list(as.integer(settings$model_set == "draws"),
+         as.integer(settings$df_method == "fractional"), as.double(settings$ridge),
+         folds, row_order, .imr_cv_rng_state(object, settings$fold_rng)),
+    as.double(c(cache_bytes, cache_hash_bits)),
     list(match(stage, c("full", "plan", "predict", "score")) - 1L,
          tasks, predictions),
+    .imr_native_numerical_control(.imr_fit_numerical_control(control)),
     PACKAGE = "IntegMultiReg"
   ))
 }
@@ -59,7 +67,8 @@
                                  platform_subgroups, subgroup_platforms,
                                  sample_sizes, n_features, n_covariates,
                                  features, response, outcome_type, covariates,
-                                 draws, burnin, verbose) {
+                                 draws, burnin, verbose, sampler_method = "legacy",
+                                 numerical = .imr_numerical_control(), initial = NULL) {
   .quietly(verbose, .Call(
     "imr_fit",
     as.double(priors$forced_scale), as.double(priors$molecular_scale),
@@ -74,6 +83,8 @@
     as.integer(match(outcome_type,
                      c("right.censored", "binary", "continuous"))),
     covariates, as.integer(draws), as.integer(burnin),
+    as.integer(match(sampler_method, c("legacy", "paper")) - 1L),
+    .imr_native_numerical_control(numerical), initial,
     PACKAGE = "IntegMultiReg"
   ))
 }
@@ -102,6 +113,19 @@
     as.integer(test_sample_sizes), as.integer(max_models),
     as.integer(match(control$outcome_type,
                      c("right.censored", "binary", "continuous"))),
+    .imr_native_numerical_control(.imr_fit_numerical_control(control)),
     PACKAGE = "IntegMultiReg"
   ))
+}
+
+.imr_call_cv_legacy_score <- function(outcome_type, prediction, outcome) {
+  .Call("imr_cv_legacy_score", as.double(prediction), as.double(outcome[[2L]]),
+    if (outcome_type == "right.censored") as.integer(outcome[[3L]]) else NULL,
+    as.integer(match(outcome_type, c("right.censored", "binary")) - 1L),
+    PACKAGE = "IntegMultiReg")
+}
+
+.imr_native_numerical_control <- function(control) {
+  as.double(c(control$prior_indexing == "code2017", control$laplace_max_iter,
+              control$laplace_tolerance))
 }

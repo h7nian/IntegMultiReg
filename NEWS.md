@@ -1,5 +1,28 @@
 # IntegMultiReg 0.2.0
 
+* Share exactly equal selection matrices when exporting fitted draws to R.
+  Every draw and its order remain in the existing nested-list interface; R
+  copy-on-modify preserves independent user edits. This reduces live allocation
+  for repeated states, but ordinary RDS reload does not retain matrix sharing.
+
+* Add optional `initial` selection/interaction matrices for explicit chain
+  starting points. NULL preserves the existing initialization and random stream;
+  supplied starts are validated, recorded and reused by refit CV.
+
+* Add independent `ridge`, `model_set`, `df_method`, `score_method`, `folds`
+  and `fold_rng` arguments to `cv_imr()`. Existing mode defaults and numerical
+  fields are preserved. A new `control` field records effective options and
+  fold membership/order for replay; the continued GSL stream is available for
+  new fits. Explicit inapplicable arguments are rejected.
+* Add `sampler_method = "paper"` for the symmetric MRF conditional, boundary
+  Hastings correction and Gamma log-density rate sign. The default `"legacy"`
+  retains historical updates, whose invariant distribution differs from the
+  paper's target. New independent transition and native-density checks cover
+  the correction; default regression references are unchanged.
+* Add `prior_indexing`, `laplace_max_iter` and `laplace_tolerance` to express
+  released-code numerical conventions. Prediction and CV inherit them from
+  fitting. These options do not imply historical tables have been reproduced.
+
 * Post-fit CV now stops with round, fold and subgroup context if Cholesky
   decomposition or solving fails, releasing native resources before reporting
   the error. Previously failed models could leave prediction rows uninitialized.
@@ -35,7 +58,8 @@
   familiar uppercase labels. Legacy argument aliases are intentionally not
   accepted.
 * Predictions use the column name `prediction`. `cv_imr()` now returns the
-  named fields `pooled`, `fold_mean`, `predictions`, `metric`, and `validation`.
+  named fields `pooled`, `fold_mean`, `predictions`, `metric`, `validation`,
+  and `control`.
 * Removed the duplicate `predict_imr()`, `summary_imr()`, `coef_imr()`, and
   `plot_imr()` wrappers. Use the standard S3 generics.
 

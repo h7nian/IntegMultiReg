@@ -16,7 +16,7 @@ test_that("all CV modes return complete reproducible subject records", {
     expect_identical(first, second)
     expect_identical(.Random.seed, state)
     expect_identical(first$validation, mode)
-    expect_named(first, c("pooled", "fold_mean", "predictions", "metric", "validation"))
+    expect_named(first, c("pooled", "fold_mean", "predictions", "metric", "validation", "control"))
     expect_true(all(is.finite(first$predictions$prediction)))
     expect_true(all(first$predictions$prediction >= 0 & first$predictions$prediction <= 1))
     for (round in 1:2) {

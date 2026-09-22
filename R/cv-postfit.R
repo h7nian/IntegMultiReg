@@ -1,7 +1,8 @@
 # Post-fit modes use the full-fit transformed data and augmented responses.
 # Reconstruct row IDs with the same subgroup builder used by imr().
 .imr_cv_postfit <- function(object, k, rounds, max_models, verbose, cv_method,
-                            workers = 1L) {
+                            workers = 1L, settings = .imr_cv_settings(cv_method),
+                            supplied_folds = NULL) {
   workers <- .imr_check_integer_scalar(workers, "workers", min = 1)
   model <- object$model
   control <- object$control
@@ -21,14 +22,17 @@
     .imr_abort("Stored inputs do not match the fitted subgroup rows.")
   }
   max_models <- min(max_models, control$mcmc$draws)
+  partitions <- .imr_cv_fold_matrices(supplied_folds, ids, rounds)
   result <- if (workers == 1L) {
-    # Importance is scored below; do not compute historical scores to discard.
+    # Current scores are computed below; skip unused historical scores.
     .imr_call_cv_postfit_native(object, k, rounds, max_models,
-                                verbose, cv_method == "importance",
-                                stage = if (cv_method == "importance") "predict" else "full")
+                                verbose, settings$model_set == "draws",
+                                stage = if (settings$score_method == "standard") "predict" else "full",
+                                settings = settings, folds = partitions$folds,
+                                row_order = partitions$row_order)
   } else {
     .imr_cv_postfit_parallel(object, k, rounds, max_models, verbose,
-                              cv_method == "importance", workers)
+                              settings, workers, partitions)
   }
   labels <- c(model$subgroup_names, "all")
   colnames(result$total_cindex) <- colnames(result$subset_cindex) <- labels
@@ -40,9 +44,9 @@
   if (any(!is.finite(records$prediction))) {
     .imr_abort("Post-fit CV produced non-finite predictions; inspect the fit and importance weights.")
   }
-  # Historical metrics are retained only in legacy mode. Importance uses the
-  # same public scoring definitions as refit, preserving NA for undefined folds.
-  if (cv_method == "importance") {
+  # Scoring is independent of the model collection and predictive density.
+  # Current rules preserve NA for undefined folds, as in refit.
+  if (settings$score_method == "standard") {
     outcome <- .imr_match_rows(dat$outcome, ids, "outcome")
     groups <- c(lapply(model$subgroup_names, function(g) which(subgroup == g)),
                 list(seq_along(ids)))
@@ -62,5 +66,10 @@
        predictions = records,
        metric = switch(control$outcome_type, right.censored = "C-index",
                        binary = "AUC", continuous = "MSE"),
-       validation = cv_method)
+       validation = cv_method,
+       control = .imr_cv_control(settings, object, k, rounds, max_models,
+         do.call(rbind, lapply(seq_len(rounds), function(round) {
+           data.frame(id = ids, round = round, fold = result$folds[, round],
+                      row_order = result$row_order[, round])
+         })), if (is.null(supplied_folds)) "gsl" else "supplied"))
 }

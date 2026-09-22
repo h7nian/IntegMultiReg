@@ -23,7 +23,7 @@
 void sample_censored_latent_response(int model, int n_platforms, int *selected_platforms, int n_selected_platforms, int *n_features, int sample_size,
                   double *latent_y, double *observed_y, double **covariates, double ***features, _Bool ***gamma, double *quadratic_form, double *log_likelihood,
                   int n_censored, int *censored_index, double logdet, gsl_rng *rng, int *n_platform_models, int **platform_models,
-                  double *accept_y, double slab_scale, double covariate_scale, double intercept_scale, double first_platform_scale, int n_covariates, double alpha, double psi)
+                  double *accept_y, double slab_scale, double covariate_scale, double intercept_scale, double first_platform_scale, int n_covariates, double alpha, double psi, const imr_numerical_control *numerical)
 {
   (void)n_platforms;
   (void)quadratic_form;
@@ -67,10 +67,10 @@ void sample_censored_latent_response(int model, int n_platforms, int *selected_p
     }
     int k_val = 1 + n_covariates + total_selected_features;
     double ymax = 1000;
-    int max_iter = 25;
-    double tolerance = pow(10, -3);
+    int max_iter = numerical->latent_max_iter;
+    double tolerance = numerical->tolerance;
     int moment_order = 1;
-    double *precision = build_posterior_precision(k_val, n_covariates, n_selected_features[0], n_subjects, slab_scale, covariate_scale, intercept_scale, first_platform_scale, design);
+    double *precision = build_posterior_precision(k_val, n_covariates, n_selected_features[0], n_subjects, slab_scale, covariate_scale, intercept_scale, first_platform_scale, design, numerical);
     double *precision_copy = malloc((size_t) k_val * k_val * sizeof(double));
     if (!precision_copy) Rf_error("malloc failed for precision_copy");
     for (i = 0; i < k_val; i++)

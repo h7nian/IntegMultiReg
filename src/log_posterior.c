@@ -16,7 +16,7 @@
  */
 double log_posterior(double *loglik, _Bool ***gamma, double *nu, double ***theta,
                double *mrf_log_normalizer, double alpha0, double ***betaTh, int nbrsugbroups,
-               int n_platforms, int *G, int *n_platform_models_c)
+               int n_platforms, int *G, int *n_platform_models_c, int sampler_method)
 {
     double logPost = 0;
     int g, m, m1;
@@ -55,12 +55,13 @@ double log_posterior(double *loglik, _Bool ***gamma, double *nu, double ***theta
         {
             for (m1 = 0; m1 < m; m1++)
             {
-                if (theta[l][m][m1] > pow(10, -3))
+                if (theta[l][m][m1] > (sampler_method == IMR_SAMPLER_PAPER ? 0 : pow(10, -3)))
                     logPriorTX += log(theta[l][m][m1]);
                 sumTX += theta[l][m][m1] * betaTh[l][m][m1];
             }
         }
-        logPriorTX = (alpha0 - 1) * logPriorTX + sumTX;
+        logPriorTX = (alpha0 - 1) * logPriorTX +
+            (sampler_method == IMR_SAMPLER_PAPER ? -sumTX : sumTX);
         logPriorT += logPriorTX;
     }
     return logPost + logPostGam + logPriorT;

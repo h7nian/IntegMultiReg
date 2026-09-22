@@ -23,7 +23,9 @@ extern SEXP imr_fit(
     SEXP seed_R, SEXP nu_R, SEXP method1_R, SEXP n_platforms_R,
     SEXP platform_models_R, SEXP model_platforms_R, SEXP n_subgroups_R, SEXP sample_size,
     SEXP n_features_R, SEXP n_covariates_R, SEXP X1_filtered, SEXP newYY_list,
-    SEXP type_outcome, SEXP newCC_list, SEXP draws_R, SEXP burnin_R);
+    SEXP type_outcome, SEXP newCC_list, SEXP draws_R, SEXP burnin_R, SEXP sampler_method_R, SEXP numerical_R, SEXP initial_R);
+
+extern SEXP imr_cv_legacy_score(SEXP, SEXP, SEXP, SEXP);
 
 extern SEXP imr_concordance(SEXP prediction, SEXP time, SEXP status);
 extern SEXP imr_pmom_standardized_draw(SEXP, SEXP, SEXP);
@@ -34,20 +36,21 @@ extern SEXP imr_predict(
     SEXP method1_R, SEXP n_platforms_R, SEXP platform_models_R, SEXP model_platforms_R,
     SEXP n_subgroups_R, SEXP sample_size, SEXP n_features_R, SEXP n_covariates_R,
     SEXP X1_filtered, SEXP newCC_list, SEXP draws_R, SEXP X1test, SEXP C_test,
-    SEXP samplesize_test_R, SEXP max_models_R, SEXP type_outcome_R);
+    SEXP samplesize_test_R, SEXP max_models_R, SEXP type_outcome_R, SEXP numerical_R);
 
 extern SEXP imr_cv_postfit(
     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-    SEXP, SEXP, SEXP, SEXP, SEXP);
+    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP numerical_R);
 
 static const R_CallMethodDef CallEntries[] = {
+    {"imr_cv_legacy_score", (DL_FUNC) &imr_cv_legacy_score, 4},
     {"imr_pmom_standardized_draw", (DL_FUNC) &imr_pmom_standardized_draw, 3},
-    {"imr_cv_postfit", (DL_FUNC) &imr_cv_postfit,                29},
-    {"imr_fit",         (DL_FUNC) &imr_fit,                      22},
+    {"imr_cv_postfit", (DL_FUNC) &imr_cv_postfit,                30},
+    {"imr_fit",         (DL_FUNC) &imr_fit,                      25},
     {"imr_concordance", (DL_FUNC) &imr_concordance,                3},
-    {"imr_predict",     (DL_FUNC) &imr_predict,                  27},
+    {"imr_predict",     (DL_FUNC) &imr_predict,                  28},
     {NULL, NULL, 0}
 };
 

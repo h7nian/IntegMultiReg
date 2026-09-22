@@ -34,6 +34,7 @@ cv$fold_mean
 cv$predictions
 cv$metric
 cv$validation
+cv$control
 ```
 
 Saved 0.1.x fits are not upgraded implicitly. Convert a complete legacy object
@@ -46,3 +47,8 @@ saveRDS(fit_v2, "fit-v2.rds")
 
 If `upgrade_imr_fit()` reports missing or inconsistent state, refit the model.
 It intentionally does not guess values or repair corrupted objects.
+
+Optional paper/released-code choices are documented in `METHOD-COVERAGE.md`.
+Old fits lack a saved native random state and must be refitted before using
+`fold_rng="continue"`. Missing sampler/numerical metadata retain the historical
+package defaults; upgrading an object never changes its posterior draws.

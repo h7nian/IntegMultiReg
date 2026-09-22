@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdint.h>
 #include <gsl/gsl_sf.h>
 #include <stdio.h>
 #include <time.h>
@@ -15,11 +16,67 @@
 #include <Rmath.h>
 #include <Rinternals.h>
 
-static char sampler_method[256];
-
 static double ****X1 = NULL;
 static double ***newYY = NULL;
 static double ***newCC = NULL;
+
+/* Export every draw in its original position, sharing only exactly equal
+ * platform matrices. Hash collisions are resolved by full comparison; neither
+ * sampler state nor draw multiplicity changes. R owns the temporary hash table
+ * so it is reclaimed even if a subsequent R allocation raises an error. */
+static SEXP export_selection_history(_Bool ****samples, int draws, int platforms,
+                                     const int *rows, const int *columns)
+{
+    SEXP result = PROTECT(allocVector(VECSXP, draws));
+    for (int s = 0; s < draws; ++s) {
+        SEXP state = PROTECT(allocVector(VECSXP, platforms));
+        SET_VECTOR_ELT(result, s, state);
+        UNPROTECT(1);
+    }
+    size_t capacity = 1;
+    while (capacity < (size_t)draws * 2 && capacity <= SIZE_MAX / 2)
+        capacity *= 2;
+    int *table = (int *)R_alloc(capacity, sizeof(int));
+    for (int p = 0; p < platforms; ++p) {
+        memset(table, 0, capacity * sizeof(int));
+        for (int s = 0; s < draws; ++s) {
+            size_t slot = 0;
+            int previous = -1;
+            if (table) {
+                uint64_t hash = UINT64_C(14695981039346656037);
+                for (int r = 0; r < rows[p]; ++r)
+                    for (int c = 0; c < columns[p]; ++c) {
+                        hash ^= (uint64_t)samples[s][p][r][c];
+                        hash *= UINT64_C(1099511628211);
+                    }
+                slot = (size_t)hash & (capacity - 1);
+                while (table[slot]) {
+                    int candidate = table[slot] - 1, equal = 1;
+                    for (int r = 0; r < rows[p] && equal; ++r)
+                        for (int c = 0; c < columns[p]; ++c)
+                            if (samples[s][p][r][c] != samples[candidate][p][r][c]) {
+                                equal = 0;
+                                break;
+                            }
+                    if (equal) { previous = candidate; break; }
+                    slot = (slot + 1) & (capacity - 1);
+                }
+            }
+            if (previous >= 0) {
+                SEXP matrix = VECTOR_ELT(VECTOR_ELT(result, previous), p);
+                MARK_NOT_MUTABLE(matrix); /* preserve R copy-on-modify semantics */
+                SET_VECTOR_ELT(VECTOR_ELT(result, s), p, matrix);
+            } else {
+                SEXP matrix = PROTECT(c_array_to_r_matrix_int(samples[s][p], rows[p], columns[p]));
+                SET_VECTOR_ELT(VECTOR_ELT(result, s), p, matrix);
+                UNPROTECT(1);
+                if (table) table[slot] = s + 1;
+            }
+        }
+    }
+    UNPROTECT(1);
+    return result;
+}
 
 /*
  * Main training entry point called from R.
@@ -35,8 +92,49 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
                   SEXP sample_size, SEXP n_features_R, SEXP n_covariates_R,
                   SEXP X1_filtered, SEXP newYY_list, SEXP type_outcome,
                   SEXP newCC_list,
-                  SEXP draws_R, SEXP burnin_R)
+                  SEXP draws_R, SEXP burnin_R, SEXP sampler_method_R, SEXP numerical_R, SEXP initial_R)
 {
+    const imr_numerical_control numerical = imr_read_numerical_control(numerical_R);
+    if (!isInteger(sampler_method_R) || XLENGTH(sampler_method_R) != 1 ||
+        INTEGER(sampler_method_R)[0] < IMR_SAMPLER_LEGACY ||
+        INTEGER(sampler_method_R)[0] > IMR_SAMPLER_PAPER)
+        Rf_error("Invalid sampler method");
+    int sampler_method = INTEGER(sampler_method_R)[0];
+    /* Reject malformed explicit starts before allocating native workspaces. */
+    if (initial_R != R_NilValue) {
+        int np = asInteger(n_platforms_R);
+        if (TYPEOF(initial_R) != VECSXP || XLENGTH(initial_R) != 2)
+            Rf_error("Invalid initial state");
+        for (int component = 0; component < 2; ++component) {
+            SEXP values = VECTOR_ELT(initial_R, component);
+            if (values == R_NilValue) continue;
+            if (component == 1 && strcmp(CHAR(STRING_ELT(method1_R, 0)), "BMS") == 0)
+                Rf_error("Initial interactions are not applicable to BMS");
+            if (TYPEOF(values) != VECSXP || XLENGTH(values) != np)
+                Rf_error("Invalid initial platform list");
+            for (int p = 0; p < np; ++p) {
+                int nr = LENGTH(VECTOR_ELT(platform_models_R, p));
+                int nc = component ? nr : INTEGER(n_features_R)[p];
+                SEXP x = VECTOR_ELT(values, p), dim = getAttrib(x, R_DimSymbol);
+                if (TYPEOF(x) != (component ? REALSXP : INTSXP) ||
+                    TYPEOF(dim) != INTSXP || XLENGTH(dim) != 2 ||
+                    INTEGER(dim)[0] != nr || INTEGER(dim)[1] != nc)
+                    Rf_error("Invalid initial matrix dimensions or type");
+                for (int j = 0; j < nc; ++j) for (int i = 0; i < nr; ++i) {
+                    R_xlen_t index = i + (R_xlen_t)nr * j;
+                    if (!component) {
+                        if (INTEGER(x)[index] != 0 && INTEGER(x)[index] != 1)
+                            Rf_error("Invalid initial selection value");
+                    } else {
+                        double v = REAL(x)[index];
+                        if (!R_FINITE(v) || (i == j ? v != 0 : v <= 0) ||
+                            v != REAL(x)[j + (R_xlen_t)nr * i])
+                            Rf_error("Invalid initial interaction value");
+                    }
+                }
+            }
+        }
+    }
     clock_t t = clock();
     int protect_count = 0;
     /* platform_models_R maps each platform to the subgroups using it;
@@ -53,8 +151,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
 
     PROTECT(method1_R);
     protect_count++;
-    strncpy(sampler_method, CHAR(STRING_ELT(method1_R, 0)), sizeof(sampler_method) - 1);
-    sampler_method[sizeof(sampler_method) - 1] = '\0';
+    const char *model_method = CHAR(STRING_ELT(method1_R, 0));
 
     PROTECT(n_platforms_R);
     protect_count++;
@@ -307,16 +404,24 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         int initial_inclusions = (int)(inclusion_probability * G[l]);
         for (int m = 0; m < n_platform_models_c[l]; m++)
         {
-            for (int i = 0; i < initial_inclusions; i++)
+            SEXP selection = initial_R == R_NilValue ? R_NilValue : VECTOR_ELT(initial_R, 0);
+            if (selection != R_NilValue) {
+                SEXP values = VECTOR_ELT(selection, l);
+                for (int j = 0; j < G[l]; ++j)
+                    gamma[l][m][j] = INTEGER(values)[m + (R_xlen_t)n_platform_models_c[l] * j];
+            }
+            for (int i = 0; selection == R_NilValue && i < initial_inclusions; i++)
             {
                 int ii = gsl_rng_uniform_int(r, G[l]);
                 gamma[l][m][ii] = 1;
             }
             for (int m1 = 0; m1 < n_platform_models_c[l]; m1++)
             {
-                if (strcmp(sampler_method, "BMS") != 0)
+                if (strcmp(model_method, "BMS") != 0)
                 {
-                    theta[l][m][m1] = 0.1 * (m != m1);
+                    SEXP interaction = initial_R == R_NilValue ? R_NilValue : VECTOR_ELT(initial_R, 1);
+                    theta[l][m][m1] = interaction == R_NilValue ? 0.1 * (m != m1) :
+                        REAL(VECTOR_ELT(interaction, l))[m + (R_xlen_t)n_platform_models_c[l] * m1];
                 }
                 else
                 {
@@ -337,7 +442,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
                 platform_models_c, n_platform_models_c,
                 model_platforms_c,
                 n_model_platforms_c, sample_size_ptr,
-                log_likelihood, logdet, scal, h, h1, h0, hg, alpha, psi, K);
+                log_likelihood, logdet, scal, h, h1, h0, hg, alpha, psi, K, &numerical);
 
     double *mrf = calloc(n_platforms, sizeof(double));
     for (int l = 0; l < n_platforms; l++)
@@ -375,7 +480,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
             : NULL;
     }
     _Bool thetaFreed = false;
-    if (strcmp(sampler_method, "BMS") == 0)
+    if (strcmp(model_method, "BMS") == 0)
     {
         for (int l = 0; l < n_platforms; l++)
         {
@@ -403,13 +508,13 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         {
              sample_gamma_indicators(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
                         ylatent[m], newCC[m], X1[m], gamma, &log_likelihood[m], &logdet[m], &scal[m], nu, theta,
-                        n_platform_models_c, platform_models_c, accept_gamma, r, likelihood_type, h[m], h1, h0, hg, K, alpha, psi);
+                        n_platform_models_c, platform_models_c, accept_gamma, r, likelihood_type, h[m], h1, h0, hg, K, alpha, psi, sampler_method, &numerical);
             if ((outcome_type == IMR_OUTCOME_SURVIVAL) && (n_censored[m] > 0))
             {
                 sample_censored_latent_response(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
                              ylatent[m], yobs[m], newCC[m], X1[m], gamma, &scal[m], &log_likelihood[m],
                              n_censored[m], censored_index[m], logdet[m], r, n_platform_models_c, platform_models_c,
-                             accept_y[m], h[m], h1, h0, hg, K, alpha, psi);
+                             accept_y[m], h[m], h1, h0, hg, K, alpha, psi, &numerical);
                 if (s >= n_burnin)
                 {
                     for (int i = 0; i < n_censored[m]; i++)
@@ -425,7 +530,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
                  sample_binary_latent_response(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
                                   ylatent[m], yobsb[m], newCC[m], X1[m], gamma, &log_likelihood[m],
                                 r, n_platform_models_c, platform_models_c,
-                               accept_y[m], h[m], h1, h0, hg, K, alpha, psi);
+                               accept_y[m], h[m], h1, h0, hg, K, alpha, psi, &numerical);
                 if (s >= n_burnin)
                 {
                     for (int i = 0; i < sample_size_ptr[m]; i++)
@@ -437,7 +542,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
             }
         } // end of loop with m
 
-        if (strcmp(sampler_method, "BMS") != 0)
+        if (strcmp(model_method, "BMS") != 0)
         {
             for (int l = 0; l < n_platforms; l++)
             {
@@ -476,7 +581,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         }
 
         log_posterior_sample[s] = log_posterior(log_likelihood, gamma, nu, theta, mrf, alpha0, betaTh, n_subgroups,
-                              n_platforms, G, n_platform_models_c);
+                              n_platforms, G, n_platform_models_c, sampler_method);
 
         // Print status every 10% of the MCMC samples
         if (s % report_every == 1)
@@ -531,23 +636,10 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     }
     int i0, j0;
 
-    // export gamma_sample to R
-    SEXP gamma_sample_R;
-    PROTECT(gamma_sample_R = allocVector(VECSXP, n_draws));
+    // Preserve the historical nested integer-matrix layout and every draw.
+    SEXP gamma_sample_R = PROTECT(export_selection_history(gamma_sample,
+        n_draws, n_platforms, n_platform_models_c, G));
     protect_count++;
-    for (int s = 0; s < n_draws; s++)
-    {
-        SEXP GamS_R;
-        PROTECT(GamS_R = allocVector(VECSXP, n_platforms));
-        for (int l = 0; l < n_platforms; l++)
-        {
-            SEXP gamSMatrix = PROTECT(c_array_to_r_matrix_int(gamma_sample[s][l], n_platform_models_c[l], G[l]));
-            SET_VECTOR_ELT(GamS_R, l, gamSMatrix);
-            UNPROTECT(1);
-        }
-        SET_VECTOR_ELT(gamma_sample_R, s, GamS_R);
-        UNPROTECT(1);
-    }
 
     // export gamma_mean
     SEXP GamMean_R;
@@ -561,7 +653,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         UNPROTECT(1);
     }
 
-    if (strcmp(sampler_method, "BMS") != 0)
+    if (strcmp(model_method, "BMS") != 0)
     {
         for (int l = 0; l < n_platforms; l++)
         {
@@ -644,7 +736,10 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         REAL(logposterior_R)
     [s] = log_posterior_sample[s];
 
-    int listSize = 6;
+    SEXP rng_state_R = PROTECT(allocVector(RAWSXP, gsl_rng_size(r)));
+    protect_count++;
+    memcpy(RAW(rng_state_R), gsl_rng_state(r), gsl_rng_size(r));
+    int listSize = 7;
     SEXP list;
     SEXP listNames;
     PROTECT(list = allocVector(VECSXP, listSize));
@@ -657,6 +752,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     SET_VECTOR_ELT(list, 3, logposterior_R);
     SET_VECTOR_ELT(list, 4, gamma_sample_R);
     SET_VECTOR_ELT(list, 5, thetaSampleMatrix_R);
+    SET_VECTOR_ELT(list, 6, rng_state_R);
 
     PROTECT(listNames = allocVector(STRSXP, listSize));
     protect_count++;
@@ -666,6 +762,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     SET_STRING_ELT(listNames, 3, mkChar("log_posterior"));
     SET_STRING_ELT(listNames, 4, mkChar("gam_sample"));
     SET_STRING_ELT(listNames, 5, mkChar("theta_sample"));
+    SET_STRING_ELT(listNames, 6, mkChar("rng_state"));
     setAttrib(list, R_NamesSymbol, listNames);
 
     /// We free memories ...

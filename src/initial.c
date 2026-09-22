@@ -25,7 +25,7 @@ void initialize_sampler_state(int outcome_type, double **Y, double ***newCC, dou
                  int **platform_models_c, int *n_platform_models_c,
                  int **model_platforms_c, int *n_model_platforms_c, int *sample_size_ptr,
                  double *log_likelihood, double *logdet, double *scal,
-                 double *h, double h1, double h0, double hg, double alpha, double psi, int K)
+                 double *h, double h1, double h0, double hg, double alpha, double psi, int K, const imr_numerical_control *numerical)
 {
 
   for (int m = 0; m < n_subgroups; m++)
@@ -95,11 +95,11 @@ void initialize_sampler_state(int outcome_type, double **Y, double ***newCC, dou
       free(ypred);
     }
 
-    int maxiter = 25;
-    double stop = pow(10, -3);
+    int maxiter = numerical->initial_max_iter;
+    double stop = numerical->tolerance;
     int rr = 1;
     int k = 1 + K + total_selected_features;
-    double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG);
+    double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG, numerical);
     double *precision_copy = malloc((size_t) k * k * sizeof(double));
     if (!precision_copy) Rf_error("malloc failed for precision_copy");
     for (int i = 0; i < k; i++)

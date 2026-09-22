@@ -28,7 +28,7 @@ static int factorial_int(int n)
  */
 double *build_posterior_precision(
     int k, int K, int ng, int N, double h, double h1, double h0, double hg,
-    double **design)
+    double **design, const imr_numerical_control *numerical)
 {
   double *precision = malloc(k * k * sizeof(double));
   int i, j, l;
@@ -59,12 +59,12 @@ double *build_posterior_precision(
            *   K+1..   : selected molecular features.
            *
            * The intercept is handled by the (i == 0 && j == 0) branch above.
-           * Use <= here so the Kth covariate is not accidentally assigned the
-           * molecular-feature prior scale.
+           * Standard indexing includes the Kth covariate in its own block.
+           * Historical indexing reproduces the original strict boundaries.
            */
-          if (i <= K)
+          if (i <= K - numerical->historical_prior_index)
             a += (1.0 / h1);
-          else if (i <= K + ng)
+          else if (i <= K + ng - numerical->historical_prior_index)
             a += (1.0 / hg);
           else
             a += (1.0 / h);

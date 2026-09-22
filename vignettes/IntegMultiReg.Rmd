@@ -212,3 +212,20 @@ fit_s <- imr(
 Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). "A Bayesian Integrative
 Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
 *Biometrics*, **73**(2), 615--624. <doi:10.1111/biom.12587>
+
+## Choosing computational conventions
+
+The three CV modes provide defaults. Optional `ridge`, `model_set`,
+`df_method`, and `score_method` let users choose unpenalized estimation,
+empirical or ranked selection states, predictive degrees of freedom, and
+scoring independently. `folds = result$control$folds` replays actual partitions
+and summation order; identical seeds across different generators are not enough.
+`fold_rng="continue"` resumes a new fit's saved GSL stream for post-fit CV.
+
+`sampler_method="paper"` uses the symmetric MRF conditional and corrects
+boundary proposal probabilities. The default `"legacy"` preserves historical
+updates, whose target differs from the stated MRF posterior. Numerical options
+`prior_indexing`, `laplace_max_iter`, and `laplace_tolerance` are recorded and
+reused by prediction and CV. See `system.file("METHOD-COVERAGE.md",
+package="IntegMultiReg")` for reference combinations and their validation scope.
+No mode name alone guarantees reproduction of historical experiment tables.

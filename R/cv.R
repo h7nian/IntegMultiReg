@@ -20,9 +20,9 @@
 #'   the method stored in `object`; `cv_imr()` cannot turn an IMR fit into a BMS
 #'   fit or vice versa.
 #' @param max_models Integer maximum number of selection models used for
-#'   Bayesian model averaging in legacy and refit modes (default `100`). Must
-#'   be positive. Importance mode uses every retained draw, including repeated
-#'   states, and does not truncate using this argument.
+#'   Bayesian model averaging with `model_set = "ranked_unique"` and for refit
+#'   prediction (default `100`). Must be positive. `model_set = "draws"` uses
+#'   every retained draw, including repeated states, and ignores this limit.
 #' @param cv_method Validation algorithm: `"legacy"` (default), `"refit"`,
 #'   or `"importance"`. This is independent of the fitted IMR/BMS `method`.
 #' @param verbose Logical; if `TRUE`, print fold progress and sampler
@@ -30,6 +30,31 @@
 #' @param workers Positive integer number of PSOCK worker processes (default
 #'   `1L`, serial). Applies to all three CV methods. At most `k * rounds`
 #'   processes are used; no automatic CPU detection is performed.
+#' @param ridge Nonnegative post-fit diagonal penalty, including the intercept.
+#'   `NULL` uses `0.001`; `0` requests the unpenalized estimate in the paper and
+#'   original code. A singular solve stops with fold and subgroup context; no
+#'   penalty or generalized inverse is silently substituted. Not used by refit.
+#' @param model_set Post-fit states to average: `"ranked_unique"` (legacy
+#'   default) ranks distinct states and keeps at most `max_models`; `"draws"`
+#'   (importance default) retains empirical multiplicities and draw order.
+#' @param df_method Predictive-density degrees of freedom: `"legacy_integer"`
+#'   (legacy default) truncates `2 * shape + n_train` to an integer;
+#'   `"fractional"` (importance default) keeps its numeric value. Post-fit only.
+#' @param score_method Metric convention, independent of predictions:
+#'   `"legacy"` (legacy default) retains historical AUC/concordance rules;
+#'   `"standard"` (refit and importance default) uses current tie and comparable
+#'   pair rules. MSE has the same definition in both. `NULL` selects the default.
+#' @param folds Optional data frame with `id`, `round`, and `fold`. Every
+#'   modelled subject must occur once per round; labels are consecutive integers
+#'   starting at one. Every subgroup-fold needs training and test subjects.
+#'   Omitted `k` and `rounds` are inferred; explicit values must match. Optional
+#'   `row_order` is a permutation within each subgroup-round that preserves
+#'   post-fit summation order. Reuse `result$control$folds` for exact replay.
+#' @param fold_rng Post-fit fold generator starting point: `NULL` or `"reset"`
+#'   initializes GSL from the fit seed (existing default); `"continue"` resumes
+#'   the saved state at the end of fitting, as the original program did.
+#'   Continuation requires a new fit saved on a compatible platform. Cannot
+#'   be supplied with explicit `folds` or with refit CV.
 #'
 #' @return A named list. `pooled` and `fold_mean` are numeric matrices of dimension
 #'   `rounds` x `(n_subgroups + 1)`, whose last column corresponds to all
@@ -42,6 +67,9 @@
 #'   `predictions` contains subject IDs, subgroups, rounds, folds and out-of-fold
 #'   predictions. `metric` names the accuracy measure and `validation` records
 #'   the selected `cv_method` as a character string.
+#'   `control` records effective options, sampler/numerical conventions, version,
+#'   seed and actual fold membership/order. It is additional metadata; the first
+#'   five fields retain their existing meanings.
 #'   Undefined AUCs (single class) and C-indices (no comparable pairs) are `NA`.
 #'
 #' @details
@@ -64,9 +92,18 @@
 #' selecting equally weighted distinct models. It uses fractional predictive
 #' degrees of freedom and the current scoring definitions. The full-fit
 #' augmented response mean plug-in is explicitly part of Section 4.1 of the
-#' paper. The 0.001 ridge stabilization differs from its unpenalized coefficient
-#' estimate; this mode is not an exact reproduction of the original application.
+#' paper. Its default 0.001 ridge stabilization differs from the unpenalized
+#' coefficient estimate; set `ridge = 0` to select that estimate.
 #' Binary and continuous outcomes extend the survival procedure.
+#'
+#' Mode names provide defaults. `ridge`, `model_set`, `df_method`, and
+#' `score_method` can be chosen independently. Explicit post-fit-only arguments
+#' are rejected in refit mode. The original released CV code combines `ridge = 0`,
+#' `model_set = "ranked_unique"`, `df_method = "legacy_integer"`,
+#' `score_method = "legacy"` and `max_models = 100`. Paper equations 6--7 use
+#' `ridge = 0`, `model_set = "draws"` and `df_method = "fractional"`.
+#' Neither combination alone reproduces a historical experiment: sampler,
+#' numerical controls, data, initial states and random stream also matter.
 #'
 #' Both post-fit modes use the historical GSL fold generator, stratified by
 #' event status for survival. Refit uses R's generator and additionally
@@ -110,12 +147,26 @@ cv_imr <- function(object, k = 5, rounds = 2,
                    method = NULL,
                    max_models = 100, verbose = FALSE,
                    cv_method = c("legacy", "refit", "importance"),
-                   workers = 1L) {
+                   workers = 1L, ridge = NULL, model_set = NULL,
+                   df_method = NULL, score_method = NULL, folds = NULL,
+                   fold_rng = NULL) {
   if (!inherits(object, "imr")) {
     .imr_abort("`object` must be an `imr` object returned by `imr()`.")
   }
   validate_imr(object)
   cv_method <- match.arg(cv_method)
+  settings <- .imr_cv_settings(cv_method, ridge, model_set, df_method, score_method, fold_rng)
+  if (!is.null(folds) && !is.null(fold_rng))
+    .imr_abort("`fold_rng` cannot be supplied with explicit `folds`.")
+  if (cv_method != "refit") .imr_cv_rng_state(object, settings$fold_rng)
+  if (!is.null(folds)) {
+    settings$fold_rng <- NULL
+    supplied <- .imr_cv_validate_folds(folds, object,
+      if (missing(k)) NULL else k, if (missing(rounds)) NULL else rounds)
+    k <- supplied$k
+    rounds <- supplied$rounds
+    folds <- supplied$folds
+  }
   .imr_check_flag(verbose, "verbose")
   k <- .imr_check_integer_scalar(k, "k", min = 2)
   rounds <- .imr_check_integer_scalar(rounds, "rounds", min = 1)
@@ -153,13 +204,15 @@ cv_imr <- function(object, k = 5, rounds = 2,
     .imr_abort("Refit this formula model to retain the raw formula data required for cross-validation.")
   }
   if (cv_method != "refit") {
-    return(.imr_cv_postfit(object, k, rounds, max_models, verbose, cv_method, workers))
+    return(.imr_cv_postfit(object, k, rounds, max_models, verbose, cv_method, workers,
+                            settings, folds))
   }
-  .imr_cv_refit_result(object, k, rounds, max_models, verbose, workers)
+  .imr_cv_refit_result(object, k, rounds, max_models, verbose, workers, settings, folds)
 }
 
 .imr_cv_refit_result <- function(object, k, rounds, max_models, verbose,
-                                 workers = 1L) {
+                                 workers = 1L, settings = .imr_cv_settings("refit"),
+                                 supplied_folds = NULL) {
   control <- object$control
   model <- object$model
   preprocessing <- object$preprocessing
@@ -173,7 +226,7 @@ cv_imr <- function(object, k = 5, rounds = 2,
   on.exit(.imr_restore_rng(rng), add = TRUE)
   set.seed(control$seed)
   # Generate every split and sampler seed before fitting, since imr() seeds R.
-  partitions <- lapply(seq_len(rounds), function(r) {
+  partitions <- if (is.null(supplied_folds)) lapply(seq_len(rounds), function(r) {
     folds <- integer(nrow(subjects))
     for (idx in groups) {
       strata <- if (control$outcome_type == "continuous") rep(1, length(idx)) else {
@@ -182,6 +235,9 @@ cv_imr <- function(object, k = 5, rounds = 2,
       folds[idx] <- .imr_cv_folds(strata, k)
     }
     folds
+  }) else lapply(seq_len(rounds), function(round) {
+    rows <- supplied_folds[supplied_folds$round == round, , drop = FALSE]
+    rows$fold[match(subjects$id, rows$id)]
   })
   seeds <- matrix(sample.int(.Machine$integer.max, rounds * k, replace = TRUE), rounds, k)
   tasks <- unlist(lapply(seq_len(rounds), function(r) {
@@ -198,7 +254,8 @@ cv_imr <- function(object, k = 5, rounds = 2,
   total <- subset <- matrix(NA_real_, rounds, length(labels), dimnames = list(NULL, labels))
   records <- vector("list", rounds)
   score <- function(idx, prediction) .imr_cv_accuracy(
-    control$outcome_type, prediction[idx], outcome[idx, , drop = FALSE])
+    control$outcome_type, prediction[idx], outcome[idx, , drop = FALSE],
+    settings$score_method)
   for (r in seq_len(rounds)) {
     folds <- partitions[[r]]
     prediction <- rep(NA_real_, nrow(subjects))
@@ -222,7 +279,13 @@ cv_imr <- function(object, k = 5, rounds = 2,
     predictions = do.call(rbind, records),
     metric = switch(control$outcome_type,
       right.censored = "C-index", binary = "AUC", continuous = "MSE"),
-    validation = "refit"
+    validation = "refit",
+    control = .imr_cv_control(settings, object, k, rounds, max_models,
+      if (is.null(supplied_folds)) do.call(rbind, lapply(seq_len(rounds), function(r) {
+        data.frame(id = subjects$id, round = r, fold = partitions[[r]],
+          row_order = as.integer(stats::ave(seq_len(nrow(subjects)), subjects$subgroup, FUN = seq_along)))
+      })) else supplied_folds,
+      if (is.null(supplied_folds)) "r" else "supplied")
   )
 }
 
@@ -259,6 +322,8 @@ cv_imr <- function(object, k = 5, rounds = 2,
       train_platforms[[p]] <- dat$platforms[[p]]
   }
   refit_control <- list(outcome_type = control$outcome_type, method = control$method,
+    sampler_method = control$sampler_method %||% "legacy",
+    standardize = control$standardize %||% TRUE, initial = control$initial,
     min_subgroup_size = 0L, nu = priors$nu,
     forced_prior_scale = priors$forced_scale,
     molecular_prior_scale = priors$molecular_scale,
@@ -267,6 +332,7 @@ cv_imr <- function(object, k = 5, rounds = 2,
     draws = control$mcmc$draws, burnin = control$mcmc$burnin,
     survival_scale = if (control$outcome_type == "right.censored") control$response_scale else "identity",
     seed = seed, verbose = verbose)
+  refit_control <- c(refit_control, .imr_fit_numerical_control(control))
   if (!is.null(preprocessing$terms)) {
     id <- preprocessing$id
     train_platforms <- lapply(train_platforms, function(x) {names(x)[1L] <- id; x})
@@ -279,10 +345,11 @@ cv_imr <- function(object, k = 5, rounds = 2,
     covariates = if (!is.null(dat$covariates)) .imr_match_rows(dat$covariates, train_ids, "covariates") else NULL), refit_control))
 }
 
-.imr_cv_accuracy <- function(type, prediction, outcome) {
+.imr_cv_accuracy <- function(type, prediction, outcome, score_method = "standard") {
   if (!length(prediction)) return(NA_real_)
   y <- outcome[[2L]]
   if (type == "continuous") return(mean((prediction - y)^2))
+  if (score_method == "legacy") return(.imr_call_cv_legacy_score(type, prediction, outcome))
   if (type == "binary") {
     positive <- sum(y == 1)
     negative <- sum(y == 0)

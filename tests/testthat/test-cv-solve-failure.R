@@ -1,3 +1,42 @@
+test_that("zero ridge rejects exact singularity and positive ridge recovers", {
+  id <- seq_len(40L)
+  fit <- imr(list(assay = data.frame(id = id, a = sin(id), b = cos(id))),
+    data.frame(id = id, y = sin(id / 3)), outcome_type = "continuous",
+    method = "bms", draws = 4L, burnin = 2L,
+    min_subgroup_size = 0L, seed = 31L)
+  # A selected all-zero column gives an exactly zero Gram diagonal in every
+  # training fold, independent of rounding or the randomly sampled models.
+  fit$preprocessing$features[[1L]][[1L]][, 2L] <- 0
+  both <- fit$posterior$selection_draws[[1L]]
+  both[[1L]][] <- 1L
+  fit$posterior$selection_draws <- rep(list(both), 4L)
+  expect_true(validate_imr(fit))
+  set.seed(731)
+  rng <- .Random.seed
+  for (mode in c("legacy", "importance")) {
+    for (cache_bytes in c(0, 256, 4096, 128 * 1024^2)) {
+      settings <- IntegMultiReg:::.imr_cv_settings(mode, ridge = 0)
+      expect_error(IntegMultiReg:::.imr_call_cv_postfit_native(
+        fit, k = 2L, rounds = 1L, max_models = 4L, verbose = FALSE,
+        importance = mode == "importance", cache_bytes = cache_bytes,
+        settings = settings), "CV Cholesky solve failed")
+      expect_identical(.Random.seed, rng)
+    }
+    expected <- cv_imr(fit, k = 2L, rounds = 1L, cv_method = mode, ridge = .001)
+    expect_true(all(is.finite(expected$predictions$prediction)))
+    for (workers in 1:2) {
+      connections <- rownames(showConnections(all = TRUE))
+      expect_error(cv_imr(fit, k = 2L, rounds = 1L,
+        cv_method = mode, ridge = 0, workers = workers),
+        "CV Cholesky solve failed")
+      expect_identical(.Random.seed, rng)
+      expect_identical(rownames(showConnections(all = TRUE)), connections)
+      expect_identical(cv_imr(fit, k = 2L, rounds = 1L,
+        cv_method = mode, ridge = .001, workers = workers), expected)
+    }
+  }
+})
+
 test_that("post-fit solve failures stop cleanly without partial results", {
   id <- seq_len(120L)
   fit <- imr(list(assay = data.frame(id = id, a = sin(id), b = cos(id))),

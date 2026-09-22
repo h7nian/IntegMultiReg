@@ -29,8 +29,9 @@ SEXP imr_predict(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R,
                                 SEXP sample_size, SEXP n_features_R, SEXP n_covariates_R,
                                 SEXP X1_filtered, SEXP newCC_list,
                                 SEXP draws_R, SEXP X1test, SEXP C_test,
-                                SEXP samplesize_test_R, SEXP max_models_R, SEXP type_outcome_R)
+                                SEXP samplesize_test_R, SEXP max_models_R, SEXP type_outcome_R, SEXP numerical_R)
 {
+    const imr_numerical_control numerical = imr_read_numerical_control(numerical_R);
     int protect_count = 0;
     PROTECT(h0_R);
     protect_count++;
@@ -148,7 +149,7 @@ SEXP imr_predict(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R,
                                      n_platform_models_c, n_model_platforms_c, model_platforms_c,
                                      platform_models_c, sample_size_ptr, K,
                                      betaTh, likelihood_type, post, model_index,
-                                     high_model_index, &n_unique_models, max_models_requested);
+                                     high_model_index, &n_unique_models, max_models_requested, &numerical);
 
     double **ypredT = calloc((n_subgroups), sizeof(double *));
     int max_models = MIN(n_unique_models, max_models_requested);

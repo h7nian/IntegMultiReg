@@ -69,6 +69,36 @@
 #'   `"log"` (default) logs the supplied positive event/censoring times, as in
 #'   the original AFT model. `"identity"` reproduces historical package analyses
 #'   and does not fit a log-time AFT model. Ignored for other outcome types.
+#' @param sampler_method Selection-update convention. `"legacy"` (default)
+#'   retains the existing package and 2017 code updates. `"paper"` uses the
+#'   symmetric MRF conditional log-odds, the boundary flip/swap Hastings
+#'   correction, and the negative Gamma rate term in the log-posterior trace.
+#'   This is a computational convention, separate from IMR/BMS `method`.
+#' @param prior_indexing `"standard"` (default) assigns prior precision by
+#'   coefficient block. `"code2017"` reproduces the strict index boundaries
+#'   in the released C code; in particular, the last forced covariate receives
+#'   molecular precision when covariates are present. Use for historical
+#'   comparisons, not as a different scientific prior specification.
+#' @param laplace_max_iter Maximum coefficient-mode iterations, either a
+#'   positive integer for all stages or a named vector in the order `initial`,
+#'   `selection`, `latent`, `prediction`. Defaults are 25, 40, 25, 40. The
+#'   released C code used 25 for prediction; these are not MCMC draw counts.
+#' @param laplace_tolerance Positive relative coefficient-mode convergence
+#'   tolerance (default `0.001`). Numerical controls are stored in the fit and
+#'   reused by prediction and cross-validation, including training-fold refits.
+#' @param initial Optional named list with `selection` and/or `interaction`.
+#'   Each component is a list of matrices named by platform. Selection matrices
+#'   have subgroup rows and feature columns, with entries zero or one; interaction
+#'   matrices have subgroup rows/columns, positive symmetric off-diagonals and
+#'   zero diagonals (IMR only). Dimnames must match the fitted model order.
+#'   NULL preserves the original random initialization and RNG consumption.
+#'   Supplied selection bypasses its initialization draws. Refit CV reuses the
+#'   specified starting values; missing components retain their defaults.
+#' @param standardize Logical; standardize features and forced covariates
+#'   within availability subgroups (default `TRUE`). Set `FALSE` for inputs
+#'   already transformed by an external historical experiment. Prediction then
+#'   uses those supplied units. Refit CV cannot undo external preprocessing;
+#'   record how the supplied data were constructed.
 #' @param ... Additional fitting arguments passed from the formula or
 #'   `imr_data` method to the list method. Unused arguments are rejected.
 #'
@@ -79,6 +109,16 @@
 #' subjects.  For right-censored outcomes the latent log-survival times of
 #' censored subjects are imputed within the sampler; for binary outcomes a
 #' probit data-augmentation latent variable is sampled.
+#'
+#' For the symmetric interaction matrix in the paper, the conditional
+#' log-odds contribution is `nu + 2 * sum(theta * neighboring_indicators)`.
+#' The released code used a factor of one and omitted the proposal ratio when
+#' a flip moved between an empty/full model and an interior model. These
+#' conventions remain available as `sampler_method = "legacy"`; they are not
+#' mathematically equivalent to the stated MRF posterior. The `"paper"` option
+#' corrects these updates without changing defaults. Exact historical table
+#' reproduction additionally depends on data, preprocessing, initialization,
+#' random-number consumption and validation settings.
 #'
 #' @return An object of class `"imr"` with `schema_version = 2L` and four
 #'   named sections: `control` (outcome, method, priors, MCMC and seed), `model`
@@ -142,7 +182,12 @@ imr.list <- function(x, outcome, covariates = NULL,
                      interaction_prior = c(shape = 40, rate = 10),
                      draws = 2000L, burnin = 1000L, seed = NULL,
                      verbose = FALSE,
-                     survival_scale = c("log", "identity"), ...) {
+                     survival_scale = c("log", "identity"),
+                     sampler_method = c("legacy", "paper"),
+                     prior_indexing = c("standard", "code2017"),
+                     laplace_max_iter = c(initial = 25L, selection = 40L,
+                                          latent = 25L, prediction = 40L),
+                     laplace_tolerance = 1e-3, standardize = TRUE, initial = NULL, ...) {
   dots <- list(...)
   if (length(dots) > 0L) {
     .imr_abort(sprintf("Unused argument: `%s`.", names(dots)[1L]))
@@ -150,9 +195,13 @@ imr.list <- function(x, outcome, covariates = NULL,
   call <- match.call()
   outcome_type <- match.arg(outcome_type)
   survival_scale <- match.arg(survival_scale)
+  sampler_method <- match.arg(sampler_method)
+  numerical <- .imr_numerical_control(match.arg(prior_indexing),
+                                      laplace_max_iter, laplace_tolerance)
   method <- match.arg(method)
 
   .imr_check_flag(verbose, "verbose")
+  .imr_check_flag(standardize, "standardize")
   validated <- imr_data(
     platforms = x,
     outcome = outcome,
@@ -322,7 +371,7 @@ imr.list <- function(x, outcome, covariates = NULL,
   dat_normalized <- dat_filtered
 
   platform_preprocessing <- lapply(dat_filtered[[3]], function(platforms) {
-    lapply(platforms, .imr_prepare_matrix)
+    lapply(platforms, .imr_prepare_matrix, standardize = standardize)
   })
   platform_field <- function(field) lapply(platform_preprocessing, function(platforms) {
     lapply(platforms, `[[`, field)
@@ -331,7 +380,8 @@ imr.list <- function(x, outcome, covariates = NULL,
   sd_train <- platform_field("sd")
   dat_normalized[[3]] <- platform_field("normalized")
   if (!is.null(covariates)) {
-    covariate_preprocessing <- lapply(dat_filtered[[2]], .imr_prepare_matrix)
+    covariate_preprocessing <- lapply(dat_filtered[[2]], .imr_prepare_matrix,
+                                     standardize = standardize)
     mean_cov_train <- lapply(covariate_preprocessing, `[[`, "mean")
     sd_cov_train <- lapply(covariate_preprocessing, `[[`, "sd")
     dat_normalized[[2]] <- lapply(covariate_preprocessing, `[[`, "normalized")
@@ -403,13 +453,15 @@ imr.list <- function(x, outcome, covariates = NULL,
     residual = c(shape = alpha_c, rate = psi_c),
     interaction = c(shape = alpha0_c, rate = beta0_c)
   )
+  initial <- .imr_initial_state(initial, platform_names,
+    lapply(platform_models_c, function(i) names(x_filtered)[i + 1L]), feature_names, method)
   results <- .imr_call_fit_native(
     priors = effective_priors, seed = seed_c, nu = nu_c, method = method,
     n_platforms = n_platform_c, platform_subgroups = platform_models_c,
     subgroup_platforms = model_platforms_c, sample_sizes = sample_size,
     n_features = n_features, n_covariates = n_cov, features = x_filtered,
     response = y_list, outcome_type = outcome_type, covariates = cov_list,
-    draws = draws, burnin = burnin, verbose = verbose
+    draws = draws, burnin = burnin, verbose = verbose, sampler_method = sampler_method, numerical = numerical, initial = initial
   )
 
   ## Guard against tiny floating-point drift in the running averages so that
@@ -426,12 +478,15 @@ imr.list <- function(x, outcome, covariates = NULL,
       call = call, outcome_type = outcome_type,
       response_scale = if (outcome_type == "right.censored") survival_scale else
         if (outcome_type == "binary") "probit" else "identity",
-      method = method, min_subgroup_size = min_subgroup_size,
+      method = method, sampler_method = sampler_method, min_subgroup_size = min_subgroup_size,
       priors = list(nu = nu, molecular_scale = molecular_prior_scale,
         forced_scale = forced_prior_scale,
         residual = c(shape = alpha_c, rate = psi_c),
         interaction = interaction_prior),
-      mcmc = list(draws = draws, burnin = burnin), seed = seed
+      mcmc = list(draws = draws, burnin = burnin), seed = seed, numerical = numerical,
+      standardize = standardize, initial = initial,
+      rng_state = list(generator = "gsl_rand48", endian = .Platform$endian,
+                       state = results$rng_state)
     ),
     model = list(
       n_platforms = n_platforms, platform_names = platform_names,
@@ -660,12 +715,17 @@ subgroup_data <- function(outcome, covariates = NULL, platforms) {
 
 #' @keywords internal
 #' @noRd
-.imr_prepare_matrix <- function(mat) {
+.imr_prepare_matrix <- function(mat, standardize = TRUE) {
   if (nrow(mat) == 0 || ncol(mat) == 0) {
     return(list(mean = rep(0, ncol(mat)), sd = rep(1, ncol(mat)),
                  normalized = matrix(numeric(0), nrow(mat), ncol(mat))))
   }
   mat <- as.matrix(mat)
+  if (!standardize) {
+    storage.mode(mat) <- "double"
+    return(list(mean = stats::setNames(rep(0, ncol(mat)), colnames(mat)),
+                sd = stats::setNames(rep(1, ncol(mat)), colnames(mat)), normalized = mat))
+  }
   centers <- scales <- numeric(ncol(mat))
   names(centers) <- names(scales) <- colnames(mat)
   # Extract columns directly, avoiding apply's full matrix permutation copy.

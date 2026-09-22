@@ -1,8 +1,9 @@
 diff --git a/src/cv_postfit.c b/src/cv_postfit.c
 --- a/src/cv_postfit.c
 +++ b/src/cv_postfit.c
-@@ -24,7 +24,32 @@
+@@ -24,8 +24,33 @@
  #include "cv_precision.h"
+ #include "cv_score.h"
  #include "cv_prediction_rows.h"
  #include "cv_value_cache.h"
  
@@ -34,7 +35,7 @@ diff --git a/src/cv_postfit.c b/src/cv_postfit.c
  static double legacy_max(int n, double *values);
  
  /* Keys refer to immutable draws owned by this call. Hash equality is never
-@@ -114,7 +139,8 @@
+@@ -508,7 +533,8 @@
    postfit_prediction_rows prediction_rows;
    *allocation_failed = 0;
 +  test_rows_reset();

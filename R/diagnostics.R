@@ -53,6 +53,12 @@ validate_imr <- function(object) {
       !control$method %in% c("imr", "bms")) {
     .imr_abort("The fit has an invalid outcome type or method.")
   }
+  .imr_fit_numerical_control(control)
+  if (!is.null(control$standardize)) .imr_check_flag(control$standardize, "standardize")
+  if (!is.null(control$sampler_method) &&
+      (!is.character(control$sampler_method) || length(control$sampler_method) != 1L ||
+       is.na(control$sampler_method) || !control$sampler_method %in% c("legacy", "paper")))
+    .imr_abort("The fit has an invalid `sampler_method`.")
   if (!is.list(control$priors) ||
       !all(c("nu", "molecular_scale", "forced_scale", "residual", "interaction") %in%
            names(control$priors)) || !is.list(control$mcmc)) {

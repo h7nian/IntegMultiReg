@@ -29,6 +29,12 @@ imr(x, ...)
   seed = NULL,
   verbose = FALSE,
   survival_scale = c("log", "identity"),
+  sampler_method = c("legacy", "paper"),
+  prior_indexing = c("standard", "code2017"),
+  laplace_max_iter = c(initial = 25L, selection = 40L, latent = 25L, prediction = 40L),
+  laplace_tolerance = 0.001,
+  standardize = TRUE,
+  initial = NULL,
   ...
 )
 
@@ -114,6 +120,42 @@ diagnostics to the console.  Defaults to \code{FALSE} (quiet).}
 the original AFT model. \code{"identity"} reproduces historical package analyses
 and does not fit a log-time AFT model. Ignored for other outcome types.}
 
+\item{sampler_method}{Selection-update convention. \code{"legacy"} (default)
+retains the existing package and 2017 code updates. \code{"paper"} uses the
+symmetric MRF conditional log-odds, the boundary flip/swap Hastings
+correction, and the negative Gamma rate term in the log-posterior trace.
+This is a computational convention, separate from IMR/BMS \code{method}.}
+
+\item{prior_indexing}{\code{"standard"} (default) assigns prior precision by
+coefficient block. \code{"code2017"} reproduces the strict index boundaries
+in the released C code; in particular, the last forced covariate receives
+molecular precision when covariates are present. Use for historical
+comparisons, not as a different scientific prior specification.}
+
+\item{laplace_max_iter}{Maximum coefficient-mode iterations, either a
+positive integer for all stages or a named vector in the order \code{initial},
+\code{selection}, \code{latent}, \code{prediction}. Defaults are 25, 40, 25, 40. The
+released C code used 25 for prediction; these are not MCMC draw counts.}
+
+\item{laplace_tolerance}{Positive relative coefficient-mode convergence
+tolerance (default \code{0.001}). Numerical controls are stored in the fit and
+reused by prediction and cross-validation, including training-fold refits.}
+
+\item{standardize}{Logical; standardize features and forced covariates
+within availability subgroups (default \code{TRUE}). Set \code{FALSE} for inputs
+already transformed by an external historical experiment. Prediction then
+uses those supplied units. Refit CV cannot undo external preprocessing;
+record how the supplied data were constructed.}
+
+\item{initial}{Optional named list with \code{selection} and/or \code{interaction}.
+Each component is a list of matrices named by platform. Selection matrices
+have subgroup rows and feature columns, with entries zero or one; interaction
+matrices have subgroup rows/columns, positive symmetric off-diagonals and
+zero diagonals (IMR only). Dimnames must match the fitted model order.
+NULL preserves the original random initialization and RNG consumption.
+Supplied selection bypasses its initialization draws. Refit CV reuses the
+specified starting values; missing components retain their defaults.}
+
 \item{data}{A data frame used with the formula interface.}
 
 \item{platforms}{A list of platform data frames used with the formula
@@ -158,6 +200,16 @@ object so that \code{\link[=predict.imr]{predict.imr()}} can apply the same tran
 subjects.  For right-censored outcomes the latent log-survival times of
 censored subjects are imputed within the sampler; for binary outcomes a
 probit data-augmentation latent variable is sampled.
+
+For the symmetric interaction matrix in the paper, the conditional
+log-odds contribution is \code{nu + 2 * sum(theta * neighboring_indicators)}.
+The released code used a factor of one and omitted the proposal ratio when
+a flip moved between an empty/full model and an interior model. These
+conventions remain available as \code{sampler_method = "legacy"}; they are not
+mathematically equivalent to the stated MRF posterior. The \code{"paper"} option
+corrects these updates without changing defaults. Exact historical table
+reproduction additionally depends on data, preprocessing, initialization,
+random-number consumption and validation settings.
 }
 \examples{
 \donttest{

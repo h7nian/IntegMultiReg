@@ -66,6 +66,15 @@ jobs:
           test -f "${ubsan_runtime}"
           echo "SANITIZER_RUNTIME=${asan_runtime}:${ubsan_runtime}" >> "${GITHUB_ENV}"
 
+      - name: Check sampler detailed balance
+        shell: bash
+        run: |
+          clang -O1 -g -fsanitize=address,undefined \
+            -fno-sanitize-recover=undefined -fno-omit-frame-pointer -Isrc \
+            .github/scripts/test-sampler-math.c src/sampler_math.c -lm \
+            -o "${RUNNER_TEMP}/sampler-math-test"
+          "${RUNNER_TEMP}/sampler-math-test"
+
       - name: Check fold precision kernel and bounded fallback
         shell: bash
         run: |
@@ -183,6 +192,15 @@ jobs:
           if [[ ${status} -ne 0 || ${sanitizer_status} -ne 0 ]]; then
             exit 1
           fi
+
+      - name: Verify native sampler against independent targets
+        shell: bash
+        run: |
+          r_home="$(R RHOME)"
+          R_HOME="${r_home}" DYLD_INSERT_LIBRARIES="${SANITIZER_RUNTIME}" \
+            R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
+            "${r_home}/bin/exec/R" --vanilla --no-save \
+              -f .github/scripts/verify-sampler.R --args "${RUNNER_TEMP}/sampler"
 
       - name: Check native error cleanup in an isolated fault build
         shell: bash

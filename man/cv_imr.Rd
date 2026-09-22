@@ -12,7 +12,13 @@ cv_imr(
   max_models = 100,
   verbose = FALSE,
   cv_method = c("legacy", "refit", "importance"),
-  workers = 1L
+  workers = 1L,
+  ridge = NULL,
+  model_set = NULL,
+  df_method = NULL,
+  score_method = NULL,
+  folds = NULL,
+  fold_rng = NULL
 )
 }
 \arguments{
@@ -30,9 +36,9 @@ the method stored in \code{object}; \code{cv_imr()} cannot turn an IMR fit into 
 fit or vice versa.}
 
 \item{max_models}{Integer maximum number of selection models used for
-Bayesian model averaging in legacy and refit modes (default \code{100}). Must
-be positive. Importance mode uses every retained draw, including repeated
-states, and does not truncate using this argument.}
+Bayesian model averaging with \code{model_set = "ranked_unique"} and for refit
+prediction (default \code{100}). Must be positive. \code{model_set = "draws"} uses
+every retained draw, including repeated states, and ignores this limit.}
 
 \item{verbose}{Logical; if \code{TRUE}, print fold progress and sampler
 diagnostics.  Defaults to \code{FALSE}.}
@@ -43,6 +49,37 @@ or \code{"importance"}. This is independent of the fitted IMR/BMS \code{method}.
 \item{workers}{Positive integer number of PSOCK worker processes (default
 \code{1L}, serial). Applies to all three CV methods. At most \code{k * rounds}
 processes are used; no automatic CPU detection is performed.}
+
+\item{ridge}{Nonnegative post-fit diagonal penalty, including the intercept.
+\code{NULL} uses \code{0.001}; \code{0} requests the unpenalized estimate in the paper and
+original code. A singular solve stops with fold and subgroup context; no
+penalty or generalized inverse is silently substituted. Not used by refit.}
+
+\item{model_set}{Post-fit states to average: \code{"ranked_unique"} (legacy
+default) ranks distinct states and keeps at most \code{max_models}; \code{"draws"}
+(importance default) retains empirical multiplicities and draw order.}
+
+\item{df_method}{Predictive-density degrees of freedom: \code{"legacy_integer"}
+(legacy default) truncates \code{2 * shape + n_train} to an integer;
+\code{"fractional"} (importance default) keeps its numeric value. Post-fit only.}
+
+\item{score_method}{Metric convention, independent of predictions:
+\code{"legacy"} (legacy default) retains historical AUC/concordance rules;
+\code{"standard"} (refit and importance default) uses current tie and comparable
+pair rules. MSE has the same definition in both. \code{NULL} selects the default.}
+
+\item{folds}{Optional data frame with \code{id}, \code{round}, and \code{fold}. Every
+modelled subject must occur once per round; labels are consecutive integers
+starting at one. Every subgroup-fold needs training and test subjects.
+Omitted \code{k} and \code{rounds} are inferred; explicit values must match. Optional
+\code{row_order} is a permutation within each subgroup-round that preserves
+post-fit summation order. Reuse \code{result$control$folds} for exact replay.}
+
+\item{fold_rng}{Post-fit fold generator starting point: \code{NULL} or \code{"reset"}
+initializes GSL from the fit seed (existing default); \code{"continue"} resumes
+the saved state at the end of fitting, as the original program did.
+Continuation requires a new fit saved on a compatible platform. Cannot
+be supplied with explicit \code{folds} or with refit CV.}
 }
 \value{
 A named list. \code{pooled} and \code{fold_mean} are numeric matrices of dimension
@@ -56,6 +93,9 @@ availability subgroup.}
 \code{predictions} contains subject IDs, subgroups, rounds, folds and out-of-fold
 predictions. \code{metric} names the accuracy measure and \code{validation} records
 the selected \code{cv_method} as a character string.
+\code{control} records effective options, sampler/numerical conventions, version,
+seed and actual fold membership/order. It is additional metadata; the first
+five fields retain their existing meanings.
 Undefined AUCs (single class) and C-indices (no comparable pairs) are \code{NA}.
 }
 \description{
@@ -88,9 +128,18 @@ of Chekouo et al. (2017), retaining MCMC state multiplicities rather than
 selecting equally weighted distinct models. It uses fractional predictive
 degrees of freedom and the current scoring definitions. The full-fit
 augmented response mean plug-in is explicitly part of Section 4.1 of the
-paper. The 0.001 ridge stabilization differs from its unpenalized coefficient
-estimate; this mode is not an exact reproduction of the original application.
+paper. Its default 0.001 ridge stabilization differs from the unpenalized
+coefficient estimate; set \code{ridge = 0} to select that estimate.
 Binary and continuous outcomes extend the survival procedure.
+
+Mode names provide defaults. \code{ridge}, \code{model_set}, \code{df_method}, and
+\code{score_method} can be chosen independently. Explicit post-fit-only arguments
+are rejected in refit mode. The original released CV code combines \code{ridge = 0},
+\code{model_set = "ranked_unique"}, \code{df_method = "legacy_integer"},
+\code{score_method = "legacy"} and \code{max_models = 100}. Paper equations 6--7 use
+\code{ridge = 0}, \code{model_set = "draws"} and \code{df_method = "fractional"}.
+Neither combination alone reproduces a historical experiment: sampler,
+numerical controls, data, initial states and random stream also matter.
 
 Both post-fit modes use the historical GSL fold generator, stratified by
 event status for survival. Refit uses R's generator and additionally

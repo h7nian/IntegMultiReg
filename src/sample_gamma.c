@@ -28,7 +28,7 @@ void sample_gamma_indicators(
     int *n_platform_models, int **platform_models, double **accept_gamma,
     gsl_rng *rng, const char *likelihood_type, double slab_scale,
     double covariate_scale, double intercept_scale, double first_platform_scale,
-    int n_covariates, double alpha, double psi)
+    int n_covariates, double alpha, double psi, int sampler_method, const imr_numerical_control *numerical)
 {
     (void)n_platforms;
 
@@ -146,9 +146,9 @@ void sample_gamma_indicators(
         }
         else
         {
-            const int max_iter = 40;
+            const int max_iter = numerical->selection_max_iter;
             const int moment_order = 1;
-            const double tolerance = 1e-3;
+            const double tolerance = numerical->tolerance;
             int total_selected_features = 0;
             for (int p = 0; p < n_selected_platforms; p++)
             {
@@ -159,7 +159,7 @@ void sample_gamma_indicators(
             double *precision = build_posterior_precision(
                 k_val, n_covariates, n_selected_features[0], sample_size,
                 slab_scale, covariate_scale, intercept_scale,
-                first_platform_scale, proposed_design);
+                first_platform_scale, proposed_design, numerical);
             double *precision_copy = malloc((size_t) k_val * k_val * sizeof(double));
             if (!precision_copy) Rf_error("malloc failed for precision_copy");
             for (int m = 0; m < k_val; m++)
@@ -198,23 +198,21 @@ void sample_gamma_indicators(
             if (dif != 0)
             {
                 changed_feature_index[d] = g;
-                double tx = 0;
-                for (int s = 0; s < n_platform_models[platform_index]; s++)
-                {
-                    if (s != platform_model_index)
-                    {
-                        tx += theta[platform_index][platform_model_index][s] * gamma[platform_index][s][g];
-                    }
-                }
-                tx += nu[platform_index];
+                double tx = imr_gamma_log_odds(n_platform_models[platform_index],
+                    platform_model_index, g, theta[platform_index][platform_model_index],
+                    gamma[platform_index], nu[platform_index], sampler_method);
                 log_prior_ratio += dif * tx;
                 d++;
             }
         }
 
-        /* MH ratio = marginal-likelihood change + MRF/sparsity-prior change. */
+        /* The paper target requires the reverse/forward proposal probability.
+         * Preserve the published-code transition when explicitly using legacy. */
+        double log_proposal_ratio = sampler_method == IMR_SAMPLER_PAPER ?
+            imr_gamma_log_hastings(n_features[platform_index], old_n_selected_features,
+                                  new_n_selected_features, 0.5) : 0;
         double u_val = gsl_ran_flat(rng, 0, 1);
-        if (log(u_val) < new_log_likelihood - *log_likelihood + log_prior_ratio)
+        if (log(u_val) < new_log_likelihood - *log_likelihood + log_prior_ratio + log_proposal_ratio)
         {
             for (int g = 0; g < d; g++)
             {

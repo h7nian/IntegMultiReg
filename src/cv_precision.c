@@ -4,7 +4,7 @@
 
 void postfit_build_precision(double *precision, double **design,
                              int n_coefficients, int train_sample_size,
-                             const int *train_index, size_t workspace_bytes)
+                             const int *train_index, size_t workspace_bytes, double ridge)
 {
     int row_coefficient, column_coefficient, source_row, training_row;
     /* Training-only matrix product; no full-data subtraction.
@@ -61,7 +61,7 @@ void postfit_build_precision(double *precision, double **design,
           }
         }
         if (row_coefficient == column_coefficient)
-          crossproduct += .001; // Preserve the existing diagonal ridge exactly.
+          crossproduct += ridge; // The intercept follows the same explicit penalty.
         precision[row_coefficient * n_coefficients + column_coefficient] = precision[column_coefficient * n_coefficients + row_coefficient] = crossproduct;
       }
     }

@@ -2,16 +2,19 @@
 # The GSL stream is replayed locally to retain both fold membership and the
 # historical within-fold row order; every replay is checked against the plan.
 .imr_cv_postfit_parallel <- function(object, k, rounds, max_models, verbose,
-                                      importance, workers) {
+                                      settings, workers, partitions) {
   plan <- .imr_call_cv_postfit_native(object, k, rounds, max_models, FALSE,
-                                      importance, stage = "plan")
+                                      settings$model_set == "draws", stage = "plan",
+                                      settings = settings, folds = partitions$folds,
+                                      row_order = partitions$row_order)
   n_tasks <- k * rounds
   batches <- unname(split(seq_len(n_tasks),
                           rep(seq_len(min(workers, n_tasks)), length.out = n_tasks)))
   values <- .imr_cv_map(batches, .imr_cv_postfit_task, workers,
                         object = object, k = k, rounds = rounds,
                         max_models = max_models, verbose = verbose,
-                        importance = importance, folds = plan$folds)
+                        settings = settings, partitions = partitions,
+                        folds = plan$folds, row_order = plan$row_order)
   predictions <- plan$predictions
   filled <- matrix(FALSE, nrow(predictions), ncol(predictions))
   for (batch in seq_along(batches)) {
@@ -22,14 +25,15 @@
     filled[active] <- TRUE
   }
   if (!all(filled)) .imr_abort("Post-fit workers did not cover every held-out prediction.")
-  if (importance) {
+  if (settings$score_method == "standard") {
     # R's existing public scoring path replaces both native metric matrices.
     plan$predictions <- predictions
     return(plan)
   }
   result <- .imr_call_cv_postfit_native(object, k, rounds, max_models, verbose,
-                                        importance, stage = "score",
-                                        predictions = predictions)
+                                        settings$model_set == "draws", stage = "score",
+                                        predictions = predictions, settings = settings,
+                                        folds = partitions$folds, row_order = partitions$row_order)
   if (!identical(result$folds, plan$folds))
     .imr_abort("Post-fit scoring did not reproduce the planned partitions.")
   result
@@ -44,13 +48,15 @@
 }
 
 .imr_cv_postfit_task <- function(batch, object, k, rounds, max_models, verbose,
-                                 importance, folds) {
+                                 settings, partitions, folds, row_order) {
   tryCatch({
     tasks <- matrix(FALSE, k, rounds)
     tasks[batch] <- TRUE
     result <- .imr_call_cv_postfit_native(object, k, rounds, max_models, verbose,
-                                          importance, stage = "predict", tasks = tasks)
-    if (!identical(result$folds, folds))
+                                          settings$model_set == "draws", stage = "predict", tasks = tasks,
+                                          settings = settings, folds = partitions$folds,
+                                          row_order = partitions$row_order)
+    if (!identical(result$folds, folds) || !identical(result$row_order, row_order))
       .imr_abort("Worker did not reproduce the planned partitions.")
     active <- .imr_cv_postfit_active(batch, k, rounds, folds)
     bad <- which(active & !is.finite(result$predictions), arr.ind = TRUE)

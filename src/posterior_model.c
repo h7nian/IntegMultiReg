@@ -98,7 +98,7 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
                           int *n_platform_models_c, int *n_model_platforms_c, int **model_platforms_c,
                           int **platform_models_c, int *sample_size_ptr, int K,
                           double ***betaTh, const char *likelihood_type, double *post, int *model_index,
-                          int *high_model_index, int *n_unique_models_out, int max_models)
+                          int *high_model_index, int *n_unique_models_out, int max_models, const imr_numerical_control *numerical)
 
 {
 
@@ -209,11 +209,11 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
       }
       else
       {
-        int maxiter = 40;
-        double stop = 1e-3;
+        int maxiter = numerical->prediction_max_iter;
+        double stop = numerical->tolerance;
         int rr = 1;
         int k = 1 + K + total_selected_features;
-        double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG);
+        double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG, numerical);
         double *precision_copy = malloc((size_t) k * k * sizeof(double));
         if (!precision_copy) Rf_error("malloc failed for precision_copy");
         for (int i = 0; i < k; i++)
@@ -239,8 +239,10 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
         free(selected_feature_index[ll]);
       free(selected_feature_index);
     }
+    /* Theta is fixed across ranked states. Its prior contributes a common
+     * constant, so retain historical arithmetic here for both samplers. */
     post[l] = log_posterior(loglik, gamma_sample[n_draws - 1 - l1], nu, theta, mrf, alpha0, betaTh, n_subgroups,
-                      n_platforms, G, n_platform_models_c);
+                      n_platforms, G, n_platform_models_c, IMR_SAMPLER_LEGACY);
   } // end number of models l=0
 
   sort_descending_index(n_unique_models, post, high_model_index);

@@ -14,3 +14,4 @@
 ^src/symbols\.rds$
 ^src/Makevars$
 ^cran-comments\.md$
+^src/Makevars 2$
