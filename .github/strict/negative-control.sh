@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 evidence="${RUNNER_TEMP}/strict-evidence"
 oldlib="${RUNNER_TEMP}/old-library"
 mkdir -p "${oldlib}"
@@ -28,10 +29,8 @@ set -e
 echo "${status}" > "${evidence}/old-exit-status.txt"
 # A crash or unrelated test failure is not sufficient evidence of sensitivity.
 test "${status}" -eq 97
-grep -q 'main_function_prediction' "${evidence}/old-tests.log"
-grep -q 'predict_cv_fold' "${evidence}/old-tests.log"
-grep -q 'definitely lost: 7,200 bytes in 60 blocks' "${evidence}/old-tests.log"
-echo 'R-heap uninitialized-read probe detected; old package reproduced its exact 7,200-byte/60-block leak.' | tee "${evidence}/negative-control-result.txt"
+python3 "${script_dir}/verify-old-leak.py" "${evidence}/old-tests.log"
+echo 'R-heap uninitialized-read probe detected; old package reproduced its 7,200-byte/60-block leak across definite and possible loss records.' | tee "${evidence}/negative-control-result.txt"
 if grep -q 'Conditional jump or move depends on uninitialised value' "${evidence}/old-tests.log"; then
   echo 'Old-package uninitialized read: reproduced.' | tee -a "${evidence}/negative-control-result.txt"
 else
