@@ -12,7 +12,7 @@ permissions:
 jobs:
   strict:
     runs-on: ubuntu-24.04
-    timeout-minutes: 240
+    timeout-minutes: 360
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
@@ -89,21 +89,22 @@ jobs:
       - name: Verify R heap detection and characterize the old release
         shell: bash
         run: bash .github/strict/negative-control.sh
-      - name: Check the exact candidate including examples tests and vignettes
+      - name: Record package-free vignette graphics control
         shell: bash
         run: |
-          evidence="${RUNNER_TEMP}/strict-evidence"
-          mkdir -p "${evidence}/candidate"
           set +e
-          R CMD check --as-cran --use-valgrind --run-donttest \
-            --output="${evidence}/candidate" \
-            .github/strict/fixtures/IntegMultiReg_0.2.0.tar.gz \
-            2>&1 | tee "${evidence}/candidate-console.log"
-          status=${PIPESTATUS[0]}
+          R -d "valgrind ${VALGRIND_OPTS}" --vanilla -f .github/strict/graphics-vignette-control.R \
+            > "${RUNNER_TEMP}/strict-evidence/graphics-vignette-control.log" 2>&1
+          echo "$?" > "${RUNNER_TEMP}/strict-evidence/graphics-vignette-control-status.txt"
           set -e
-          echo "${status}" > "${evidence}/candidate-exit-status.txt"
-          python3 .github/strict/verify-check.py "${evidence}"
-          exit "${status}"
+      - name: Upload early graphics control
+        uses: actions/upload-artifact@v6
+        with:
+          name: candidate-graphics-control
+          path: ${{ runner.temp }}/strict-evidence/graphics-vignette-control*
+      - name: Check the exact candidate including examples tests and vignettes
+        shell: bash
+        run: bash .github/strict/check-candidate.sh
       - name: Check instrumented parent and PSOCK worker suite
         shell: bash
         run: |
