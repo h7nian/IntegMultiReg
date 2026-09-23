@@ -142,6 +142,7 @@ jobs:
           done
           test "${failures}" -eq 0
       - name: Verify R heap detection and characterize the old release
+        id: negative_controls
         shell: bash
         run: bash .github/strict/negative-control.sh
       - name: Upload scoped-control validation
@@ -159,6 +160,7 @@ jobs:
         shell: bash
         run: bash .github/strict/check-candidate.sh
       - name: Check instrumented parent and PSOCK worker suite
+        if: ${{ !cancelled() && steps.negative_controls.outcome == 'success' }}
         shell: bash
         run: |
           evidence="${RUNNER_TEMP}/strict-evidence"

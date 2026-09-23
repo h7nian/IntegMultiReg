@@ -1,14 +1,16 @@
 {
-  "rules": 109,
+  "rules": 116,
   "frame_counts": {
+    "22": 4,
     "24": 103,
-    "23": 2,
-    "22": 1,
+    "21": 2,
     "10": 2,
-    "9": 1
+    "9": 1,
+    "23": 3,
+    "20": 1
   },
-  "required_records": 361,
-  "suppression_sha256": "2eb219a0127054a51ef86e8d269dae2714f773fc258fab4e7d0391f7e10ba51b",
+  "required_records": 393,
+  "suppression_sha256": "8b6cace00a13f9e306686c476bb50e22016a6bcd4cad45248e545ebb99af6bfd",
   "evidence_hashes": {
     "output/ci-repair-20260922/run-35813024084/candidate-graphics-control/graphics-vignette-control.log": "af3006fbbb82ed161c2d626b14695f6cc273109a96f5f5d97628059f226fbd9c",
     "output/ci-repair-20260922/run-35818036159/candidate-graphics-control/graphics-vignette-control.log": "3e683db0fba20b73c85e1d7d8668f1a7d5c381642fd58e1abdf9e5c1644aa0d7",
@@ -18,10 +20,15 @@
     "output/ci-repair-20260922/run-35818897822/candidate-graphics-control/graphics-vignette-control-width-1.log": "ad25ca6c45340f672e0710318af276f8fc33dfe574f910e1ac62a60a1962932a",
     "output/ci-repair-20260922/run-35818036159/candidate-instrumented-valgrind-evidence/graphics-vignette-scoped.log": "c5c8f8087b90797bee49b877feaf656398f95b78ed744cf6c8fd6319ea36b359",
     "output/ci-repair-20260922/run-35818897822/candidate-control-validation/graphics-vignette-scoped.log": "7a77e94d72ddb2e7113e9ad4dae79ac653f1939be4306d0e542222866d294b38",
+    "output/ci-repair-20260922/run-35827733091/candidate-graphics-control/graphics-vignette-control-width-2.log": "9fd55f3ed5a44348081a9d499293410effa390011ce32eae9119f95d53e05bfa",
+    "output/ci-repair-20260922/run-35827733091/candidate-graphics-control/graphics-vignette-control-width-3.log": "45a9f91dbda253781646c92ccca7ca6fee34b757336260bcbad6c2a1cb33e273",
+    "output/ci-repair-20260922/run-35827733091/candidate-graphics-control/graphics-vignette-control.log": "0cfbbd90b9f4a04c20bb6d53c7bd58ef89cf65da2bc7fa07e6c1f00b99a69b69",
+    "output/ci-repair-20260922/run-35827733091/candidate-graphics-control/graphics-vignette-control-width-1.log": "c9fcb208acc6e824be7a132a9d5a7ef7f733b597dd5c7c2c32c0357cb60f2337",
     "output/resume-results-20260922/candidate-instrumented-valgrind-evidence/candidate/IntegMultiReg.Rcheck/build_vignettes.log": "f0d191b487d95d35f097b12867466347bd449539b5d30475ade75fe51e9c5b8b",
     "output/ci-repair-20260922/run-35813024084/candidate-instrumented-valgrind-evidence/candidate/IntegMultiReg.Rcheck/build_vignettes.log": "414748153882ea4830c8c4ad4d6254f841dd9acf324cba338dcc80867633d8f4",
-    "output/ci-repair-20260922/run-35818897822/candidate-instrumented-valgrind-evidence/candidate/IntegMultiReg.Rcheck/build_vignettes.log": "efcb0428b99838cd5ec22559ebf9689af519ed81def91e42f6e048c6ffe9e722"
+    "output/ci-repair-20260922/run-35818897822/candidate-instrumented-valgrind-evidence/candidate/IntegMultiReg.Rcheck/build_vignettes.log": "efcb0428b99838cd5ec22559ebf9689af519ed81def91e42f6e048c6ffe9e722",
+    "output/ci-repair-20260922/run-35827733091/candidate-instrumented-valgrind-evidence/candidate/IntegMultiReg.Rcheck/build_vignettes.log": "46ac57a5dbf506bb7c00c399ce3a522ee60831726568842cfe3f7bd5fae9a42c"
   },
-  "scope": "Possible-loss-only bounded allocation stacks reproduced without IntegMultiReg; relative shared-object address deltas matched through every retained frame. Stripped frames use exact Ubuntu library paths. Shorter 22/23-frame patterns stop before differing R evaluator contexts; a short complete background-thread stack is retained in full. No invalid or uninitialized reads/writes suppressed.",
+  "scope": "Possible-loss-only bounded allocation stacks reproduced without IntegMultiReg; relative shared-object address deltas matched through every retained frame. Stripped frames use exact Ubuntu library paths. Shorter 20-23-frame patterns stop before differing R evaluator contexts; a short complete background-thread stack is retained in full. No invalid or uninitialized reads/writes suppressed.",
   "status": "Prepared; repeated scoped controls, negative controls and full candidate/worker checks required."
 }
