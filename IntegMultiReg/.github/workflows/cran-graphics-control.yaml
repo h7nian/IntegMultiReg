@@ -1,0 +1,92 @@
+name: Standalone graphics environment diagnosis
+
+# A release audit of the pinned source artifact, in addition to per-push CI.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  strict:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      R_TEXI2DVICMD: emulation
+      _R_CHECK_ALWAYS_LOG_VIGNETTE_OUTPUT_: "true"
+      # cli's optional progress timer otherwise retains TLS memory at exit.
+      # Upstream switch: https://github.com/r-lib/cli/blob/main/src/thread.c
+      CLI_NO_THREAD: "1"
+      VALGRIND_OPTS: --tool=memcheck --leak-check=full --show-leak-kinds=definite,indirect,possible --errors-for-leak-kinds=definite,possible --num-callers=40 --track-origins=yes --error-exitcode=97
+    steps:
+      - uses: actions/checkout@v6
+      - uses: r-lib/actions/setup-pandoc@v2
+      - name: Install build and check dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential gfortran pkg-config libc6-dbg \
+            libreadline-dev libpcre2-dev liblzma-dev libbz2-dev zlib1g-dev \
+            libcurl4-openssl-dev libssl-dev libicu-dev libgsl-dev \
+            libpng-dev libjpeg-dev libtiff-dev libcairo2-dev libpango1.0-dev \
+            libnode-dev texinfo tidy qpdf devscripts
+          mkdir -p "${RUNNER_TEMP}/strict-evidence" "${RUNNER_TEMP}/strict-library"
+          echo "R_LIBS_USER=${RUNNER_TEMP}/strict-library" >> "${GITHUB_ENV}"
+      - uses: actions/cache/restore@v4
+        id: runtime-cache
+        with:
+          path: ${{ runner.temp }}/strict-runtime
+          key: strict-runtime-${{ runner.os }}-${{ hashFiles('.github/strict/build-runtime.sh') }}
+          restore-keys: strict-runtime-${{ runner.os }}-
+      - name: Record graphics behavior of a restored non-Pango runtime
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          runtime="${RUNNER_TEMP}/strict-runtime"
+          evidence="${RUNNER_TEMP}/strict-evidence"
+          if test -x "${runtime}/bin/R"; then
+            set +e
+            "${runtime}/bin/R" -d "${runtime}/bin/valgrind ${VALGRIND_OPTS}" \
+              --vanilla -f .github/strict/graphics-control.R > "${evidence}/graphics-before.log" 2>&1
+            echo "$?" > "${evidence}/graphics-before-exit-status.txt"
+            set -e
+          fi
+      - name: Build Valgrind 3.27.1 and instrumented R-devel
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: bash .github/strict/build-runtime.sh
+      - name: Activate the audited runtime and retain provenance
+        run: |
+          echo "${RUNNER_TEMP}/strict-runtime/bin" >> "${GITHUB_PATH}"
+          cp "${RUNNER_TEMP}/strict-runtime/provenance/"* "${RUNNER_TEMP}/strict-evidence/"
+          echo "VALGRIND_OPTS=${VALGRIND_OPTS} --suppressions=${GITHUB_WORKSPACE}/.github/strict/upstream/pango.supp --suppressions=${GITHUB_WORKSPACE}/.github/strict/upstream/glib.supp --suppressions=${GITHUB_WORKSPACE}/.github/strict/upstream/ubuntu-font-baseline.supp" >> "${GITHUB_ENV}"
+          cp .github/strict/upstream/* "${RUNNER_TEMP}/strict-evidence/"
+      - uses: actions/cache/save@v4
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/strict-runtime
+          key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
+      - name: Validate base graphics with upstream system-library rules
+        run: |
+          R -d "valgrind ${VALGRIND_OPTS}" --vanilla -f .github/strict/graphics-control.R \
+            > "${RUNNER_TEMP}/strict-evidence/graphics-after.log" 2>&1
+      - name: Record extended base-R graphics without loading the package
+        shell: bash
+        run: |
+          evidence="${RUNNER_TEMP}/strict-evidence"
+          set +e
+          R -d "valgrind ${VALGRIND_OPTS}" --vanilla -f .github/strict/graphics-extended-control.R > "${evidence}/graphics-extended.log" 2>&1
+          status=$?
+          set -e
+          echo "${status}" > "${evidence}/graphics-extended-exit-status.txt"
+          grep -q 'Completed standalone graphics; no IntegMultiReg code was loaded.' "${evidence}/graphics-extended.log"
+          # Preserve the detector exit code: reported memory errors keep this diagnostic red.
+          exit "${status}"
+      - name: Upload diagnostic evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: standalone-graphics-evidence
+          path: ${{ runner.temp }}/strict-evidence
+          if-no-files-found: error

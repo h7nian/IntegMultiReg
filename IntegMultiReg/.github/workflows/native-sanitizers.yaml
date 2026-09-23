@@ -1,0 +1,194 @@
+name: Native sanitizer checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sanitizers:
+    name: R-devel / ${{ matrix.compiler }} / ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: gcc
+            flags: undefined
+            label: UBSAN
+            preload_asan: false
+          - compiler: gcc
+            flags: address,undefined
+            label: ASAN+UBSAN
+            preload_asan: true
+          - compiler: clang
+            flags: undefined
+            label: UBSAN
+            preload_asan: false
+          - compiler: clang
+            flags: address,undefined
+            label: ASAN+UBSAN
+            preload_asan: true
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+      ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: devel
+          use-public-rspm: true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes clang gcc libgsl-dev
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::testthat
+          needs: check
+
+      - name: Configure ${{ matrix.compiler }} with ${{ matrix.label }}
+        shell: bash
+        run: |
+          makevars="${RUNNER_TEMP}/Makevars.sanitizer"
+          {
+            echo "CC = ${{ matrix.compiler }}"
+            echo "CFLAGS = -g -O1 -fsanitize=${{ matrix.flags }} -fno-sanitize-recover=undefined -fno-omit-frame-pointer"
+            echo "LDFLAGS = -fsanitize=${{ matrix.flags }}"
+          } > "${makevars}"
+          echo "R_MAKEVARS_USER=${makevars}" >> "${GITHUB_ENV}"
+
+          if [[ "${{ matrix.compiler }}" == "gcc" ]]; then
+            sanitizer_runtime="$(gcc -print-file-name=libubsan.so)"
+            test -f "${sanitizer_runtime}"
+            if [[ "${{ matrix.preload_asan }}" == "true" ]]; then
+              sanitizer_runtime="$(gcc -print-file-name=libasan.so):${sanitizer_runtime}"
+            fi
+          elif [[ "${{ matrix.preload_asan }}" == "true" ]]; then
+            asan_runtime="$(clang -print-file-name=libclang_rt.asan-x86_64.so)"
+            ubsan_runtime="$(clang -print-file-name=libclang_rt.ubsan_standalone-x86_64.so)"
+            test -f "${asan_runtime}"
+            test -f "${ubsan_runtime}"
+            sanitizer_runtime="${asan_runtime}:${ubsan_runtime}"
+          else
+            sanitizer_runtime="$(clang -print-file-name=libclang_rt.ubsan_standalone-x86_64.so)"
+          fi
+          test -f "${sanitizer_runtime%%:*}"
+          echo "SANITIZER_RUNTIME=${sanitizer_runtime}" >> "${GITHUB_ENV}"
+
+      - name: Check MRF increments and proposal detailed balance
+        shell: bash
+        run: |
+          ${{ matrix.compiler }} -O1 -g -fsanitize=${{ matrix.flags }} \
+            -fno-sanitize-recover=undefined -fno-omit-frame-pointer -Isrc \
+            .github/scripts/test-sampler-math.c src/sampler_math.c -lm \
+            -o "${RUNNER_TEMP}/sampler-math-test"
+          "${RUNNER_TEMP}/sampler-math-test"
+
+      - name: Check fold precision kernel and bounded fallback
+        shell: bash
+        run: |
+          ${{ matrix.compiler }} -O1 -g -fsanitize=${{ matrix.flags }} \
+            -fno-sanitize-recover=undefined -fno-omit-frame-pointer \
+            .github/scripts/test-cv-precision.c src/cv_precision.c \
+            $(pkg-config --cflags --libs gsl) -o "${RUNNER_TEMP}/cv-precision-test"
+          "${RUNNER_TEMP}/cv-precision-test"
+
+      - name: Check prediction-row ownership and allocation failures
+        shell: bash
+        run: |
+          ${{ matrix.compiler }} -O1 -g -fsanitize=${{ matrix.flags }} \
+            -fno-sanitize-recover=undefined -fno-omit-frame-pointer \
+            .github/scripts/test-cv-prediction-rows.c src/cv_prediction_rows.c \
+            -o "${RUNNER_TEMP}/cv-prediction-rows-test"
+          "${RUNNER_TEMP}/cv-prediction-rows-test"
+
+      - name: Check bounded cache eviction and allocation failures
+        shell: bash
+        run: |
+          ${{ matrix.compiler }} -O1 -g -fsanitize=${{ matrix.flags }} \
+            -fno-sanitize-recover=undefined -fno-omit-frame-pointer -Isrc \
+            .github/scripts/test-cv-value-cache.c src/cv_value_cache.c \
+            -o "${RUNNER_TEMP}/cv-value-cache-test"
+          "${RUNNER_TEMP}/cv-value-cache-test"
+
+      - name: Install instrumented package and tests
+        shell: bash
+        run: |
+          mkdir -p "${RUNNER_TEMP}/sanitizer-library"
+          export LD_PRELOAD="${SANITIZER_RUNTIME}"
+          set +e
+          R CMD INSTALL --preclean --install-tests \
+            --library="${RUNNER_TEMP}/sanitizer-library" . \
+            2>&1 | tee "${RUNNER_TEMP}/sanitizer-install.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          sanitizer_status=0
+          if grep -Eq 'runtime error:|ERROR: AddressSanitizer|SUMMARY: (AddressSanitizer|UndefinedBehaviorSanitizer)|UndefinedBehaviorSanitizer:' \
+            "${RUNNER_TEMP}/sanitizer-install.log"; then
+            sanitizer_status=1
+            grep -E 'runtime error:|ERROR: AddressSanitizer|SUMMARY: (AddressSanitizer|UndefinedBehaviorSanitizer)|UndefinedBehaviorSanitizer:' \
+              "${RUNNER_TEMP}/sanitizer-install.log" | tail -n 25 | \
+              while IFS= read -r line; do
+                echo "::error title=Sanitizer install failure::${line}"
+              done
+          fi
+          if [[ ${status} -ne 0 || ${sanitizer_status} -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Run complete test suite under ${{ matrix.label }}
+        shell: bash
+        run: |
+          export LD_PRELOAD="${SANITIZER_RUNTIME}"
+          set +e
+          R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
+            Rscript .github/scripts/verify-tests.R \
+            2>&1 | tee "${RUNNER_TEMP}/sanitizer-tests.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          sanitizer_status=0
+          if grep -Eq 'runtime error:|ERROR: AddressSanitizer|SUMMARY: (AddressSanitizer|UndefinedBehaviorSanitizer)|UndefinedBehaviorSanitizer:' \
+            "${RUNNER_TEMP}/sanitizer-tests.log"; then
+            sanitizer_status=1
+            grep -E 'runtime error:|ERROR: AddressSanitizer|SUMMARY: (AddressSanitizer|UndefinedBehaviorSanitizer)|UndefinedBehaviorSanitizer:' \
+              "${RUNNER_TEMP}/sanitizer-tests.log" | tail -n 25 | \
+              while IFS= read -r line; do
+                echo "::error title=Sanitizer test failure::${line}"
+              done
+          fi
+          if [[ ${status} -ne 0 || ${sanitizer_status} -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Verify native sampler against independent targets
+        shell: bash
+        run: |
+          export LD_PRELOAD="${SANITIZER_RUNTIME}"
+          R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
+            Rscript .github/scripts/verify-sampler.R "${RUNNER_TEMP}/sampler"
+
+      - name: Check native error cleanup in an isolated fault build
+        shell: bash
+        run: bash .github/scripts/verify-cv-row-failures.sh
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-${{ matrix.compiler }}-${{ matrix.label }}
+          path: |
+            ${{ runner.temp }}/sanitizer-*.log
+            ${{ runner.temp }}/test-evidence

@@ -1,0 +1,75 @@
+# Audited Ubuntu 24.04 graphics-only baseline, not package suppressions.
+# Original evidence: base R png()+plot(), IntegMultiReg never loaded.
+# See README.md for attribution, scope and limitations.
+{
+  ubuntu-FcPatternObjectInsertElt-stripped-XML-cache
+  Memcheck:Leak
+  match-leak-kinds: definite
+  fun:malloc
+  obj:*/libfontconfig.so*
+  obj:*/libfontconfig.so*
+  obj:*/libfontconfig.so*
+  obj:*/libexpat.so*
+  ...
+  fun:XML_ParseBuffer
+}
+{
+  ubuntu-FcFontRenderPrepare-cache-node
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:calloc
+  obj:*/libfontconfig.so*
+  fun:FcFontRenderPrepare
+  fun:FcFontSetMatch
+  obj:*/libpangoft2-1.0.so*
+}
+{
+  ubuntu-FcPatternCreate-font-render-cache
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:calloc
+  fun:FcPatternCreate
+  fun:FcFontRenderPrepare
+  fun:FcFontSetMatch
+  obj:*/libpangoft2-1.0.so*
+}
+{
+  ubuntu-FcFontSetSort-pango-cache
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:FcFontSetSort
+  obj:*/libpangoft2-1.0.so*
+}
+{
+  ubuntu-FcFontSetAdd-pango-sort-cache
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:FcFontSetAdd
+  fun:FcFontSetSort
+  obj:*/libpangoft2-1.0.so*
+}
+{
+  ubuntu-pango-atomic-reference-cache
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:calloc
+  fun:g_malloc0
+  fun:g_atomic_rc_box_alloc0
+  obj:*/libpangoft2-1.0.so*
+  obj:*/libpango-1.0.so*
+}
+{
+  ubuntu-pango-background-thread-TLS
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:calloc
+  ...
+  fun:_dl_allocate_tls
+  ...
+  fun:pthread_create*
+  obj:*/libglib-2.0.so*
+  fun:g_thread_new
+  obj:*/libpangoft2-1.0.so*
+}
