@@ -94,6 +94,19 @@ jobs:
             > "${RUNNER_TEMP}/strict-evidence/graphics-vignette-control.log" 2>&1
           echo "$?" > "${RUNNER_TEMP}/strict-evidence/graphics-vignette-control-status.txt"
           set -e
+      - name: Record font-metric initialization controls
+        shell: bash
+        run: |
+          cp .github/strict/graphics-vignette-control.R "${RUNNER_TEMP}/strict-evidence/graphics-vignette-control.R"
+          for probe in 1 2 3; do
+            set +e
+            IMR_GRAPHICS_PROBE=width R -d "valgrind ${VALGRIND_OPTS}" --vanilla \
+              -f .github/strict/graphics-vignette-control.R \
+              > "${RUNNER_TEMP}/strict-evidence/graphics-vignette-control-width-${probe}.log" 2>&1
+            status=$?
+            set -e
+            echo "${status}" > "${RUNNER_TEMP}/strict-evidence/graphics-vignette-control-width-${probe}-status.txt"
+          done
       - name: Upload early graphics control
         uses: actions/upload-artifact@v6
         with:
