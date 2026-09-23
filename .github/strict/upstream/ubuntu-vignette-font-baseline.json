@@ -1,0 +1,12 @@
+{
+  "control_run": 35813024084,
+  "prior_candidate_run": 35686577583,
+  "control_sha256": "af3006fbbb82ed161c2d626b14695f6cc273109a96f5f5d97628059f226fbd9c",
+  "prior_candidate_sha256": "f0d191b487d95d35f097b12867466347bd449539b5d30475ade75fe51e9c5b8b",
+  "rules": 44,
+  "candidate_possible_loss_records_matched": 80,
+  "frames_per_rule": 24,
+  "suppression_sha256": "5598c3dff0f69218e6b0c11c4967f6fdd2e617d668c4532bfebacbbf8ebff3f0",
+  "scope": "Possible-loss allocation stacks rooted in the demonstrated Fontconfig library calls. No arbitrary-depth wildcard. Named frames use exact function names; stripped frames use exact Ubuntu shared-object paths. Relative shared-object call-site displacements match the control across the first 24 frames; deeper R evaluator frames may differ.",
+  "status": "Prepared from control evidence; must pass runtime controls and candidate check before acceptance."
+}

@@ -41,3 +41,23 @@ R-heap uninitialized-read control must continue to fail under these rules.
 
 Baseline evidence run: 34078179119, standalone graphics, ten remaining
 contexts after upstream rules, 256 definite and 1,664 possible bytes.
+
+## Audited vignette baseline rules
+
+ubuntu-vignette-font-baseline.supp is a locally generated, control-derived set
+of 44 possible-loss patterns. Each contains 24 explicit frames, with exact
+function names or exact Ubuntu library paths, and no ellipsis/object wildcard.
+Every pattern is observed in the package-free rmarkdown graphics control from
+run 35813024084. Its 80 corresponding reports in earlier candidate run
+35686577583 match control frames and relative shared-object addresses through
+these 24 frames. Two traces differ only much deeper in the R evaluator
+(frames 43/44), after the common graphics-library allocation context.
+
+The paired JSON records evidence hashes, rule hash, scope and pending status.
+The workflow records the package-free control before activating these additional
+rules, then requires its scoped rerun to return zero errors. Before acceptance, rerun the
+package-free graphics control, the R-heap uninitialized-read probe and archived
+package leak control with the rules active, then the exact candidate and worker
+checks. No conditional-jump/invalid-read/write suppression is introduced.
+Matched possible-loss graphics allocations are an environment exclusion; this
+is not a proof of leak-free graphics libraries or general package correctness.
