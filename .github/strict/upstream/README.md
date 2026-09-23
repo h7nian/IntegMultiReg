@@ -44,20 +44,23 @@ contexts after upstream rules, 256 definite and 1,664 possible bytes.
 
 ## Audited vignette baseline rules
 
-ubuntu-vignette-font-baseline.supp is a locally generated, control-derived set
-of 44 possible-loss patterns. Each contains 24 explicit frames, with exact
-function names or exact Ubuntu library paths, and no ellipsis/object wildcard.
-Every pattern is observed in the package-free rmarkdown graphics control from
-run 35813024084. Its 80 corresponding reports in earlier candidate run
-35686577583 match control frames and relative shared-object addresses through
-these 24 frames. Two traces differ only much deeper in the R evaluator
-(frames 43/44), after the common graphics-library allocation context.
+ubuntu-vignette-font-baseline.supp contains 109 bounded possible-loss patterns
+matched to package-free rmarkdown graphics controls from runs 35813024084,
+35818036159 and 35818897822. The adjacent JSON pins each source-log hash and the
+rule hash. Allocation frames and within-object relative call-site addresses
+match a control through every retained frame. Most patterns have 24 frames;
+three use 22/23 frames before differing R evaluation context, and three retain
+complete 9/10-frame background-thread stacks. No arbitrary-depth or object-name
+wildcard is used. Named functions and Ubuntu shared-object paths are exact.
 
-The paired JSON records evidence hashes, rule hash, scope and pending status.
-The workflow records the package-free control before activating these additional
-rules, then requires its scoped rerun to return zero errors. Before acceptance, rerun the
-package-free graphics control, the R-heap uninitialized-read probe and archived
-package leak control with the rules active, then the exact candidate and worker
-checks. No conditional-jump/invalid-read/write suppression is introduced.
-Matched possible-loss graphics allocations are an environment exclusion; this
-is not a proof of leak-free graphics libraries or general package correctness.
+The rules statically cover 361 observed possible-loss reports across controls
+and three candidate runs. None matches the archived package leak records.
+These are graphics-environment exclusions, not proof of leak-free graphics
+libraries or general package correctness. No definite-loss, conditional-jump,
+invalid-read/write or general R allocation rule is added here.
+
+Raw controls remain recorded before activation. Both default and width-first
+graphics must pass repeated scoped runs, followed by the R-heap read probe and
+archived 7,200-byte package-leak negative controls under the same rules. Complete
+candidate and worker-suite checks remain mandatory. Raw-control classification
+varies between executions, so a single clean replay is insufficient evidence.

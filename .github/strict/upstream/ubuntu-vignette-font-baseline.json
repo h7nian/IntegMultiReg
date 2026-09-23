@@ -1,12 +1,27 @@
 {
-  "control_run": 35813024084,
-  "prior_candidate_run": 35686577583,
-  "control_sha256": "af3006fbbb82ed161c2d626b14695f6cc273109a96f5f5d97628059f226fbd9c",
-  "prior_candidate_sha256": "f0d191b487d95d35f097b12867466347bd449539b5d30475ade75fe51e9c5b8b",
-  "rules": 44,
-  "candidate_possible_loss_records_matched": 80,
-  "frames_per_rule": 24,
-  "suppression_sha256": "5598c3dff0f69218e6b0c11c4967f6fdd2e617d668c4532bfebacbbf8ebff3f0",
-  "scope": "Possible-loss allocation stacks rooted in the demonstrated Fontconfig library calls. No arbitrary-depth wildcard. Named frames use exact function names; stripped frames use exact Ubuntu shared-object paths. Relative shared-object call-site displacements match the control across the first 24 frames; deeper R evaluator frames may differ.",
-  "status": "Prepared from control evidence; must pass runtime controls and candidate check before acceptance."
+  "rules": 109,
+  "frame_counts": {
+    "24": 103,
+    "23": 2,
+    "22": 1,
+    "10": 2,
+    "9": 1
+  },
+  "required_records": 361,
+  "suppression_sha256": "2eb219a0127054a51ef86e8d269dae2714f773fc258fab4e7d0391f7e10ba51b",
+  "evidence_hashes": {
+    "output/ci-repair-20260922/run-35813024084/candidate-graphics-control/graphics-vignette-control.log": "af3006fbbb82ed161c2d626b14695f6cc273109a96f5f5d97628059f226fbd9c",
+    "output/ci-repair-20260922/run-35818036159/candidate-graphics-control/graphics-vignette-control.log": "3e683db0fba20b73c85e1d7d8668f1a7d5c381642fd58e1abdf9e5c1644aa0d7",
+    "output/ci-repair-20260922/run-35818897822/candidate-graphics-control/graphics-vignette-control-width-2.log": "1e0eba3852040d68e16dd0184dc58f7e5cd6f8599937dfdf18e751f08bd6e1f1",
+    "output/ci-repair-20260922/run-35818897822/candidate-graphics-control/graphics-vignette-control-width-3.log": "faefe0beb1bcc24ab33c61991ab5ee84fd3a141eaa1a4c196642f8c66b40c0fb",
+    "output/ci-repair-20260922/run-35818897822/candidate-graphics-control/graphics-vignette-control.log": "4a57e65b97b0b02aa11610b71cc5f7426aa78ed6a5fbbe0be832421fb720528e",
+    "output/ci-repair-20260922/run-35818897822/candidate-graphics-control/graphics-vignette-control-width-1.log": "ad25ca6c45340f672e0710318af276f8fc33dfe574f910e1ac62a60a1962932a",
+    "output/ci-repair-20260922/run-35818036159/candidate-instrumented-valgrind-evidence/graphics-vignette-scoped.log": "c5c8f8087b90797bee49b877feaf656398f95b78ed744cf6c8fd6319ea36b359",
+    "output/ci-repair-20260922/run-35818897822/candidate-control-validation/graphics-vignette-scoped.log": "7a77e94d72ddb2e7113e9ad4dae79ac653f1939be4306d0e542222866d294b38",
+    "output/resume-results-20260922/candidate-instrumented-valgrind-evidence/candidate/IntegMultiReg.Rcheck/build_vignettes.log": "f0d191b487d95d35f097b12867466347bd449539b5d30475ade75fe51e9c5b8b",
+    "output/ci-repair-20260922/run-35813024084/candidate-instrumented-valgrind-evidence/candidate/IntegMultiReg.Rcheck/build_vignettes.log": "414748153882ea4830c8c4ad4d6254f841dd9acf324cba338dcc80867633d8f4",
+    "output/ci-repair-20260922/run-35818897822/candidate-instrumented-valgrind-evidence/candidate/IntegMultiReg.Rcheck/build_vignettes.log": "efcb0428b99838cd5ec22559ebf9689af519ed81def91e42f6e048c6ffe9e722"
+  },
+  "scope": "Possible-loss-only bounded allocation stacks reproduced without IntegMultiReg; relative shared-object address deltas matched through every retained frame. Stripped frames use exact Ubuntu library paths. Shorter 22/23-frame patterns stop before differing R evaluator contexts; a short complete background-thread stack is retained in full. No invalid or uninitialized reads/writes suppressed.",
+  "status": "Prepared; repeated scoped controls, negative controls and full candidate/worker checks required."
 }

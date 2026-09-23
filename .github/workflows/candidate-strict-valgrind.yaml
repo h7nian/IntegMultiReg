@@ -125,14 +125,22 @@ jobs:
       - name: Require clean package-free vignette graphics with scoped rules
         shell: bash
         run: |
-          set +e
-          R -d "valgrind ${VALGRIND_OPTS}" --vanilla -f .github/strict/graphics-vignette-control.R \
-            > "${RUNNER_TEMP}/strict-evidence/graphics-vignette-scoped.log" 2>&1
-          status=$?
-          echo "${status}" > "${RUNNER_TEMP}/strict-evidence/graphics-vignette-scoped-status.txt"
-          set -e
-          test "${status}" -eq 0
-          grep -q 'ERROR SUMMARY: 0 errors' "${RUNNER_TEMP}/strict-evidence/graphics-vignette-scoped.log"
+          failures=0
+          for mode in default width; do
+            for repeat in 1 2 3; do
+              log="${RUNNER_TEMP}/strict-evidence/graphics-vignette-scoped-${mode}-${repeat}.log"
+              set +e
+              IMR_GRAPHICS_PROBE="${mode}" R -d "valgrind ${VALGRIND_OPTS}" --vanilla \
+                -f .github/strict/graphics-vignette-control.R > "${log}" 2>&1
+              status=$?
+              set -e
+              echo "${status}" > "${log%.log}-status.txt"
+              if test "${status}" -ne 0 || ! grep -q 'ERROR SUMMARY: 0 errors' "${log}"; then
+                failures=$((failures + 1))
+              fi
+            done
+          done
+          test "${failures}" -eq 0
       - name: Verify R heap detection and characterize the old release
         shell: bash
         run: bash .github/strict/negative-control.sh
