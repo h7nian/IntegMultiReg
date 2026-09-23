@@ -44,23 +44,30 @@ contexts after upstream rules, 256 definite and 1,664 possible bytes.
 
 ## Audited vignette baseline rules
 
-ubuntu-vignette-font-baseline.supp contains 145 bounded possible-loss patterns
+ubuntu-vignette-font-baseline.supp contains 155 bounded possible-loss patterns
 matched to package-free rmarkdown graphics controls from runs 35813024084,
-35818036159, 35818897822, 35827733091 and 35835326668. The adjacent JSON pins each source-log hash and the
+35818036159, 35818897822, 35827733091, 35835326668 and the standalone PNG control in 35837248352. The adjacent JSON pins each source-log hash and the
 rule hash. Allocation frames and within-object relative call-site addresses
 match a control through every retained frame. Most patterns have 24 frames;
 ten use 20–23 frames before differing R evaluation context, and three retain
 complete 9/10-frame background-thread stacks. No arbitrary-depth or object-name
 wildcard is used. Named functions and Ubuntu shared-object paths are exact.
 
-The rules statically cover 592 observed possible-loss reports across controls
+The rules statically cover 639 observed possible-loss reports across controls
 and four candidate runs. None matches the archived package leak records.
 These are graphics-environment exclusions, not proof of leak-free graphics
 libraries or general package correctness. No definite-loss, conditional-jump,
 invalid-read/write or general R allocation rule is added here.
 
-Raw controls remain recorded before activation. Both default and width-first
+Raw controls remain recorded before activation. Standalone PNG, default and width-first
 graphics must pass repeated scoped runs, followed by the R-heap read probe and
 archived 7,200-byte package-leak negative controls under the same rules. Complete
 candidate and worker-suite checks remain mandatory. Raw-control classification
 varies between executions, so a single clean replay is insufficient evidence.
+
+Raw standalone PNG and vignette logs are checked before scoped replay: every
+error must be a possible-loss context matching this bundle; missing summaries,
+other error classes, nonmatching allocations and incorrect exits fail the gate.
+Each of standalone PNG, default vignette and width-first vignette then requires
+three zero-exit, zero-error scoped replays. Recording an expected raw nonzero
+exit does not bypass this gate or the negative controls.

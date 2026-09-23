@@ -1662,7 +1662,7 @@
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
   fun:Rf_GStrWidth
-  fun:C_strWidth
+  fun:C_axis
   fun:do_External
   fun:do_Externalgr
   fun:bcEval_loop
@@ -1680,25 +1680,25 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:GEText
-  fun:Rf_GText
+  fun:Rf_GStrWidth
+  fun:C_strWidth
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
 }
 {
   ubuntu-vignette-font-cache-060
@@ -1726,8 +1726,8 @@
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:Rf_GStrWidth
-  fun:C_axis
+  fun:GEText
+  fun:Rf_GText
 }
 {
   ubuntu-vignette-font-cache-061
@@ -1743,20 +1743,20 @@
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:GEText
-  fun:Rf_GText
-  fun:C_title
-  fun:do_External
-  fun:do_Externalgr
-  fun:bcEval_loop
-  fun:bcEval
-  fun:bcEval
-  fun:Rf_eval
-  fun:R_execClosure
+  fun:Rf_GStrWidth
+  fun:C_axis
 }
 {
   ubuntu-vignette-font-cache-062
@@ -1776,8 +1776,37 @@
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
+  fun:GEText
+  fun:Rf_GText
+  fun:C_title
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+}
+{
+  ubuntu-vignette-font-cache-063
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
   fun:Rf_GStrWidth
-  fun:C_strWidth
+  fun:C_axis
   fun:do_External
   fun:do_Externalgr
   fun:bcEval_loop
@@ -1788,35 +1817,6 @@
   fun:applyClosure_core
 }
 {
-  ubuntu-vignette-font-cache-063
-  Memcheck:Leak
-  match-leak-kinds: possible
-  fun:malloc
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  fun:FcConfigSubstituteWithPat
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
-  fun:PG_text_extents
-  fun:PangoCairo_StrWidth
-  fun:GEStrWidth
-  fun:GEText
-  fun:Rf_GText
-  fun:C_title
-}
-{
   ubuntu-vignette-font-cache-064
   Memcheck:Leak
   match-leak-kinds: possible
@@ -1824,26 +1824,26 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
   fun:Rf_GStrWidth
-  fun:C_axis
+  fun:C_strWidth
   fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+  fun:applyClosure_core
 }
 {
   ubuntu-vignette-font-cache-065
@@ -1858,63 +1858,6 @@
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
-  fun:PG_text_extents
-  fun:PangoCairo_StrWidth
-  fun:GEStrWidth
-  fun:GEText
-  fun:Rf_GText
-  fun:C_title
-  fun:do_External
-  fun:do_Externalgr
-  fun:bcEval_loop
-  fun:bcEval
-  fun:bcEval
-  fun:Rf_eval
-  fun:R_execClosure
-  fun:applyClosure_core
-}
-{
-  ubuntu-vignette-font-cache-066
-  Memcheck:Leak
-  match-leak-kinds: possible
-  fun:malloc
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  fun:FcConfigSubstituteWithPat
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
-  fun:PG_text_extents
-  fun:PangoCairo_StrWidth
-  fun:GEStrWidth
-  fun:Rf_GStrWidth
-  fun:C_strWidth
-  fun:do_External
-  fun:do_Externalgr
-  fun:bcEval_loop
-  fun:bcEval
-  fun:bcEval
-  fun:Rf_eval
-  fun:R_execClosure
-  fun:applyClosure_core
-  fun:Rf_applyClosure
-}
-{
-  ubuntu-vignette-font-cache-067
-  Memcheck:Leak
-  match-leak-kinds: possible
-  fun:malloc
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  fun:FcConfigSubstituteWithPat
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
@@ -1930,13 +1873,13 @@
   fun:GEText
   fun:Rf_GText
   fun:C_title
-  fun:do_External
 }
 {
-  ubuntu-vignette-font-cache-068
+  ubuntu-vignette-font-cache-066
   Memcheck:Leak
   match-leak-kinds: possible
   fun:malloc
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
@@ -1959,13 +1902,13 @@
   fun:Rf_GStrWidth
   fun:C_axis
   fun:do_External
-  fun:do_Externalgr
 }
 {
-  ubuntu-vignette-font-cache-069
+  ubuntu-vignette-font-cache-067
   Memcheck:Leak
   match-leak-kinds: possible
   fun:malloc
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
@@ -1980,6 +1923,63 @@
   fun:GEText
   fun:Rf_GText
   fun:C_title
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+  fun:applyClosure_core
+}
+{
+  ubuntu-vignette-font-cache-068
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:Rf_GStrWidth
+  fun:C_axis
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+  fun:applyClosure_core
+  fun:Rf_applyClosure
+}
+{
+  ubuntu-vignette-font-cache-069
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:Rf_GStrWidth
+  fun:C_strWidth
   fun:do_External
   fun:do_Externalgr
   fun:bcEval_loop
@@ -2002,6 +2002,122 @@
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:GEText
+  fun:Rf_GText
+  fun:C_title
+  fun:do_External
+}
+{
+  ubuntu-vignette-font-cache-071
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:Rf_GStrWidth
+  fun:C_axis
+  fun:do_External
+  fun:do_Externalgr
+}
+{
+  ubuntu-vignette-font-cache-072
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:GEText
+  fun:Rf_GText
+  fun:C_title
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+  fun:applyClosure_core
+  fun:Rf_applyClosure
+}
+{
+  ubuntu-vignette-font-cache-073
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:Rf_GStrWidth
+  fun:C_axis
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+  fun:applyClosure_core
+  fun:Rf_applyClosure
+  fun:dispatchMethod
+}
+{
+  ubuntu-vignette-font-cache-074
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
@@ -2019,7 +2135,7 @@
   fun:Rf_applyClosure
 }
 {
-  ubuntu-vignette-font-cache-071
+  ubuntu-vignette-font-cache-075
   Memcheck:Leak
   match-leak-kinds: possible
   fun:malloc
@@ -2048,7 +2164,7 @@
   fun:Rf_eval
 }
 {
-  ubuntu-vignette-font-cache-072
+  ubuntu-vignette-font-cache-076
   Memcheck:Leak
   match-leak-kinds: possible
   fun:malloc
@@ -2077,7 +2193,7 @@
   fun:do_Externalgr
 }
 {
-  ubuntu-vignette-font-cache-073
+  ubuntu-vignette-font-cache-077
   Memcheck:Leak
   match-leak-kinds: possible
   fun:malloc
@@ -2106,7 +2222,7 @@
   fun:bcEval_loop
 }
 {
-  ubuntu-vignette-font-cache-074
+  ubuntu-vignette-font-cache-078
   Memcheck:Leak
   match-leak-kinds: possible
   fun:malloc
@@ -2135,7 +2251,36 @@
   fun:dispatchMethod
 }
 {
-  ubuntu-vignette-font-cache-075
+  ubuntu-vignette-font-cache-079
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:Rf_GStrWidth
+  fun:C_axis
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+  fun:applyClosure_core
+  fun:Rf_applyClosure
+  fun:dispatchMethod
+  fun:Rf_usemethod
+}
+{
+  ubuntu-vignette-font-cache-080
   Memcheck:Leak
   match-leak-kinds: possible
   fun:malloc
@@ -2162,7 +2307,7 @@
   fun:Rf_applyClosure
 }
 {
-  ubuntu-vignette-font-cache-076
+  ubuntu-vignette-font-cache-081
   Memcheck:Leak
   match-leak-kinds: possible
   fun:malloc
@@ -2191,7 +2336,7 @@
   fun:Rf_evalList
 }
 {
-  ubuntu-vignette-font-cache-077
+  ubuntu-vignette-font-cache-082
   Memcheck:Leak
   match-leak-kinds: possible
   fun:malloc
@@ -2204,151 +2349,6 @@
   obj:/usr/lib/x86_64-linux-gnu/libglib-2.0.so.0.8000.0
   fun:start_thread
   fun:clone
-}
-{
-  ubuntu-vignette-font-cache-078
-  Memcheck:Leak
-  match-leak-kinds: possible
-  fun:malloc
-  fun:strdup
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-}
-{
-  ubuntu-vignette-font-cache-079
-  Memcheck:Leak
-  match-leak-kinds: possible
-  fun:malloc
-  fun:strdup
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  fun:FcConfigSubstituteWithPat
-}
-{
-  ubuntu-vignette-font-cache-080
-  Memcheck:Leak
-  match-leak-kinds: possible
-  fun:malloc
-  fun:strdup
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  fun:FcConfigSubstituteWithPat
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-}
-{
-  ubuntu-vignette-font-cache-081
-  Memcheck:Leak
-  match-leak-kinds: possible
-  fun:malloc
-  fun:strdup
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  fun:FcConfigSubstituteWithPat
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
-}
-{
-  ubuntu-vignette-font-cache-082
-  Memcheck:Leak
-  match-leak-kinds: possible
-  fun:malloc
-  fun:strdup
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  fun:FcConfigSubstituteWithPat
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
 }
 {
   ubuntu-vignette-font-cache-083
@@ -2373,11 +2373,11 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  fun:FcConfigSubstituteWithPat
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
 }
 {
   ubuntu-vignette-font-cache-084
@@ -2401,12 +2401,12 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
 }
 {
   ubuntu-vignette-font-cache-085
@@ -2430,12 +2430,12 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
 }
 {
   ubuntu-vignette-font-cache-086
@@ -2458,13 +2458,13 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
 }
 {
   ubuntu-vignette-font-cache-087
@@ -2487,13 +2487,13 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
-  fun:PG_text_extents
 }
 {
   ubuntu-vignette-font-cache-088
@@ -2515,13 +2515,13 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
 }
 {
@@ -2544,14 +2544,14 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
-  fun:PG_text_extents
-  fun:PangoCairo_StrWidth
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
 }
 {
   ubuntu-vignette-font-cache-090
@@ -2572,15 +2572,15 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
 }
 {
   ubuntu-vignette-font-cache-091
@@ -2601,15 +2601,15 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
-  fun:PG_text_extents
-  fun:PangoCairo_StrWidth
-  fun:GEStrWidth
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
 }
 {
   ubuntu-vignette-font-cache-092
@@ -2629,16 +2629,16 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
 }
 {
   ubuntu-vignette-font-cache-093
@@ -2658,16 +2658,16 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
-  fun:PG_text_extents
-  fun:PangoCairo_StrWidth
-  fun:GEStrWidth
-  fun:GEText
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
 }
 {
   ubuntu-vignette-font-cache-094
@@ -2687,6 +2687,8 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
@@ -2695,8 +2697,6 @@
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
-  fun:GEStrWidth
-  fun:Rf_GStrWidth
 }
 {
   ubuntu-vignette-font-cache-095
@@ -2715,6 +2715,8 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
@@ -2722,8 +2724,6 @@
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
 }
@@ -2744,6 +2744,8 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
@@ -2753,8 +2755,6 @@
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:GEText
-  fun:Rf_GText
 }
 {
   ubuntu-vignette-font-cache-097
@@ -2773,17 +2773,17 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
-  fun:PG_text_extents
-  fun:PangoCairo_StrWidth
-  fun:GEStrWidth
-  fun:Rf_GStrWidth
-  fun:C_strWidth
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
 }
 {
   ubuntu-vignette-font-cache-098
@@ -2801,18 +2801,18 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:GEText
 }
 {
   ubuntu-vignette-font-cache-099
@@ -2830,6 +2830,8 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
@@ -2839,9 +2841,7 @@
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:GEText
-  fun:Rf_GText
-  fun:C_title
+  fun:Rf_GStrWidth
 }
 {
   ubuntu-vignette-font-cache-100
@@ -2859,18 +2859,18 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
-  fun:PG_text_extents
-  fun:PangoCairo_StrWidth
-  fun:GEStrWidth
-  fun:Rf_GStrWidth
-  fun:C_strWidth
-  fun:do_External
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
 }
 {
   ubuntu-vignette-font-cache-101
@@ -2887,19 +2887,19 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:GEText
+  fun:Rf_GText
 }
 {
   ubuntu-vignette-font-cache-102
@@ -2916,6 +2916,8 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
@@ -2925,10 +2927,8 @@
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:GEText
-  fun:Rf_GText
-  fun:C_title
-  fun:do_External
+  fun:Rf_GStrWidth
+  fun:C_strWidth
 }
 {
   ubuntu-vignette-font-cache-103
@@ -2945,19 +2945,19 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
-  fun:PG_text_extents
-  fun:PangoCairo_StrWidth
-  fun:GEStrWidth
-  fun:Rf_GStrWidth
-  fun:C_strWidth
-  fun:do_External
-  fun:do_Externalgr
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
 }
 {
   ubuntu-vignette-font-cache-104
@@ -2973,20 +2973,20 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:GEText
+  fun:Rf_GText
+  fun:C_title
 }
 {
   ubuntu-vignette-font-cache-105
@@ -3002,6 +3002,8 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
@@ -3011,11 +3013,9 @@
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:GEText
-  fun:Rf_GText
-  fun:C_title
+  fun:Rf_GStrWidth
+  fun:C_strWidth
   fun:do_External
-  fun:do_Externalgr
 }
 {
   ubuntu-vignette-font-cache-106
@@ -3031,20 +3031,20 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
-  fun:PG_text_extents
-  fun:PangoCairo_StrWidth
-  fun:GEStrWidth
-  fun:Rf_GStrWidth
-  fun:C_strWidth
-  fun:do_External
-  fun:do_Externalgr
-  fun:bcEval_loop
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
 }
 {
   ubuntu-vignette-font-cache-107
@@ -3059,21 +3059,21 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:GEText
+  fun:Rf_GText
+  fun:C_title
+  fun:do_External
 }
 {
   ubuntu-vignette-font-cache-108
@@ -3088,6 +3088,8 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
@@ -3097,12 +3099,10 @@
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:GEText
-  fun:Rf_GText
-  fun:C_title
+  fun:Rf_GStrWidth
+  fun:C_strWidth
   fun:do_External
   fun:do_Externalgr
-  fun:bcEval_loop
 }
 {
   ubuntu-vignette-font-cache-109
@@ -3117,21 +3117,21 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
-  fun:PG_text_extents
-  fun:PangoCairo_StrWidth
-  fun:GEStrWidth
-  fun:Rf_GStrWidth
-  fun:C_strWidth
-  fun:do_External
-  fun:do_Externalgr
-  fun:bcEval_loop
-  fun:bcEval
 }
 {
   ubuntu-vignette-font-cache-110
@@ -3145,22 +3145,22 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:GEText
+  fun:Rf_GText
+  fun:C_title
+  fun:do_External
+  fun:do_Externalgr
 }
 {
   ubuntu-vignette-font-cache-111
@@ -3174,6 +3174,8 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
@@ -3183,13 +3185,11 @@
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:GEText
-  fun:Rf_GText
-  fun:C_title
+  fun:Rf_GStrWidth
+  fun:C_strWidth
   fun:do_External
   fun:do_Externalgr
   fun:bcEval_loop
-  fun:bcEval
 }
 {
   ubuntu-vignette-font-cache-112
@@ -3203,33 +3203,6 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  fun:FcConfigSubstituteWithPat
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
-  fun:PG_text_extents
-  fun:PangoCairo_StrWidth
-  fun:GEStrWidth
-  fun:Rf_GStrWidth
-  fun:C_strWidth
-  fun:do_External
-  fun:do_Externalgr
-  fun:bcEval_loop
-  fun:bcEval
-  fun:bcEval
-}
-{
-  ubuntu-vignette-font-cache-113
-  Memcheck:Leak
-  match-leak-kinds: possible
-  fun:malloc
-  fun:strdup
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
@@ -3246,15 +3219,15 @@
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
-  fun:PangoCairo_StrWidth
-  fun:GEStrWidth
 }
 {
-  ubuntu-vignette-font-cache-114
+  ubuntu-vignette-font-cache-113
   Memcheck:Leak
   match-leak-kinds: possible
   fun:malloc
   fun:strdup
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
@@ -3275,7 +3248,34 @@
   fun:do_External
   fun:do_Externalgr
   fun:bcEval_loop
-  fun:bcEval
+}
+{
+  ubuntu-vignette-font-cache-114
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:strdup
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:Rf_GStrWidth
+  fun:C_strWidth
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
   fun:bcEval
 }
 {
@@ -3289,23 +3289,23 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
-  fun:GEStrWidth
-  fun:Rf_GStrWidth
-  fun:C_strWidth
-  fun:do_External
-  fun:do_Externalgr
-  fun:bcEval_loop
-  fun:bcEval
-  fun:bcEval
-  fun:Rf_eval
 }
 {
   ubuntu-vignette-font-cache-116
@@ -3317,24 +3317,24 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
   fun:GEText
+  fun:Rf_GText
+  fun:C_title
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
 }
 {
   ubuntu-vignette-font-cache-117
@@ -3346,24 +3346,24 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
   fun:Rf_GStrWidth
+  fun:C_axis
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
 }
 {
   ubuntu-vignette-font-cache-118
@@ -3375,6 +3375,8 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
@@ -3384,15 +3386,13 @@
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:GEText
-  fun:Rf_GText
-  fun:C_title
+  fun:Rf_GStrWidth
+  fun:C_strWidth
   fun:do_External
   fun:do_Externalgr
   fun:bcEval_loop
   fun:bcEval
   fun:bcEval
-  fun:Rf_eval
 }
 {
   ubuntu-vignette-font-cache-119
@@ -3404,24 +3404,24 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:Rf_GStrWidth
-  fun:C_strWidth
-  fun:do_External
-  fun:do_Externalgr
-  fun:bcEval_loop
-  fun:bcEval
-  fun:bcEval
-  fun:Rf_eval
-  fun:R_execClosure
 }
 {
   ubuntu-vignette-font-cache-120
@@ -3432,18 +3432,12 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
@@ -3451,6 +3445,12 @@
   fun:GEStrWidth
   fun:GEText
   fun:Rf_GText
+  fun:C_title
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
 }
 {
   ubuntu-vignette-font-cache-121
@@ -3461,24 +3461,25 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
   fun:Rf_GStrWidth
+  fun:C_axis
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
 }
 {
   ubuntu-vignette-font-cache-122
@@ -3489,25 +3490,25 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
   fun:Rf_GStrWidth
-  fun:C_axis
+  fun:C_strWidth
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
 }
 {
   ubuntu-vignette-font-cache-123
@@ -3518,25 +3519,25 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
   fun:GEText
-  fun:Rf_GText
-  fun:C_title
-  fun:do_External
-  fun:do_Externalgr
-  fun:bcEval_loop
-  fun:bcEval
-  fun:bcEval
-  fun:Rf_eval
-  fun:R_execClosure
 }
 {
   ubuntu-vignette-font-cache-124
@@ -3547,25 +3548,25 @@
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
   fun:Rf_GStrWidth
-  fun:C_strWidth
-  fun:do_External
-  fun:do_Externalgr
-  fun:bcEval_loop
-  fun:bcEval
-  fun:bcEval
-  fun:Rf_eval
-  fun:R_execClosure
-  fun:applyClosure_core
 }
 {
   ubuntu-vignette-font-cache-125
@@ -3575,18 +3576,12 @@
   fun:strdup
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
@@ -3595,6 +3590,12 @@
   fun:GEText
   fun:Rf_GText
   fun:C_title
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
 }
 {
   ubuntu-vignette-font-cache-126
@@ -3604,18 +3605,12 @@
   fun:strdup
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
@@ -3624,6 +3619,12 @@
   fun:Rf_GStrWidth
   fun:C_axis
   fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
 }
 {
   ubuntu-vignette-font-cache-127
@@ -3633,6 +3634,8 @@
   fun:strdup
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
@@ -3642,9 +3645,8 @@
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:GEText
-  fun:Rf_GText
-  fun:C_title
+  fun:Rf_GStrWidth
+  fun:C_strWidth
   fun:do_External
   fun:do_Externalgr
   fun:bcEval_loop
@@ -3652,7 +3654,6 @@
   fun:bcEval
   fun:Rf_eval
   fun:R_execClosure
-  fun:applyClosure_core
 }
 {
   ubuntu-vignette-font-cache-128
@@ -3662,26 +3663,26 @@
   fun:strdup
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:Rf_GStrWidth
-  fun:C_strWidth
-  fun:do_External
-  fun:do_Externalgr
-  fun:bcEval_loop
-  fun:bcEval
-  fun:bcEval
-  fun:Rf_eval
-  fun:R_execClosure
-  fun:applyClosure_core
-  fun:Rf_applyClosure
+  fun:GEText
+  fun:Rf_GText
 }
 {
   ubuntu-vignette-font-cache-129
@@ -3689,8 +3690,11 @@
   match-leak-kinds: possible
   fun:malloc
   fun:strdup
-  fun:FcValueSave
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
@@ -3707,10 +3711,6 @@
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
   fun:Rf_GStrWidth
-  fun:C_axis
-  fun:do_External
-  fun:do_Externalgr
-  fun:bcEval_loop
 }
 {
   ubuntu-vignette-font-cache-130
@@ -3718,28 +3718,28 @@
   match-leak-kinds: possible
   fun:malloc
   fun:strdup
-  fun:FcValueSave
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   fun:pango_layout_get_line
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:GEText
-  fun:Rf_GText
-  fun:C_title
-  fun:do_External
-  fun:do_Externalgr
-  fun:bcEval_loop
-  fun:bcEval
-  fun:bcEval
-  fun:Rf_eval
-  fun:R_execClosure
-  fun:applyClosure_core
-  fun:Rf_applyClosure
-  fun:dispatchMethod
+  fun:Rf_GStrWidth
+  fun:C_axis
 }
 {
   ubuntu-vignette-font-cache-131
@@ -3747,8 +3747,11 @@
   match-leak-kinds: possible
   fun:malloc
   fun:strdup
-  fun:FcValueSave
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
@@ -3756,8 +3759,9 @@
   fun:PG_text_extents
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
-  fun:Rf_GStrWidth
-  fun:C_strWidth
+  fun:GEText
+  fun:Rf_GText
+  fun:C_title
   fun:do_External
   fun:do_Externalgr
   fun:bcEval_loop
@@ -3765,8 +3769,6 @@
   fun:bcEval
   fun:Rf_eval
   fun:R_execClosure
-  fun:applyClosure_core
-  fun:Rf_applyClosure
 }
 {
   ubuntu-vignette-font-cache-132
@@ -3774,8 +3776,11 @@
   match-leak-kinds: possible
   fun:malloc
   fun:strdup
-  fun:FcValueSave
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
@@ -3784,7 +3789,7 @@
   fun:PangoCairo_StrWidth
   fun:GEStrWidth
   fun:Rf_GStrWidth
-  fun:C_strWidth
+  fun:C_axis
   fun:do_External
   fun:do_Externalgr
   fun:bcEval_loop
@@ -3793,9 +3798,6 @@
   fun:Rf_eval
   fun:R_execClosure
   fun:applyClosure_core
-  fun:Rf_applyClosure
-  fun:Rf_eval
-  fun:Rf_evalList
 }
 {
   ubuntu-vignette-font-cache-133
@@ -3803,65 +3805,8 @@
   match-leak-kinds: possible
   fun:malloc
   fun:strdup
-  fun:FcValueSave
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  fun:FcConfigSubstituteWithPat
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_size
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
-  fun:PG_text_extents
-  fun:PangoCairo_StrWidth
-  fun:GEStrWidth
-  fun:Rf_GStrWidth
-  fun:C_axis
-  fun:do_External
-}
-{
-  ubuntu-vignette-font-cache-134
-  Memcheck:Leak
-  match-leak-kinds: possible
-  fun:malloc
-  fun:strdup
-  fun:FcValueSave
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  fun:FcConfigSubstituteWithPat
-  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
-  fun:pango_layout_get_line
-  fun:PG_text_extents
-  fun:PangoCairo_StrWidth
-  fun:GEStrWidth
-  fun:GEText
-  fun:Rf_GText
-  fun:C_title
-  fun:do_External
-  fun:do_Externalgr
-  fun:bcEval_loop
-  fun:bcEval
-  fun:bcEval
-  fun:Rf_eval
-  fun:R_execClosure
-  fun:applyClosure_core
-}
-{
-  ubuntu-vignette-font-cache-135
-  Memcheck:Leak
-  match-leak-kinds: possible
-  fun:malloc
-  fun:strdup
-  fun:FcValueSave
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcConfigSubstituteWithPat
   obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
@@ -3882,17 +3827,46 @@
   fun:Rf_eval
   fun:R_execClosure
   fun:applyClosure_core
-  fun:Rf_applyClosure
 }
 {
-  ubuntu-vignette-font-cache-136
+  ubuntu-vignette-font-cache-134
   Memcheck:Leak
   match-leak-kinds: possible
   fun:malloc
   fun:strdup
-  fun:FcValueSave
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  fun:FcDefaultSubstitute
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:GEText
+  fun:Rf_GText
+  fun:C_title
+}
+{
+  ubuntu-vignette-font-cache-135
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:strdup
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
@@ -3911,17 +3885,17 @@
   fun:Rf_GStrWidth
   fun:C_axis
   fun:do_External
-  fun:do_Externalgr
 }
 {
-  ubuntu-vignette-font-cache-137
+  ubuntu-vignette-font-cache-136
   Memcheck:Leak
   match-leak-kinds: possible
   fun:malloc
   fun:strdup
-  fun:FcValueSave
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  fun:FcDefaultSubstitute
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
@@ -3932,6 +3906,34 @@
   fun:GEText
   fun:Rf_GText
   fun:C_title
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+  fun:applyClosure_core
+}
+{
+  ubuntu-vignette-font-cache-137
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:strdup
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:Rf_GStrWidth
+  fun:C_axis
   fun:do_External
   fun:do_Externalgr
   fun:bcEval_loop
@@ -3948,9 +3950,10 @@
   match-leak-kinds: possible
   fun:malloc
   fun:strdup
-  fun:FcValueSave
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
-  fun:FcDefaultSubstitute
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
@@ -3978,6 +3981,293 @@
   fun:strdup
   fun:FcValueSave
   obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:Rf_GStrWidth
+  fun:C_axis
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+}
+{
+  ubuntu-vignette-font-cache-140
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:strdup
+  fun:FcValueSave
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:GEText
+  fun:Rf_GText
+  fun:C_title
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+  fun:applyClosure_core
+  fun:Rf_applyClosure
+  fun:dispatchMethod
+}
+{
+  ubuntu-vignette-font-cache-141
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:strdup
+  fun:FcValueSave
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:Rf_GStrWidth
+  fun:C_strWidth
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+  fun:applyClosure_core
+  fun:Rf_applyClosure
+}
+{
+  ubuntu-vignette-font-cache-142
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:strdup
+  fun:FcValueSave
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:Rf_GStrWidth
+  fun:C_strWidth
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+  fun:applyClosure_core
+  fun:Rf_applyClosure
+  fun:Rf_eval
+  fun:Rf_evalList
+}
+{
+  ubuntu-vignette-font-cache-143
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:strdup
+  fun:FcValueSave
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:Rf_GStrWidth
+  fun:C_axis
+  fun:do_External
+}
+{
+  ubuntu-vignette-font-cache-144
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:strdup
+  fun:FcValueSave
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:GEText
+  fun:Rf_GText
+  fun:C_title
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+  fun:applyClosure_core
+}
+{
+  ubuntu-vignette-font-cache-145
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:strdup
+  fun:FcValueSave
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcConfigSubstituteWithPat
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:Rf_GStrWidth
+  fun:C_strWidth
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+  fun:applyClosure_core
+  fun:Rf_applyClosure
+}
+{
+  ubuntu-vignette-font-cache-146
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:strdup
+  fun:FcValueSave
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcDefaultSubstitute
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpangocairo-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_size
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:Rf_GStrWidth
+  fun:C_axis
+  fun:do_External
+  fun:do_Externalgr
+}
+{
+  ubuntu-vignette-font-cache-147
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:strdup
+  fun:FcValueSave
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcDefaultSubstitute
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:GEText
+  fun:Rf_GText
+  fun:C_title
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+  fun:applyClosure_core
+  fun:Rf_applyClosure
+}
+{
+  ubuntu-vignette-font-cache-148
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:strdup
+  fun:FcValueSave
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
+  fun:FcDefaultSubstitute
+  obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
+  fun:pango_layout_get_line
+  fun:PG_text_extents
+  fun:PangoCairo_StrWidth
+  fun:GEStrWidth
+  fun:Rf_GStrWidth
+  fun:C_strWidth
+  fun:do_External
+  fun:do_Externalgr
+  fun:bcEval_loop
+  fun:bcEval
+  fun:bcEval
+  fun:Rf_eval
+  fun:R_execClosure
+  fun:applyClosure_core
+  fun:Rf_applyClosure
+}
+{
+  ubuntu-vignette-font-cache-149
+  Memcheck:Leak
+  match-leak-kinds: possible
+  fun:malloc
+  fun:strdup
+  fun:FcValueSave
+  obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.12.1
   fun:FcDefaultSubstitute
   obj:/usr/lib/x86_64-linux-gnu/libpangoft2-1.0.so.0.5200.1
   obj:/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0.5200.1
@@ -4000,7 +4290,7 @@
   fun:Rf_eval
 }
 {
-  ubuntu-vignette-font-cache-140
+  ubuntu-vignette-font-cache-150
   Memcheck:Leak
   match-leak-kinds: possible
   fun:malloc
@@ -4015,7 +4305,7 @@
   fun:clone
 }
 {
-  ubuntu-vignette-font-cache-141
+  ubuntu-vignette-font-cache-151
   Memcheck:Leak
   match-leak-kinds: possible
   fun:realloc
@@ -4044,7 +4334,7 @@
   fun:bcEval_loop
 }
 {
-  ubuntu-vignette-font-cache-142
+  ubuntu-vignette-font-cache-152
   Memcheck:Leak
   match-leak-kinds: possible
   fun:realloc
@@ -4073,7 +4363,7 @@
   fun:dispatchMethod
 }
 {
-  ubuntu-vignette-font-cache-143
+  ubuntu-vignette-font-cache-153
   Memcheck:Leak
   match-leak-kinds: possible
   fun:realloc
@@ -4100,7 +4390,7 @@
   fun:Rf_applyClosure
 }
 {
-  ubuntu-vignette-font-cache-144
+  ubuntu-vignette-font-cache-154
   Memcheck:Leak
   match-leak-kinds: possible
   fun:realloc
@@ -4129,7 +4419,7 @@
   fun:Rf_evalList
 }
 {
-  ubuntu-vignette-font-cache-145
+  ubuntu-vignette-font-cache-155
   Memcheck:Leak
   match-leak-kinds: possible
   fun:realloc

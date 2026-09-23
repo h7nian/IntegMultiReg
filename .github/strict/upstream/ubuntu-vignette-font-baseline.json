@@ -1,16 +1,16 @@
 {
-  "rules": 145,
+  "rules": 155,
   "frame_counts": {
-    "24": 132,
-    "23": 3,
-    "22": 4,
-    "9": 1,
-    "10": 2,
     "21": 2,
+    "24": 142,
+    "22": 4,
+    "10": 2,
+    "9": 1,
+    "23": 3,
     "20": 1
   },
-  "required_records": 592,
-  "suppression_sha256": "d331b1eab2538dc0fe59727e3f57c29a1e838ea376117a2f5a761b499c72a1f5",
+  "required_records": 639,
+  "suppression_sha256": "f4367f26a1a864db2b81d1aab937967d83947c65bc32bf4c02396196ed9d446a",
   "evidence_hashes": {
     "output/ci-repair-20260922/run-35813024084/candidate-graphics-control/graphics-vignette-control.log": "af3006fbbb82ed161c2d626b14695f6cc273109a96f5f5d97628059f226fbd9c",
     "output/ci-repair-20260922/run-35818036159/candidate-graphics-control/graphics-vignette-control.log": "3e683db0fba20b73c85e1d7d8668f1a7d5c381642fd58e1abdf9e5c1644aa0d7",
@@ -34,6 +34,7 @@
     "output/ci-repair-20260922/run-35835326668/candidate-instrumented-valgrind-evidence/graphics-vignette-scoped-width-1.log": "a532d4dd6fd2f8336368e48011ad6ad9f20cedf1d7b9fe7efb2a0672021282cc",
     "output/ci-repair-20260922/run-35835326668/candidate-instrumented-valgrind-evidence/graphics-vignette-scoped-width-2.log": "72f790f71cf717172b65d204dafb2845ce96341e103112f3fd1515185549b562",
     "output/ci-repair-20260922/run-35835326668/candidate-instrumented-valgrind-evidence/graphics-vignette-scoped-width-3.log": "43b26d9cbe9ff02492d6883172597fcb77cc7ef231d1e97f2bd9dc3c8e315e6c",
+    "output/ci-repair-20260922/run-35837248352/candidate-instrumented-valgrind-evidence/graphics-after.log": "11b012fd84a79a352754b753a192d2a89694d1d96ca723d73fb92544e0151e1f",
     "output/resume-results-20260922/candidate-instrumented-valgrind-evidence/candidate/IntegMultiReg.Rcheck/build_vignettes.log": "f0d191b487d95d35f097b12867466347bd449539b5d30475ade75fe51e9c5b8b",
     "output/ci-repair-20260922/run-35813024084/candidate-instrumented-valgrind-evidence/candidate/IntegMultiReg.Rcheck/build_vignettes.log": "414748153882ea4830c8c4ad4d6254f841dd9acf324cba338dcc80867633d8f4",
     "output/ci-repair-20260922/run-35818897822/candidate-instrumented-valgrind-evidence/candidate/IntegMultiReg.Rcheck/build_vignettes.log": "efcb0428b99838cd5ec22559ebf9689af519ed81def91e42f6e048c6ffe9e722",
