@@ -44,16 +44,16 @@ contexts after upstream rules, 256 definite and 1,664 possible bytes.
 
 ## Audited vignette baseline rules
 
-ubuntu-vignette-font-baseline.supp contains 162 bounded possible-loss patterns
+ubuntu-vignette-font-baseline.supp contains 167 bounded possible-loss patterns
 matched to package-free rmarkdown graphics controls from runs 35813024084,
-35818036159, 35818897822, 35827733091, 35835326668 and the standalone PNG control in 35837248352, plus scoped controls in 35837968029. The adjacent JSON pins each source-log hash and the
+35818036159, 35818897822, 35827733091, 35835326668 and the standalone PNG control in 35837248352, plus scoped controls in 35837968029 and 35840482099. The adjacent JSON pins each source-log hash and the
 rule hash. Allocation frames and within-object relative call-site addresses
 match a control through every retained frame. Most patterns have 24 frames;
 ten use 20–23 frames before differing R evaluation context, and three retain
 complete 9/10-frame background-thread stacks. No arbitrary-depth or object-name
 wildcard is used. Named functions and Ubuntu shared-object paths are exact.
 
-The rules statically cover 772 observed possible-loss reports across controls
+The rules statically cover 862 observed possible-loss reports across controls
 and four candidate runs. None matches the archived package leak records.
 These are graphics-environment exclusions, not proof of leak-free graphics
 libraries or general package correctness. No definite-loss, conditional-jump,
