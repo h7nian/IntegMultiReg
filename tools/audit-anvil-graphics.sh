@@ -5,16 +5,24 @@ set -euo pipefail
 source "$PWD/hpc/environment.sh"
 candidate="$(realpath "$1")"
 native="$IMR_NATIVE_RUNTIME"
+probe="${2:-default}"
+[[ "$probe" == default || "$probe" == width ]] || exit 2
 out="$candidate/anvil-graphics-audit"
+controls=(graphics-control graphics-extended-control graphics-vignette-control)
+if [[ "$probe" == width ]]; then
+  out="$candidate/anvil-graphics-width-audit"
+  controls=(graphics-vignette-control)
+fi
 [[ ! -e "$out" && -f "$native/READY" ]]
 mkdir -p "$out"
 source "$native/build-environment.sh"
 export PATH="$native/strict-runtime/bin:$IMR_ROOT/runtime/tools/pandoc/bin:$PATH"
 export R_LIBS_USER="$native/validation-library" R_LIBS="$native/validation-library"
 export CLI_NO_THREAD=1
+export IMR_GRAPHICS_PROBE="$probe"
 unset LD_PRELOAD
 cd "$candidate/source"
-for name in graphics-control graphics-extended-control graphics-vignette-control; do
+for name in "${controls[@]}"; do
   for repetition in 1 2 3; do
     log="$out/$name-$repetition.log"
     set +e

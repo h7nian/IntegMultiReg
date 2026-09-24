@@ -3,8 +3,10 @@
 ## Current checkpoint: September 24, after GitHub validation
 
 Candidate B has passed the installed regression suite, ASAN/UBSAN and all nine
-new GitHub CI jobs. Final Anvil level-2 Valgrind check `20894476` is running;
-study bootstrap `20887915` depends on its successful completion. Scientific
+new GitHub CI jobs. Anvil check `20894476` failed on two vignette Fontconfig
+leak contexts after passing examples and tests. Both contexts now reproduce
+independently without loading the package. Fresh strict check `20899640` has
+been submitted; bootstrap `20887915` depends on its successful completion. Scientific
 sampling has not started and `NATIVE-VALIDATED` does not yet exist. Use Slurm
 and `runtime/current-jobs.tsv` for live status. Earlier progress entries below
 retain their original job IDs and observations.
@@ -36,10 +38,28 @@ temporary R test-startup instrumentation restored after termination.
 The missing checker is now installed from official Debian devscripts
 2.25.15+deb13u1; source/checker hashes are recorded under `runtime/tools/`.
 
-Fresh attempt `20894476` uses `runtime/candidate-b/strict-anvil-2`, reruns all
-controls and the complete package check, and verifies instrumented PSOCK
-children before writing `NATIVE-VALIDATED`. Bootstrap `20887915` is explicitly
-dependent on this attempt. Tested research-source hashes, the frozen package
+Attempt `20894476` used `runtime/candidate-b/strict-anvil-2`: examples and
+2804 assertions passed under R CMD check's process limit, and the worker-log
+verifier accepted all 110 actual PSOCK workers with zero Memcheck errors or
+definite leaks. Vignette rebuilding exposed two additional Fontconfig stacks
+through strwidth(). These results are recorded in
+`strict-anvil-2/strict-evidence/partial-validation.json`; they do not constitute
+native acceptance. The standalone suite with its additional worker counts
+remains required. Anvil also lacks tidy/V8 for HTML checks; the completed
+cross-platform CI covers the manual checks separately.
+
+Graphics job `20899613` reproduced both unresolved 24-frame stacks in each
+of three package-free width-first rendering runs. The combined audit under
+`runtime/candidate-b/anvil-graphics-audit-2` retains the original twelve rules
+and adds three bounded rules: the two reproduced definite-leak contexts and
+one language-cache context from the new control. There are still no wildcard,
+invalid-access, uninitialized-read or package-frame rules.
+
+New attempt `20899640` uses `strict-anvil-3`, replays all twelve graphics
+controls, reruns both negative controls and the full package/standalone worker
+checks, and writes `NATIVE-VALIDATED` only on success. The failed dependency
+on `20894476` has been replaced with `afterok:20899640` on bootstrap `20887915`.
+Tested research-source hashes, the frozen package
 source manifest, and all 32 dependency versions/load paths were reverified.
 After validation, the bootstrap freezes `runs/study-20260923` and schedules
 audit → full-parameter pilot → full study → collection with concurrency 16.

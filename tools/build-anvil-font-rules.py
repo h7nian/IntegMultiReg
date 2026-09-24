@@ -1,10 +1,14 @@
-"""Derive bounded rules only from the nine completed package-free controls."""
+"""Derive bounded rules only from completed, explicit package-free controls."""
 from pathlib import Path
 import hashlib, json, re, sys
 base = Path(sys.argv[1]).resolve()
 assert (base/'COLLECTED').is_file()
 logs = sorted(base.glob('*.log'))
-assert len(logs) == 9
+expected = {f'{name}-{i}.log' for name in (
+    'graphics-control', 'graphics-extended-control', 'graphics-vignette-control')
+    for i in range(1, 4)}
+width_controls = {f'graphics-vignette-width-control-{i}.log' for i in range(1, 4)}
+assert {path.name for path in logs} in (expected, expected | width_controls)
 rules = {}
 inputs = {}
 for path in logs:
