@@ -7,4 +7,5 @@ IMR_MAX_TASK_CPUS=128
 IMR_MAX_WALL_HOURS=96
 IMR_MODULES=(gcc/11.2.0 r/4.4.1 gsl/2.4 python/3.9.5)
 IMR_DEPENDENCIES="$IMR_ROOT/runtime/dependencies"
+IMR_NATIVE_RUNTIME="$IMR_ROOT/runtime/native-runtime-2"
 IMR_RUNS="$IMR_ROOT/runs"

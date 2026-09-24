@@ -26,23 +26,38 @@ all 3381 payload files matched before development began.
 
 ## Submitted jobs
 
-- `20884522`: locked Linux dependency build, moved to debug, 16 GiB / 9 allocated
-  CPUs, two-hour limit. Latest observed state: pending, Priority.
-- `20884678`: canceled while pending; superseded by candidate-b below.
-- `20884868`: candidate-b installed suite, exact defaults, independent native
-  sampler/original-C references, checkpoint and real task-splitting tests.
-  Depends on successful dependency installation; 16 GiB / four hours.
+Current job IDs are also saved in `runtime/current-jobs.tsv`.
+
+- `20884522`: locked Linux dependency build, shared, 16 GiB / 9 allocated CPUs,
+  two-hour limit. Returned from debug to shared after shared began scheduling.
+- `20887913`: candidate-b installed suite, exact defaults, sampler/original-C
+  references, checkpoint tests, real task splitting and scheduler negative tests.
+  Depends on dependency installation; 16 GiB / four hours.
 - `20884942`: candidate-b ASAN+UBSAN suite and allocation-failure checks;
   depends on dependency installation; 16 GiB / four hours.
-- `20884941`: pinned level-2 R-devel r90579 / Valgrind 3.27.1 runtime build,
-  followed by 45 independently locked validation dependencies; 16 GiB / eight hours.
-- `20885029`: strict candidate examples/tests/vignettes, graphics and negative
-  controls, instrumented parent and PSOCK workers. Depends on all three
-  preceding validation jobs succeeding; 16 GiB / twelve hours.
-- `20886175`: study bootstrap, depends on strict-check success. Freezes the
-  tested research source and runtime, then schedules audit → pilot → full →
-  collection through evidence-checking controllers. Initial cap: 16 tasks.
-- User job `20770853` is unrelated and must not be changed.
+- `20887909`: level-2 R-devel r90579 / Valgrind 3.27.1 runtime build and 45 locked
+  validation dependencies; 16 GiB / eight hours; fresh runtime directory `native-runtime-2`.
+- `20887914`: strict examples/tests/vignettes, graphics and negative controls,
+  instrumented parent and PSOCK workers; depends on all validation prerequisites;
+  16 GiB / twelve hours.
+- `20887915`: study bootstrap, depends on strict-check success. Freezes the
+  tested research sources and runtime, then schedules audit → pilot → full →
+  collection through evidence-checking controllers, capped at 16 tasks.
+
+`20884941` failed before compilation because the official R tarball did not
+match the historical `ab0444...` pin. The downloaded archive is SHA256
+`080d29d0791b77df9a1e856fff16160e48ec744fa931baf84afde40fe27b154c`.
+Its VERSION, memory.c, Defn.h and RNG.c independently match official SVN r90579.
+The audit is in `runtime/native-runtime-1/source-identity-audit.json`.
+This establishes a new runtime pin, not equivalence to the former archive;
+all instrumented validation must run again. The failed build remains intact.
+Candidate-b package R/C sources are unchanged; only the active CI runtime
+builder gained the newly verified pin and a local-archive input.
+
+Obsolete pending jobs `20884678`, `20884868`, `20885029`, `20886175` were cancelled
+and replaced. Slurm copies the main batch script at submission, so the replacement
+regression job includes the final source-hash guard and scheduler tests.
+Unrelated user jobs are untouched.
 
 No scientific tasks have been submitted. Do not create `UNIT-VALIDATED`,
 `NATIVE-VALIDATED`, `AUDITS-ACCEPTED` or `PILOT-ACCEPTED` manually; each requires

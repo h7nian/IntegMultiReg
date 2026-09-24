@@ -3,9 +3,11 @@ set -euo pipefail
 [[ -n "${SLURM_JOB_ID:-}" ]] || exit 2
 source "$PWD/hpc/environment.sh"
 module load curl/7.76.1
-export RUNNER_TEMP="$IMR_ROOT/runtime/native-runtime-1"
+export RUNNER_TEMP="$IMR_NATIVE_RUNTIME"
 [[ ! -e "$RUNNER_TEMP" ]]
 mkdir -p "$RUNNER_TEMP"
+export IMR_R_SOURCE_ARCHIVE="$IMR_ROOT/runtime/native-runtime-1/strict-build/R-devel.tar.gz"
+cp "$IMR_ROOT/runtime/native-runtime-1/source-identity-audit.json" "$RUNNER_TEMP/"
 python3 "$IMR_ROOT/hpc/native-build-environment.py" > "$RUNNER_TEMP/build-environment.sh"
 source "$RUNNER_TEMP/build-environment.sh"
 pkg-config --modversion libcurl libpcre2-8 liblzma cairo pangocairo > "$RUNNER_TEMP/system-versions.txt"

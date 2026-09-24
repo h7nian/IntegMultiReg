@@ -4,7 +4,7 @@ set -euo pipefail
 source "$PWD/hpc/environment.sh"
 module load texlive/20200406
 candidate="$(realpath "$1")"
-native="$IMR_ROOT/runtime/native-runtime-1"
+native="$IMR_NATIVE_RUNTIME"
 [[ -f "$native/READY" && -f "$candidate/UNIT-VALIDATED" && -f "$candidate/SANITIZER-VALIDATED" ]]
 work="$candidate/strict"
 [[ ! -e "$work" ]]
@@ -19,6 +19,7 @@ export _R_CHECK_ALWAYS_LOG_VIGNETTE_OUTPUT_=true
 export _R_CHECK_CRAN_INCOMING_REMOTE_=false
 unset LD_PRELOAD
 cp "$native/strict-runtime/provenance/"* "$work/strict-evidence/"
+cp "$native/source-identity-audit.json" "$work/strict-evidence/"
 cd "$work"
 R CMD build source > build.log 2>&1
 cp IntegMultiReg_0.2.0.tar.gz source/.github/strict/fixtures/IntegMultiReg_0.2.0.tar.gz

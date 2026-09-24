@@ -4,7 +4,7 @@ IMR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$IMR_ROOT/hpc/config.sh"
 module purge
 module load "${IMR_MODULES[@]}"
-export IMR_ROOT IMR_DEPENDENCIES IMR_RUNS
+export IMR_ROOT IMR_DEPENDENCIES IMR_NATIVE_RUNTIME IMR_RUNS
 export IMR_MEMORY_PER_CPU_MIB IMR_MAX_TASK_CPUS IMR_MAX_WALL_HOURS
 export R_ENVIRON_USER=/dev/null R_PROFILE_USER=/dev/null
 unset R_MAKEVARS_USER R_MAKEVARS_SITE
