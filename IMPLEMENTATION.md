@@ -1,5 +1,58 @@
 # Anvil implementation, 2026-09-23
 
+## Current checkpoint: September 24, after GitHub validation
+
+Candidate B has passed the installed regression suite, ASAN/UBSAN and all nine
+new GitHub CI jobs. Final Anvil level-2 Valgrind check `20894476` is running;
+study bootstrap `20887915` depends on its successful completion. Scientific
+sampling has not started and `NATIVE-VALIDATED` does not yet exist. Use Slurm
+and `runtime/current-jobs.tsv` for live status. Earlier progress entries below
+retain their original job IDs and observations.
+
+GitHub branch `ci/anvil-candidate-b-20260924`, commit
+`7fa16bbf5afb450324b89cc67fe3d7bcc3a535ea`, matches the frozen R/C/manual/test
+source. All nine jobs succeeded:
+
+- [Cross-platform checks](https://github.com/h7nian/IntegMultiReg/actions/runs/36010339605):
+  Linux release/devel, Windows release, macOS release.
+- [Native sanitizer checks](https://github.com/h7nian/IntegMultiReg/actions/runs/36010342655):
+  GCC and Clang, each with UBSAN and ASAN+UBSAN.
+- [macOS ARM sanitizer check](https://github.com/h7nian/IntegMultiReg/actions/runs/36010345688):
+  installed tests, vignette rebuild, sampler targets and fault cleanup.
+
+All nine suites passed 2851 assertions with zero failures/warnings/skips.
+Their R builds enable one existing profmem-conditional shared-address assertion;
+Anvil R 4.4.1 reports 2850. Both run the same 151 test cases. Each of the five
+sanitizer jobs also passed all 72 allocation failure/recovery cases. Downloaded
+logs, artifacts, commit identities and SHA256 hashes are in
+`runtime/github-actions-evidence/`. The current historical-regression mapping
+is `runtime/candidate-b/evidence/github-regression-audit.json`. Main is unchanged.
+
+Strict attempt `20894290` passed nine scoped graphics controls and detected the
+R-heap probe, archived 7200-byte/60-block leak and historical uninitialized read.
+Its package check then reported missing `checkbashisms`. Because that warning
+prevents acceptance, the attempt was stopped with its logs retained and its
+temporary R test-startup instrumentation restored after termination.
+The missing checker is now installed from official Debian devscripts
+2.25.15+deb13u1; source/checker hashes are recorded under `runtime/tools/`.
+
+Fresh attempt `20894476` uses `runtime/candidate-b/strict-anvil-2`, reruns all
+controls and the complete package check, and verifies instrumented PSOCK
+children before writing `NATIVE-VALIDATED`. Bootstrap `20887915` is explicitly
+dependent on this attempt. Tested research-source hashes, the frozen package
+source manifest, and all 32 dependency versions/load paths were reverified.
+After validation, the bootstrap freezes `runs/study-20260923` and schedules
+audit → full-parameter pilot → full study → collection with concurrency 16.
+
+The user also reported a Claude contributor avatar on the GitHub homepage.
+All seven live branches, tags (none), author/committer identities and coauthor
+trailers were checked. GitHub's author filter returned zero Claude commits on
+every branch; its contributor API lists only h7nian. Evidence is in
+`runtime/github-contributors-audit/`. No history was rewritten. Stale GitHub
+statistics are the likely explanation; disappearance of the user's UI entry
+has not been confirmed. GitHub documents an approximately 24-hour refresh
+period and recommends Support if the stale data persists afterward.
+
 This is the active development workspace restored from the independently
 verified upload. The original workspace is unchanged. The archive SHA256 is
 `c092eeeca4203525bfc4767be714aa1b1e28ea1d7ff5f6921173f437a5a8cbc6`;

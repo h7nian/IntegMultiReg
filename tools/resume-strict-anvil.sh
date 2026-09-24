@@ -7,7 +7,9 @@ module load texlive/20200406
 candidate="$(realpath "$1")"
 native="$IMR_NATIVE_RUNTIME"
 audit="$candidate/anvil-graphics-audit"
-work="$candidate/strict-anvil-1"
+attempt="${2:-strict-anvil-1}"
+[[ "$attempt" =~ ^strict-anvil-[1-9][0-9]*$ ]] || exit 2
+work="$candidate/$attempt"
 [[ -f "$candidate/UNIT-VALIDATED" && -f "$candidate/SANITIZER-VALIDATED" && ! -e "$work" ]]
 python3 - "$audit" <<'PY'
 from pathlib import Path
@@ -24,7 +26,11 @@ cp "$audit/anvil-font-baseline.supp" "$audit/rules-audit.json" "$work/strict-evi
 cp "$native/strict-runtime/provenance/"* "$work/strict-evidence/"
 cp "$candidate/strict/CANDIDATE-SHA256SUMS" "$native/source-identity-audit.json" "$work/strict-evidence/"
 source "$native/build-environment.sh"
-export PATH="$native/strict-runtime/bin:$IMR_ROOT/runtime/tools/pandoc/bin:$PATH"
+export PATH="$native/strict-runtime/bin:$IMR_ROOT/runtime/tools/bin:$IMR_ROOT/runtime/tools/pandoc/bin:$PATH"
+command -v checkbashisms > "$work/strict-evidence/checkbashisms-path.txt"
+checkbashisms --version > "$work/strict-evidence/checkbashisms-version.txt"
+cp "$IMR_ROOT/runtime/tools/devscripts-2.25.15-deb13u1/source.json" \
+  "$work/strict-evidence/checkbashisms-source.json"
 export RUNNER_TEMP="$work" GITHUB_WORKSPACE="$work/source"
 export R_LIBS_USER="$work/library" R_LIBS="$work/library:$native/validation-library"
 export CLI_NO_THREAD=1 R_KEEP_PKG_SOURCE=yes R_TEXI2DVICMD=emulation
