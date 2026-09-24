@@ -85,6 +85,17 @@ validate_imr <- function(object) {
     .imr_abort("The fit has inconsistent subgroup metadata.")
   }
   .imr_check_mrf_capacity(model$platform_subgroups)
+  if (!is.null(control$laplace_diagnostics)) {
+    d <- control$laplace_diagnostics
+    measures <- c("calls", "iteration_limit", "nonfinite", "factorization_failures")
+    if (!is.data.frame(d) || !identical(names(d), c("subgroup", "stage", measures)) ||
+        !identical(d$subgroup, rep(model$subgroup_names, each = 3L)) ||
+        !identical(d$stage, rep(c("initial", "selection", "latent"), n_subgroups)) ||
+        !.imr_is_integerish(unlist(d[measures], use.names = FALSE)) ||
+        any(as.matrix(d[measures]) < 0) || any(d$iteration_limit > d$calls) ||
+        any(d$nonfinite > d$calls))
+      .imr_abort("The fit has invalid Laplace diagnostics.")
+  }
   for (g in seq_len(n_subgroups)) {
     platforms <- model$subgroup_platforms[[g]]
     if (!.imr_is_integerish(platforms) || anyDuplicated(platforms) ||
@@ -148,8 +159,15 @@ validate_imr <- function(object) {
       }
     } else if (!is.matrix(samples) || nrow(samples) != draws ||
                ncol(samples) != expected_theta_columns ||
-               any(!is.finite(samples))) {
+               any(!is.finite(samples)) || any(samples <= 0)) {
       .imr_abort(sprintf("Interaction draws for platform %d are inconsistent.", l))
+    }
+    theta <- posterior$interaction_means[[l]]
+    if (!isTRUE(all.equal(theta, t(theta), tolerance = 0)) ||
+        any(diag(theta) != 0) ||
+        (control$method == "imr" && any(theta[row(theta) != col(theta)] <= 0)) ||
+        (control$method == "bms" && any(theta != 0))) {
+      .imr_abort(sprintf("Interaction means for platform %d are invalid.", l))
     }
   }
   if (!is.numeric(posterior$log_posterior) || any(!is.finite(posterior$log_posterior)) ||

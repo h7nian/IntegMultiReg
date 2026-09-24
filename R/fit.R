@@ -86,6 +86,10 @@
 #' @param laplace_tolerance Positive relative coefficient-mode convergence
 #'   tolerance (default `0.001`). Numerical controls are stored in the fit and
 #'   reused by prediction and cross-validation, including training-fold refits.
+#'   `control$laplace_diagnostics` records calls, iteration-limit hits, nonfinite
+#'   likelihoods and factorization failures by subgroup for the initial,
+#'   selection and latent fitting stages. These counters do not assess MCMC
+#'   convergence or subsequent prediction-stage optimization.
 #' @param initial Optional named list with `selection` and/or `interaction`.
 #'   Each component is a list of matrices named by platform. Selection matrices
 #'   have subgroup rows and feature columns, with entries zero or one; interaction
@@ -485,6 +489,11 @@ imr.list <- function(x, outcome, covariates = NULL,
         interaction = interaction_prior),
       mcmc = list(draws = draws, burnin = burnin), seed = seed, numerical = numerical,
       standardize = standardize, initial = initial,
+      laplace_diagnostics = data.frame(
+        subgroup = rep(subgroup_names, each = 3L),
+        stage = rep(c("initial", "selection", "latent"), length(subgroup_names)),
+        stats::setNames(as.data.frame(results$laplace_diagnostics),
+          c("calls", "iteration_limit", "nonfinite", "factorization_failures"))),
       rng_state = list(generator = "gsl_rand48", endian = .Platform$endian,
                        state = results$rng_state)
     ),

@@ -171,14 +171,15 @@ void sample_gamma_indicators(
             }
             gsl_matrix_view precision_view =
                 gsl_matrix_view_array(precision, k_val, k_val);
-            gsl_linalg_cholesky_decomp(&precision_view.matrix);
+            if (gsl_linalg_cholesky_decomp(&precision_view.matrix) != 0)
+                imr_record_laplace(numerical, IMR_LAPLACE_SELECTION, IMR_LAPLACE_FACTORIZATION_FAILURE);
             double *beta_mode = malloc(k_val * sizeof(double));
             new_log_likelihood = log_likelihood_nonlocal(
                 k_val, n_covariates, n_selected_features[0], sample_size,
                 alpha, psi, latent_y, proposed_design, precision_copy,
                 &precision_view.matrix, beta_mode, moment_order, slab_scale,
                 covariate_scale, intercept_scale, first_platform_scale,
-                max_iter, tolerance, 0);
+                max_iter, tolerance, 0, numerical, IMR_LAPLACE_SELECTION);
             free(precision);
             free(precision_copy);
             free(beta_mode);

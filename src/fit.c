@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <limits.h>
 #include <gsl/gsl_sf.h>
 #include <stdio.h>
 #include <time.h>
@@ -94,7 +95,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
                   SEXP newCC_list,
                   SEXP draws_R, SEXP burnin_R, SEXP sampler_method_R, SEXP numerical_R, SEXP initial_R)
 {
-    const imr_numerical_control numerical = imr_read_numerical_control(numerical_R);
+    imr_numerical_control numerical = imr_read_numerical_control(numerical_R);
     if (!isInteger(sampler_method_R) || XLENGTH(sampler_method_R) != 1 ||
         INTEGER(sampler_method_R)[0] < IMR_SAMPLER_LEGACY ||
         INTEGER(sampler_method_R)[0] > IMR_SAMPLER_PAPER)
@@ -137,6 +138,15 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     }
     clock_t t = clock();
     int protect_count = 0;
+    int diagnostic_groups = asInteger(n_subgroups_R);
+    if (diagnostic_groups < 1 || diagnostic_groups > INT_MAX / 3)
+        Rf_error("Invalid number of diagnostic subgroups");
+    SEXP laplace_diagnostics_R = PROTECT(allocMatrix(REALSXP, 3 * diagnostic_groups, 4));
+    protect_count++;
+    memset(REAL(laplace_diagnostics_R), 0, (size_t)diagnostic_groups * 12 * sizeof(double));
+    imr_laplace_diagnostics laplace_diagnostics = {
+        diagnostic_groups, 0, REAL(laplace_diagnostics_R)};
+    numerical.diagnostics = &laplace_diagnostics;
     /* platform_models_R maps each platform to the subgroups using it;
      * model_platforms_R is the inverse mapping from subgroup to platforms. */
 
@@ -506,6 +516,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     {
         for (int m = 0; m < n_subgroups; m++)
         {
+            laplace_diagnostics.subgroup = m;
              sample_gamma_indicators(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
                         ylatent[m], newCC[m], X1[m], gamma, &log_likelihood[m], &logdet[m], &scal[m], nu, theta,
                         n_platform_models_c, platform_models_c, accept_gamma, r, likelihood_type, h[m], h1, h0, hg, K, alpha, psi, sampler_method, &numerical);
@@ -739,7 +750,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     SEXP rng_state_R = PROTECT(allocVector(RAWSXP, gsl_rng_size(r)));
     protect_count++;
     memcpy(RAW(rng_state_R), gsl_rng_state(r), gsl_rng_size(r));
-    int listSize = 7;
+    int listSize = 8;
     SEXP list;
     SEXP listNames;
     PROTECT(list = allocVector(VECSXP, listSize));
@@ -753,6 +764,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     SET_VECTOR_ELT(list, 4, gamma_sample_R);
     SET_VECTOR_ELT(list, 5, thetaSampleMatrix_R);
     SET_VECTOR_ELT(list, 6, rng_state_R);
+    SET_VECTOR_ELT(list, 7, laplace_diagnostics_R);
 
     PROTECT(listNames = allocVector(STRSXP, listSize));
     protect_count++;
@@ -763,6 +775,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     SET_STRING_ELT(listNames, 4, mkChar("gam_sample"));
     SET_STRING_ELT(listNames, 5, mkChar("theta_sample"));
     SET_STRING_ELT(listNames, 6, mkChar("rng_state"));
+    SET_STRING_ELT(listNames, 7, mkChar("laplace_diagnostics"));
     setAttrib(list, R_NamesSymbol, listNames);
 
     /// We free memories ...

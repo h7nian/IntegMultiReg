@@ -47,6 +47,10 @@ dependencies. Package users do not need them. Maintainers running
 
 ## Quick start
 
+The compatibility default is `sampler_method = "legacy"`. Use
+`sampler_method = "paper"` for the stated posterior updates. For training-fold
+preprocessing and fitting, select `cv_method = "refit"` explicitly.
+
 ```r
 library(IntegMultiReg)
 data("simIMR")
@@ -184,6 +188,8 @@ explicit start. Different starts support convergence assessment, but do not
 recover unknown historical starting values or establish convergence by themselves.
 
 `cv$control` records effective settings and folds for replay.
+Refit CV also records `cv$control$refit_seeds`; replaying its saved folds uses
+the same fitting seeds under the same runtime and RNG kind.
 `cv$validation` identifies the algorithm; `cv$predictions` records actual folds
 and predictions. The post-fit GSL and refit R generators produce different
 partitions, even with the same seed. Data-driven tuning requires outer validation.
@@ -199,6 +205,11 @@ or a package-qualified function name; the global workspace is not exported.
 
 
 ### Compare prespecified covariate formulas
+
+`fit$control$laplace_diagnostics` records fitting-stage calls, iteration-limit
+hits and numerical failures by subgroup. Review these with the selection-chain
+diagnostics. The counters neither establish MCMC convergence nor cover later
+prediction-stage optimization.
 
 A runnable example compares two formulas on identical subject/fold assignments,
 then uses nested cross-validation to evaluate formula selection using only

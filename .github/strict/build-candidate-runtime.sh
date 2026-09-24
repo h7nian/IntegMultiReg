@@ -8,8 +8,14 @@ exec > >(tee -a "${evidence}/runtime-build-console.log") 2>&1
 cd "${work}"
 curl --fail --location --retry 3 https://sourceware.org/pub/valgrind/valgrind-3.27.1.tar.bz2 -o valgrind.tar.bz2
 echo '5d589152eb8071c02feab8ce6ab719e431a1fbc3e2b1700f5432632a8b9264dc  valgrind.tar.bz2' | sha256sum --check
-curl --fail --location --retry 3 https://cran.r-project.org/src/base-prerelease/R-devel_2026-09-21_r90579.tar.gz -o R-devel.tar.gz
-echo 'ab0444d411694785ff3d99ca3e2db48e6a31cba8b07373e11d4171feb5f205c7  R-devel.tar.gz' | sha256sum --check
+if [[ -n "${IMR_R_SOURCE_ARCHIVE:-}" ]]; then
+  cp "${IMR_R_SOURCE_ARCHIVE}" R-devel.tar.gz
+else
+  curl --fail --location --retry 3 https://cran.r-project.org/src/base-prerelease/R-devel_2026-09-21_r90579.tar.gz -o R-devel.tar.gz
+fi
+# Fresh official download audited against SVN r90579 on Anvil. This is a new
+# archive pin; it does not inherit acceptance of the former ab0444... artifact.
+echo '080d29d0791b77df9a1e856fff16160e48ec744fa931baf84afde40fe27b154c  R-devel.tar.gz' | sha256sum --check
 sha256sum valgrind.tar.bz2 R-devel.tar.gz > "${evidence}/runtime-source-SHA256SUMS.txt"
 if test -x "${prefix}/bin/valgrind" && test "$("${prefix}/bin/valgrind" --version)" = 'valgrind-3.27.1'; then
   cp "${prefix}/provenance/valgrind-configure.log" "${evidence}/"

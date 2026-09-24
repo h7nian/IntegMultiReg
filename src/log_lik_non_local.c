@@ -88,8 +88,10 @@ double log_likelihood_nonlocal(
     int k, int K, int ng, int N, double alpha, double psi, double *y,
     double **design, double *precision, const gsl_matrix *chol_precision,
     double *beta_mode, int r, double h, double h1, double h0, double hg,
-    int max_iter, double tolerance, _Bool positive_beta)
+    int max_iter, double tolerance, _Bool positive_beta,
+    const imr_numerical_control *numerical, int stage)
 {
+  imr_record_laplace(numerical, stage, IMR_LAPLACE_CALLS);
   double *adjusted_precision = malloc(k * k * sizeof(double));
   double *xty = malloc(k * sizeof(double));
   int i, j, l;
@@ -150,7 +152,9 @@ double log_likelihood_nonlocal(
       beta_mode[i] = beta_hat[i] * (beta_hat[i] > 0);
     }
   }
-  maximize_nonlocal_beta(xty, nu, s2, precision, max_iter, tolerance, beta_mode, k, r, positive_beta);
+  int converged = maximize_nonlocal_beta(xty, nu, s2, precision, max_iter, tolerance,
+                                        beta_mode, k, r, positive_beta);
+  if (!converged) imr_record_laplace(numerical, stage, IMR_LAPLACE_LIMIT);
   for (i = 0; i < k; i++)
   {
     for (j = 0; j <= i; j++)
@@ -182,11 +186,13 @@ double log_likelihood_nonlocal(
   double L3 = -((nu - 2) / (2 * nu * s2)) * difbetaAibeta;
 
   gsl_matrix_view adjusted_precision_view = gsl_matrix_view_array(adjusted_precision, k, k);
-  gsl_linalg_cholesky_decomp(&adjusted_precision_view.matrix);
+  if (gsl_linalg_cholesky_decomp(&adjusted_precision_view.matrix) != 0)
+    imr_record_laplace(numerical, stage, IMR_LAPLACE_FACTORIZATION_FAILURE);
   double L4 = -0.5 * cholesky_logdet(&adjusted_precision_view.matrix);
   double doublefact = factorial_int(2 * r - 1) / ((1 << (r - 1)) * factorial_int(r - 1));
   double L5 = -gsl_sf_lngamma(alpha) - k * log(doublefact) - (N / 2.0) * log(2 * IMR_PI) - ((k - K - ng - 1) / 2.0 + r * (k - K - ng - 1)) * log(h) - (K / 2.0 + r * K) * log(h1) - (ng / 2.0 + r * ng) * log(hg) - (0.5 + r) * log(h0);
   double log_likelihood = L1 + L2 + L3 + L4 + L5;
+  if (!isfinite(log_likelihood)) imr_record_laplace(numerical, stage, IMR_LAPLACE_NONFINITE);
   free(xty);
   free(adjusted_precision);
   return (log_likelihood);
@@ -196,7 +202,7 @@ double log_likelihood_nonlocal(
  * Coordinate ascent for the beta mode induced by the product-moment prior.
  * `beta_mode` is both the starting point and the output mode.
  */
-void maximize_nonlocal_beta(
+int maximize_nonlocal_beta(
     double *xty, double nu, double s2, double *precision, int max_iter,
     double tolerance, double *beta_mode, int k, int r, _Bool positive_beta)
 {
@@ -247,4 +253,5 @@ void maximize_nonlocal_beta(
     i++;
   }
   free(beta);
+  return converged;
 }

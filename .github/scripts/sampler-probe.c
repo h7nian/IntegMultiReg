@@ -6,6 +6,29 @@
 #include "my_header.h"
 #include "utils.h"
 
+/* Two groups, one fixed excluded feature: numerical quadrature in R provides
+ * an independent reference for the conditional theta posterior. */
+SEXP review_theta(SEXP start_R, SEXP draws_R) {
+  int draws = asInteger(draws_R), burnin = 10000;
+  double start = asReal(start_R), normalizer;
+  double row0[2] = {0, start}, row1[2] = {start, 0};
+  double *theta[2] = {row0, row1};
+  double a0[2] = {0, 0}, a1[2] = {0, 0}, *accept[2] = {a0, a1};
+  double r0[2] = {0, 10}, r1[2] = {10, 0}, *rate[2] = {r0, r1};
+  _Bool g0[1] = {0}, g1[1] = {0}, *gamma[2] = {g0, g1};
+  SEXP result = PROTECT(allocVector(REALSXP, draws));
+  gsl_rng *rng = gsl_rng_alloc(gsl_rng_rand48);
+  gsl_rng_set(rng, 913);
+  compute_mrf_log_normalizer(2, theta, -3, &normalizer);
+  for (int i = 0; i < burnin + draws; ++i) {
+    sample_mrf_theta(1, 2, theta, accept, &normalizer, gamma, -3, 40, rate, rng);
+    if (i >= burnin) REAL(result)[i - burnin] = theta[0][1];
+  }
+  gsl_rng_free(rng);
+  UNPROTECT(1);
+  return result;
+}
+
 SEXP review_loglik(SEXP x, SEXP y, SEXP h0R, SEXP hR, SEXP alphaR, SEXP psiR) {
   int n = INTEGER(getAttrib(x, R_DimSymbol))[0];
   int p = INTEGER(getAttrib(x, R_DimSymbol))[1];
@@ -25,7 +48,7 @@ SEXP review_loglik(SEXP x, SEXP y, SEXP h0R, SEXP hR, SEXP alphaR, SEXP psiR) {
   gsl_linalg_cholesky_decomp(&m.matrix);
   double *beta = malloc(k*sizeof(double));
   double ll = log_likelihood_nonlocal(k, 0, p, n, asReal(alphaR), asReal(psiR), REAL(y), design,
-    copy, &m.matrix, beta, 1, h, h0, h0, h, 40, 1e-3, 0);
+    copy, &m.matrix, beta, 1, h, h0, h0, h, 40, 1e-3, 0, &numerical, IMR_LAPLACE_PREDICTION);
   for (int i = 0; i < n; i++) free(design[i]);
   free(design); free(precision); free(copy); free(beta);
   return ScalarReal(ll);

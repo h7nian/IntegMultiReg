@@ -71,7 +71,8 @@ void sample_binary_latent_response(int model, int n_platforms, int *selected_pla
         for (j = 0; j <= i; j++)
             precision_copy[i * k_val + j] = precision_copy[j * k_val + i] = precision[i * k_val + j];
     gsl_matrix_view m = gsl_matrix_view_array(precision, k_val, k_val);
-    gsl_linalg_cholesky_decomp(&m.matrix);
+    if (gsl_linalg_cholesky_decomp(&m.matrix) != 0)
+        imr_record_laplace(numerical, IMR_LAPLACE_LATENT, IMR_LAPLACE_FACTORIZATION_FAILURE);
     double *ynew = malloc((size_t) n_subjects * sizeof(double));
     if (!ynew) Rf_error("malloc failed for ynew");
     for (i = 0; i < n_subjects; i++)
@@ -92,7 +93,7 @@ void sample_binary_latent_response(int model, int n_platforms, int *selected_pla
 
         double *beta_mode = malloc(k_val * sizeof(double));
         double new_log_likelihood = log_likelihood_nonlocal(k_val, n_covariates, n_selected_features[0], n_subjects, alpha, psi, ynew, design, precision_copy,
-                                          &m.matrix, beta_mode, moment_order, slab_scale, covariate_scale, intercept_scale, first_platform_scale, max_iter, tolerance, 0);
+                                          &m.matrix, beta_mode, moment_order, slab_scale, covariate_scale, intercept_scale, first_platform_scale, max_iter, tolerance, 0, numerical, IMR_LAPLACE_LATENT);
         free(beta_mode);
         double accept_u = gsl_ran_flat(rng, 0, 1);
         double log_accept_ratio = new_log_likelihood - *log_likelihood + log(ynew[i] / latent_y[i]);
