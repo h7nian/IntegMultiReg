@@ -25,7 +25,9 @@ settings <- list(experiment = experiment, reference = reference, quick = quick,
   replicates = integer_value("--replicates", if (quick || experiment == "table1") 1 else
     if (experiment == "correlated") 30 else 50, 1),
   workers = integer_value("--workers", 1, 1),
-  seed = integer_value("--seed", 100, 0), reference_arguments = reference_arguments(reference))
+  seed = integer_value("--seed", 100, 0),
+  reference_arguments = resolve_experiment_arguments(reference, options),
+  audit = isTRUE(options[["--audit"]]))
 if (experiment == "table1" && !is.null(options[["--marker-design"]]))
   stop("--marker-design applies only to simulation or correlated experiments")
 settings$marker_design <- if (experiment == "table1") NULL else
@@ -34,12 +36,14 @@ settings$marker_design <- if (experiment == "table1") NULL else
 library(IntegMultiReg)
 if (!requireNamespace("digest", quietly = TRUE))
   stop("The research checkpoint writer requires the digest package")
+if (settings$audit) source(file.path(materials, "audit-unpenalized-cv.R"))
 stopifnot(packageVersion("IntegMultiReg") == "0.2.0")
 dir.create(out, recursive = TRUE, showWarnings = FALSE); out <- normalizePath(out)
 data_path <- value("--data", file.path(materials, "data", "kirc_table1_full.rda"))
 settings$data_hash <- tools::md5sum(data_path)
 settings$source_hashes <- tools::md5sum(c(script,
   file.path(materials, c("original-reference.R", "original-experiment-helpers.R", "reference/original-generator.c")),
+  if (settings$audit) file.path(materials, "audit-unpenalized-cv.R"),
   system.file("R", "IntegMultiReg.rdb", package = "IntegMultiReg"),
   system.file("libs", paste0("IntegMultiReg", .Platform$dynlib.ext), package = "IntegMultiReg")))
 manifest <- file.path(out, "settings.rds")
@@ -92,7 +96,7 @@ for (configuration in selected_configurations) for (replicate in selected_replic
       if (is.null(shared_folds)) shared_folds <- experiment_result_folds(path)
       next
     }
-    record_experiment_job(path, {
+    run_method <- function() record_experiment_job(path, {
       cat(format(Sys.time()), configuration, replicate, label, "starting\n")
       elapsed <- system.time({
         fit <- experiment_fit_checkpoint(paste0(path, ".fit.rds"), {
@@ -104,7 +108,7 @@ for (configuration in selected_configurations) for (replicate in selected_replic
         cv_args <- settings$reference_arguments$cv
         # Code reproduction keeps each fitted chain's continued stream. Other
         # comparisons use paired partitions after the first model.
-        if (!is.null(shared_folds) && reference != "code2017") {
+        if (!is.null(shared_folds) && !identical(cv_args$fold_rng, "continue")) {
           cv_args$folds <- shared_folds; cv_args$fold_rng <- NULL
         }
         cv <- do.call(cv_imr, c(list(object = fit, k = settings$k, rounds = settings$rounds,
@@ -121,9 +125,18 @@ for (configuration in selected_configurations) for (replicate in selected_replic
       if (!is.null(result$selection)) write.csv(result$selection, sub("[.]rds$", "-selection.csv", path), row.names = FALSE)
       cat(format(Sys.time()), label, "completed; seconds", elapsed[["elapsed"]], "\n")
     })
-    unlink(paste0(path, ".fit.rds"))
-    rm(fit, cv, result); gc()
+    if (settings$audit) {
+      tryCatch(run_method(), error = function(error) {
+        audit_unpenalized_failure(path, settings, error)
+      })
+    } else run_method()
+    if (experiment_job_complete(path)) {
+      if (is.null(shared_folds)) shared_folds <- experiment_result_folds(path)
+      unlink(paste0(path, ".fit.rds"))
+    }
+    gc()
   }
+  if (settings$audit) next
   baseline_name <- if (experiment == "table1") "cph-clinical" else "l1-cph"
   path <- file.path(job_dir, paste0(baseline_name, ".rds"))
   if (!experiment_job_complete(path)) {
@@ -145,4 +158,7 @@ for (configuration in selected_configurations) for (replicate in selected_replic
     })
   }
 }
-cat("All requested experiment jobs completed.\n")
+if (settings$audit) {
+  writeLines("All requested Bayesian methods audited; inspect per-method status and rank evidence.",
+             file.path(out, "AUDIT-COMPLETED"))
+} else cat("All requested experiment jobs completed.\n")

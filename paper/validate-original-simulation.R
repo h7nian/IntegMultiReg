@@ -26,7 +26,14 @@ auc_pairwise <- function(score,truth) {
 }
 reports <- list()
 configs <- if(s$experiment=='simulation')3L else 6L
-for(config in seq_len(configs)) for(rep in seq_len(s$replicates)) {
+selection <- list(configurations = seq_len(configs), replicates = seq_len(s$replicates))
+if (!full_study && file.exists(file.path(root, "task.rds"))) {
+ selection <- readRDS(file.path(root, "task.rds"))
+ stopifnot(identical(selection$kind, s$experiment),
+   all(selection$configurations %in% seq_len(configs)),
+   all(selection$replicates %in% seq_len(s$replicates)))
+}
+for(config in selection$configurations) for(rep in selection$replicates) {
  job<-file.path(root,sprintf('configuration-%02d-replicate-%03d',config,rep))
  data<-readRDS(file.path(job,'data.rds'))$data
  for(method in c('imr-molecular','bms-molecular','l1-cph')) {
@@ -45,7 +52,8 @@ for(config in seq_len(configs)) for(rep in seq_len(s$replicates)) {
     stopifnot(identical(actual,s$reference_arguments$fit[[name]]))
    }
    for(name in setdiff(names(s$reference_arguments$cv),'cv_method'))
-    if(!(name=='fold_rng' && method=='bms-molecular' && s$reference!='code2017'))
+    if(!(name=='fold_rng' && method=='bms-molecular' &&
+         !identical(s$reference_arguments$cv$fold_rng,'continue')))
       stopifnot(identical(cv$control[[name]],s$reference_arguments$cv[[name]]))
    selection<-result$selection
    for(p in seq_along(data$truth)) {

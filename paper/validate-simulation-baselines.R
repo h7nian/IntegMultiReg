@@ -22,8 +22,17 @@ compare_rows <- function(actual, expected) {
       expected$auc, tolerance = 1e-12, check.attributes = FALSE)))
 }
 reports <- list(); warning_records <- list()
-for (configuration in seq_len(if (s$experiment == 'simulation') 3L else 6L)) {
- for (replicate in seq_len(s$replicates)) {
+configurations <- seq_len(if (s$experiment == 'simulation') 3L else 6L)
+replicates <- seq_len(s$replicates)
+if (file.exists(file.path(root, 'task.rds'))) {
+ selection <- readRDS(file.path(root, 'task.rds'))
+ stopifnot(identical(selection$kind, s$experiment),
+   all(selection$configurations %in% configurations), all(selection$replicates %in% replicates))
+ configurations <- selection$configurations
+ replicates <- selection$replicates
+}
+for (configuration in configurations) {
+ for (replicate in replicates) {
   job <- file.path(root, sprintf('configuration-%02d-replicate-%03d', configuration, replicate))
   data <- readRDS(file.path(job, 'data.rds'))$data
   l1 <- readRDS(file.path(job, 'l1-cph.rds'))

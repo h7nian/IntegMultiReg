@@ -1,14 +1,16 @@
 # Research orchestration; fitting and validation use public package functions.
 parse_experiment_args <- function(args) {
   value_flags <- c("--experiment", "--reference", "--out-dir", "--draws",
-    "--burnin", "--k", "--rounds", "--replicates", "--workers", "--seed", "--data", "--marker-design", "--chain", "--configuration", "--replicate")
+    "--burnin", "--k", "--rounds", "--replicates", "--workers", "--seed", "--data", "--marker-design", "--chain", "--configuration", "--replicate",
+    "--ridge", "--cv-method", "--sampler-method", "--prior-indexing",
+    "--model-set", "--df-method", "--score-method", "--fold-rng")
   options <- list()
   i <- 1L
   while (i <= length(args)) {
     flag <- args[[i]]
-    if (!flag %in% c(value_flags, "--quick")) stop("Unknown argument: ", flag)
+    if (!flag %in% c(value_flags, "--quick", "--audit")) stop("Unknown argument: ", flag)
     if (flag %in% names(options)) stop("Duplicate argument: ", flag)
-    if (flag == "--quick") {
+    if (flag %in% c("--quick", "--audit")) {
       options[[flag]] <- TRUE
       i <- i + 1L
     } else {
@@ -145,6 +147,32 @@ reference_arguments <- function(reference) {
                 df_method = "legacy_integer", score_method = "legacy", fold_rng = "continue")),
     package = list(fit = list(), cv = list(cv_method = "legacy")),
     stop("reference must be paper, code2017 or package"))
+}
+
+# Reference names provide ordinary argument defaults. Explicit overrides are
+# stored in the manifest and then validated by the public package entrypoints.
+resolve_experiment_arguments <- function(reference, options) {
+  arguments <- reference_arguments(reference)
+  if (identical(options[["--cv-method"]], "refit"))
+    arguments$cv <- list(cv_method = "refit")
+  fit_names <- c("sampler_method", "prior_indexing")
+  cv_names <- c("cv_method", "ridge", "model_set", "df_method", "score_method", "fold_rng")
+  for (name in c(fit_names, cv_names)) {
+    flag <- paste0("--", gsub("_", "-", name, fixed = TRUE))
+    value <- options[[flag]]
+    if (is.null(value)) next
+    if (name == "ridge") {
+      value <- suppressWarnings(as.numeric(value))
+      if (length(value) != 1L || !is.finite(value) || value < 0)
+        stop("--ridge must be a finite nonnegative number")
+    }
+    section <- if (name %in% fit_names) "fit" else "cv"
+    arguments[[section]][[name]] <- value
+  }
+  if (identical(arguments$cv$cv_method, "refit") &&
+      any(c("ridge", "model_set", "df_method", "fold_rng") %in% names(arguments$cv)))
+    stop("Refit CV cannot use post-fit-only overrides")
+  arguments
 }
 
 selection_auc <- function(score, truth) {
