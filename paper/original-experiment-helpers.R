@@ -102,6 +102,14 @@ experiment_job_complete <- function(path) {
     identical(readRDS(status_path)$status, "completed")
 }
 
+write_experiment_record <- function(record, path) {
+  temporary <- tempfile(paste0(basename(path), ".tmp-"), tmpdir = dirname(path))
+  on.exit(unlink(temporary), add = TRUE)
+  saveRDS(record, temporary)
+  if (!file.rename(temporary, path)) stop("Cannot commit experiment record: ", path)
+  invisible(NULL)
+}
+
 record_experiment_job <- function(path, code) {
   expression <- substitute(code)
   caller <- parent.frame()
@@ -114,15 +122,15 @@ record_experiment_job <- function(path, code) {
     memory_scope = "R heap in this process; excludes native allocations and workers")
   record$heap_start <- gc(reset = TRUE)
   started <- proc.time()
-  saveRDS(record, attempt_path)
-  saveRDS(record, status_path)
+  write_experiment_record(record, attempt_path)
+  write_experiment_record(record, status_path)
   on.exit({
     if (record$status == "running") record$status <- "interrupted"
     record$ended <- Sys.time()
     record$elapsed <- proc.time() - started
     record$heap_end <- gc()
-    saveRDS(record, attempt_path)
-    saveRDS(record, status_path)
+    write_experiment_record(record, attempt_path)
+    write_experiment_record(record, status_path)
   }, add = TRUE)
   result <- tryCatch(withCallingHandlers(eval(expression, caller), warning = function(w) {
     record$warnings[[length(record$warnings) + 1L]] <<- list(

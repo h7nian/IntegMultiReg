@@ -1,0 +1,34 @@
+# Small negative controls use a disposable manifest, never a real study gate.
+script <- normalizePath(sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1]))
+directory <- dirname(script)
+source(file.path(directory, "study-plan.R"))
+study <- tempfile("phase-gates-")
+dir.create(file.path(study, "source/hpc"), recursive = TRUE)
+stopifnot(file.copy(file.path(directory, "study-plan.R"), file.path(study, "source/hpc")))
+plan <- list(tasks = make_study_plan())
+saveRDS(plan, file.path(study, "study.rds"))
+writeLines(unname(tools::md5sum(file.path(study, "study.rds"))), file.path(study, "MANIFEST.md5"))
+select <- function(phase, success) {
+  log <- tempfile(tmpdir = study)
+  status <- system2(file.path(R.home("bin"), "Rscript"),
+    c("--vanilla", shQuote(file.path(directory, "select-tasks.R")), shQuote(study), phase),
+    stdout = log, stderr = log)
+  stopifnot(identical(status == 0L, success))
+  if (success) as.integer(strsplit(readLines(log), ",", fixed = TRUE)[[1]])
+}
+stopifnot(length(select("audit", TRUE)) == 10L)
+select("pilot", FALSE)
+select("full", FALSE)
+writeLines("test fixture", file.path(study, "AUDITS-ACCEPTED"))
+stopifnot(length(select("pilot", TRUE)) == 20L)
+select("full", FALSE)
+dir.create(file.path(study, "tasks/0001"), recursive = TRUE)
+writeLines("test fixture", file.path(study, "tasks/0001/TASK-COMPLETED"))
+stopifnot(length(select("pilot", TRUE)) == 19L)
+writeLines("test fixture", file.path(study, "PILOT-ACCEPTED"))
+stopifnot(length(select("full", TRUE)) == 668L)
+plan$tasks$ridge[9] <- .2
+saveRDS(plan, file.path(study, "study.rds"))
+select("audit", FALSE)
+unlink(study, recursive = TRUE)
+cat("PASS: phase order, completed-task exclusion and changed-manifest rejection.\n")

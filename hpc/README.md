@@ -28,6 +28,14 @@ Only one array can be active for a study, with a global limit of 16 tasks. Run
 array finishes; these check evidence before opening the next phase. Pilot
 tasks retain full-study settings and count toward the final study.
 
+`start-study.sh CANDIDATE STUDY` is the batch entrypoint for unattended execution
+after candidate validation. Dependent controllers run the evidence checks and
+advance audit → pilot → full → collection. They stop on unexplained failures.
+Terminal OOM or timeout failures may receive one resource increase; node failures
+or preemption may receive one unchanged retry. Numerical failures and cancelled
+jobs are not automatically retried. All retries retain the original task identity
+and scientific settings.
+
 Each array task has its own directory and lock. Completed tasks are skipped;
 failed tasks keep their status, logs and completed fit checkpoints. A fit that
 did not finish must restart from its original seed. Verify Slurm's terminal

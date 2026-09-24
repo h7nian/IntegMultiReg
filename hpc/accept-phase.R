@@ -2,7 +2,8 @@
 args <- commandArgs(TRUE)
 stopifnot(length(args) == 2L, args[2] %in% c("audit", "pilot"))
 study <- normalizePath(args[1], mustWork = TRUE)
-plan <- readRDS(file.path(study, "study.rds"))
+source(file.path(study, "source/hpc/study-plan.R"))
+plan <- read_study_plan(study)
 stopifnot(identical(tools::md5sum(names(plan$hashes)), plan$hashes))
 .libPaths(c(file.path(plan$candidate, "library"), plan$dependencies, .libPaths()))
 source(file.path(plan$source, "paper/original-experiment-helpers.R"))
@@ -89,7 +90,7 @@ for (i in seq_len(nrow(tasks))) {
 write.csv(do.call(rbind, audit), file.path(study, paste0(args[2], "-acceptance.csv")), row.names = FALSE)
 if (args[2] == "pilot") {
   memory_mib <- max(4096, ceiling(1.5 * max(rss) / 1024 / 2048) * 2048)
-  stopifnot(memory_mib <= 128L * 1896L)
+  stopifnot(memory_mib <= plan$resource_limits$max_task_cpus * plan$resource_limits$memory_per_cpu_mib)
   writeLines(as.character(memory_mib), file.path(study, "production-memory-mib"))
 }
 saveRDS(list(tasks = tasks, rss_kib = rss, source_hashes = plan$hashes,

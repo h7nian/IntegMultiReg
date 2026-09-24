@@ -6,6 +6,8 @@ candidate <- normalizePath(args[1], mustWork = TRUE)
 out <- args[2]
 stopifnot(file.exists(file.path(candidate, "UNIT-VALIDATED")),
           file.exists(file.path(candidate, "NATIVE-VALIDATED")), !dir.exists(out))
+tested <- readRDS(file.path(candidate, "evidence/research-source-hashes.rds"))
+stopifnot(identical(tools::md5sum(names(tested)), tested))
 source(file.path(root, "hpc/study-plan.R"))
 dir.create(out, recursive = TRUE)
 out <- normalizePath(out)
@@ -31,8 +33,13 @@ plan <- list(tasks = tasks, candidate = candidate, dependencies = dependencies,
   source = frozen, hashes = tools::md5sum(c(destinations, runtime_files)),
   R_version = R.version, rng_kind = RNGkind(),
   gsl_version = system2("gsl-config", "--version", stdout = TRUE),
-  concurrency = 16L, created = Sys.time())
+  concurrency = 16L,
+  resource_limits = list(memory_per_cpu_mib = as.integer(Sys.getenv("IMR_MEMORY_PER_CPU_MIB")),
+    max_task_cpus = as.integer(Sys.getenv("IMR_MAX_TASK_CPUS")),
+    max_wall_hours = as.integer(Sys.getenv("IMR_MAX_WALL_HOURS"))), created = Sys.time())
+stopifnot(all(is.finite(unlist(plan$resource_limits))), all(unlist(plan$resource_limits) > 0))
 saveRDS(plan, file.path(out, "study.rds"))
+writeLines(unname(tools::md5sum(file.path(out, "study.rds"))), file.path(out, "MANIFEST.md5"))
 write.csv(tasks, file.path(out, "tasks.csv"), row.names = FALSE, na = "")
 writeLines(capture.output(sessionInfo()), file.path(out, "sessionInfo.txt"))
 cat("Frozen", nrow(tasks), "tasks:", sum(tasks$kind == "audit"), "audits and",

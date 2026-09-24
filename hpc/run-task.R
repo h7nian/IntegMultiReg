@@ -2,8 +2,10 @@
 args <- commandArgs(TRUE)
 stopifnot(length(args) == 2L)
 study <- normalizePath(args[1], mustWork = TRUE)
+stopifnot(grepl("^[1-9][0-9]*$", args[2]))
 id <- as.integer(args[2])
-plan <- readRDS(file.path(study, "study.rds"))
+source(file.path(study, "source/hpc/study-plan.R"))
+plan <- read_study_plan(study)
 stopifnot(length(id) == 1L, !is.na(id), id >= 1L, id <= nrow(plan$tasks),
   identical(tools::md5sum(names(plan$hashes)), plan$hashes),
   identical(R.version, plan$R_version), identical(RNGkind(), plan$rng_kind),
@@ -11,7 +13,6 @@ stopifnot(length(id) == 1L, !is.na(id), id >= 1L, id <= nrow(plan$tasks),
 .libPaths(c(file.path(plan$candidate, "library"), plan$dependencies, .libPaths()))
 stopifnot(normalizePath(find.package("IntegMultiReg")) ==
           normalizePath(file.path(plan$candidate, "library/IntegMultiReg")))
-source(file.path(plan$source, "hpc/study-plan.R"))
 task <- plan$tasks[id, , drop = FALSE]
 directory <- file.path(study, "tasks", sprintf("%04d", id))
 dir.create(directory, recursive = TRUE, showWarnings = FALSE)

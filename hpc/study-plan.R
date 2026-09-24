@@ -1,4 +1,11 @@
 # One row is one independently restartable Slurm array task.
+read_study_plan <- function(study) {
+  path <- file.path(study, "study.rds")
+  stopifnot(identical(unname(tools::md5sum(path)),
+                      readLines(file.path(study, "MANIFEST.md5"))))
+  readRDS(path)
+}
+
 make_study_plan <- function() {
   rows <- list()
   add <- function(kind, experiment, reference, ridge, marker_design,
