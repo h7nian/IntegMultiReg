@@ -69,7 +69,7 @@ complete task coverage and CLI overrides; phase gates and manifest mutation;
 mock Slurm submission/resource bounds; once-only OOM/timeout retry selection;
 job record timing, warnings, RNG preservation and failure history. Mock scheduler
 checks do not submit jobs and do not establish that the numerical suite passed.
-The full installed and instrumented runs remain queued/dependency-blocked.
+The full installed and instrumented suites have not passed yet; see the latest scheduling update below.
 
 Scratch quota check: 100 TB allocation, 63.9 GB used at the recorded check;
 CPU allocation balance: approximately 741,927 SU. These are point-in-time
@@ -82,3 +82,18 @@ instrumented checks. The queued bootstrap opens scientific phases only after
 those checks pass; failures stop the dependent chain. Scientific convergence,
 full-study validation, final manuscript/response refresh and release packaging
 remain outstanding. Native mid-chain continuation is not implemented.
+
+## Multi-partition routing update
+
+At the user's request, pending jobs were given multiple eligible partitions
+using Slurm's native partition list. Job IDs and dependencies were preserved;
+no duplicate build or study jobs were created. Details are in
+`runtime/partition-routing-20260923.json`.
+
+Dependency installation 20884522 and native runtime build 20887909 started on
+`highmem`, node b000. The new R and Valgrind archive checks passed. Regression
+and sanitizer jobs can use shared/highmem; short bootstrap can use shared/debug.
+Strict validation remains on shared while the four-job highmem submission
+limit is occupied. The highmem CPU billing multiplier is 4; whole-node and GPU
+partitions were not added. Production study parameters and the 16-task cap
+remain unchanged. Check live scheduler state before any subsequent rerouting.
