@@ -39,6 +39,9 @@ all 3381 payload files matched before development began.
 - `20885029`: strict candidate examples/tests/vignettes, graphics and negative
   controls, instrumented parent and PSOCK workers. Depends on all three
   preceding validation jobs succeeding; 16 GiB / twelve hours.
+- `20886175`: study bootstrap, depends on strict-check success. Freezes the
+  tested research source and runtime, then schedules audit → pilot → full →
+  collection through evidence-checking controllers. Initial cap: 16 tasks.
 - User job `20770853` is unrelated and must not be changed.
 
 No scientific tasks have been submitted. Do not create `UNIT-VALIDATED`,
@@ -46,10 +49,21 @@ No scientific tasks have been submitted. Do not create `UNIT-VALIDATED`,
 the corresponding successful checks. Existing historical CI does not validate
 the repaired native sources.
 
+Offline checks passed: syntax for all C sources and R orchestration files;
+complete task coverage and CLI overrides; phase gates and manifest mutation;
+mock Slurm submission/resource bounds; once-only OOM/timeout retry selection;
+job record timing, warnings, RNG preservation and failure history. Mock scheduler
+checks do not submit jobs and do not establish that the numerical suite passed.
+The full installed and instrumented runs remain queued/dependency-blocked.
+
+Scratch quota check: 100 TB allocation, 63.9 GB used at the recorded check;
+CPU allocation balance: approximately 741,927 SU. These are point-in-time
+observations, not reserved resources or completion-time guarantees.
+
 ## Remaining before launch
 
-Run and inspect candidate-b regression, package check and instrumented checks.
-Complete collection and phase-gate negative tests. Freeze runtime and research sources, then submit audit, pilot
-and full phases with a single global 16-task cap. Scientific convergence,
+Run and inspect candidate-b regression, real task-splitting, package check and
+instrumented checks. The queued bootstrap opens scientific phases only after
+those checks pass; failures stop the dependent chain. Scientific convergence,
 full-study validation, final manuscript/response refresh and release packaging
 remain outstanding. Native mid-chain continuation is not implemented.
