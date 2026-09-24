@@ -17,5 +17,6 @@ IntegMultiReg/config.status
 !hpc/**
 !tools/
 !tools/*.py
+!tools/*.sh
 __pycache__/
 *.pyc

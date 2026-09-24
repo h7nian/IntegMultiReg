@@ -97,3 +97,39 @@ Strict validation remains on shared while the four-job highmem submission
 limit is occupied. The highmem CPU billing multiplier is 4; whole-node and GPU
 partitions were not added. Production study parameters and the 16-task cap
 remain unchanged. Check live scheduler state before any subsequent rerouting.
+
+## September 24 validation status
+
+The dependency installation completed all 32 builds, but the first checker
+incorrectly compared packageVersion()'s normalized spelling (for example
+0.22.6) with the literal DESCRIPTION lock (0.22-6). Exact DESCRIPTION versions
+and actual loaded namespace paths now pass for all 32 packages. Finalization
+job 20894124 completed successfully; the library was not reinstalled.
+
+Regression job 20887913 completed: 2850 installed assertions, zero failures,
+warnings or skips; exact default comparisons for six fits and eighteen CVs;
+independent theta/Gamma targets and original-C conditional predictions; eight
+serial/split chain comparisons and six serial/split simulation comparisons;
+checkpoint, collection and scheduler negative controls. UNIT-VALIDATED exists.
+
+The ASAN/UBSAN suite also passed 2850 assertions and independent sampler
+references. Its final fault-injection harness assumed that the package was the
+Git root; that assumption failed in this nested workspace. The harness now
+copies the tested source and applies the patch in a private Git root. Separate
+completion job 20894153 passed all 72 allocation failure/recovery cases against
+the same candidate. SANITIZER-VALIDATED exists. Prior failure logs remain intact.
+
+Strict job 20887914 built the package and vignette, then stopped at a package-free
+base-R graphics control: four unsuppressed Fontconfig/Pango leak contexts, before
+IntegMultiReg was loaded. Graphics audit 20894229 ran nine controls (three each
+of base, extended and vignette graphics). Their 66 raw leak records yielded
+12 exact, bounded 24-frame font-only rules, with no wildcard, invalid-access,
+uninitialized-read or IntegMultiReg-frame rule. These are local environment
+exclusions, not evidence that those graphics libraries are leak-free.
+
+Strict retry 20894290 must pass all nine scoped replays, the R-heap and archived
+7200-byte leak negative controls, and the complete candidate/worker checks before
+NATIVE-VALIDATED can be written. Bootstrap 20887915 now depends on that retry.
+The scientific study has not started. No convergence or full-study acceptance
+is claimed. Latest IDs are in runtime/current-jobs.tsv; graphics evidence is
+under runtime/candidate-b/anvil-graphics-audit/.

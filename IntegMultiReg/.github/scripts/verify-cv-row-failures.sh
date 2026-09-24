@@ -1,14 +1,23 @@
 #!/usr/bin/env bash
 # Keep injected source and its library separate from the normally tested build.
 set -euo pipefail
-: "${GITHUB_WORKSPACE:?A checked-out repository is required}"
+: "${GITHUB_WORKSPACE:?The tested package source directory is required}"
 : "${RUNNER_TEMP:?An isolated runner output directory is required}"
 : "${SANITIZER_RUNTIME:?The matching sanitizer runtime is required}"
 
 fault_source="${RUNNER_TEMP}/row-fault-source"
 fault_library="${RUNNER_TEMP}/row-fault-library"
 mkdir "${fault_source}" "${fault_library}"
-git -C "${GITHUB_WORKSPACE}" archive HEAD | tar -x -C "${fault_source}"
+test -f "${GITHUB_WORKSPACE}/DESCRIPTION"
+# Use the tested working source, including uncommitted changes. The package
+# may be nested in a research repository or extracted without Git metadata.
+tar -C "${GITHUB_WORKSPACE}" --exclude=.git --exclude='*.o' --exclude='*.so' \
+  --exclude='*.dll' --exclude='*.dylib' --exclude=src/Makevars -cf - . | \
+  tar -xf - -C "${fault_source}"
+test -f "${fault_source}/DESCRIPTION"
+# Isolate git apply from any ancestor repository so it cannot skip the patch
+# as outside the current working-directory prefix.
+git -C "${fault_source}" init -q
 git -C "${fault_source}" apply --check \
   "${GITHUB_WORKSPACE}/.github/scripts/cv-row-fault-injection.patch"
 git -C "${fault_source}" apply \

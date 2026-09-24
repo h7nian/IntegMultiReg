@@ -19,7 +19,4 @@ while IFS=$'\t' read -r package version; do
   [[ "$package" == Package ]] && continue
   R CMD INSTALL --library="$IMR_DEPENDENCIES" "$IMR_ROOT/dependencies/${package}_${version}.tar.gz"
 done < "$IMR_ROOT/dependencies/dependencies.tsv"
-Rscript --vanilla "$IMR_ROOT/hpc/check-dependencies.R"
-Rscript --vanilla -e 'saveRDS(R.version, file.path(Sys.getenv("IMR_DEPENDENCIES"), "R-version.rds")); sessionInfo()' > "$IMR_DEPENDENCIES/sessionInfo.txt"
-gsl-config --version > "$IMR_DEPENDENCIES/gsl-version.txt"
-date -u +%FT%TZ > "$IMR_DEPENDENCIES/READY"
+bash "$IMR_ROOT/hpc/finalize-dependencies.sh"
