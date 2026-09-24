@@ -139,7 +139,11 @@ released C code used 25 for prediction; these are not MCMC draw counts.}
 
 \item{laplace_tolerance}{Positive relative coefficient-mode convergence
 tolerance (default \code{0.001}). Numerical controls are stored in the fit and
-reused by prediction and cross-validation, including training-fold refits.}
+reused by prediction and cross-validation, including training-fold refits.
+\code{control$laplace_diagnostics} records calls, iteration-limit hits, nonfinite
+likelihoods and factorization failures by subgroup for the initial,
+selection and latent fitting stages. These counters do not assess MCMC
+convergence or subsequent prediction-stage optimization.}
 
 \item{standardize}{Logical; standardize features and forced covariates
 within availability subgroups (default \code{TRUE}). Set \code{FALSE} for inputs

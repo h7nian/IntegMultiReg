@@ -95,7 +95,10 @@ predictions. \code{metric} names the accuracy measure and \code{validation} reco
 the selected \code{cv_method} as a character string.
 \code{control} records effective options, sampler/numerical conventions, version,
 seed and actual fold membership/order. It is additional metadata; the first
-five fields retain their existing meanings.
+   five fields retain their existing meanings.
+   Refit results also record \code{control$refit_seeds}, a rounds-by-fold matrix.
+   Supplied folds use the same fitting seed plan as generated folds, so saved
+   folds replay predictions under the same runtime and RNG kind.
 Undefined AUCs (single class) and C-indices (no comparable pairs) are \code{NA}.
 }
 \description{

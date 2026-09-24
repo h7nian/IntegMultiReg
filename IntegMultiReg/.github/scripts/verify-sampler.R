@@ -6,7 +6,7 @@ out <- normalizePath(args[1])
 work <- file.path(out, "probe-source")
 dir.create(work, showWarnings = FALSE)
 files <- c("log_lik_non_local.c", "log_posterior.c", "utils.c", "sample_gamma.c",
-           "sampler_math.c")
+           "sampler_math.c", "sample_theta.c", "numerical_control.c")
 file.copy(c(file.path("src", files), list.files("src", "[.]h$", full.names = TRUE),
             ".github/scripts/sampler-probe.c"), work, overwrite = TRUE)
 old <- setwd(work)
@@ -20,6 +20,22 @@ stopifnot(status == 0L)
 library(IntegMultiReg)
 dll <- dyn.load(file.path(work, paste0("probe", .Platform$dynlib.ext)))
 probe <- function(name, ...) .Call(name, ..., PACKAGE = dll[["name"]])
+# Fixed-gamma theta target, independent of the C proposal and acceptance code.
+theta_density <- function(x) dgamma(x, 40, rate = 10) /
+  (1 + 2 * exp(-3) + exp(-6 + 2 * x))
+mass <- integrate(theta_density, 0, 50, rel.tol = 1e-10)$value
+theta_mean <- integrate(function(x) x * theta_density(x), 0, 50,
+                        rel.tol = 1e-10)$value / mass
+theta_report <- lapply(c(1e-8, 4), function(start) {
+  samples <- probe("review_theta", start, 200000L)
+  stopifnot(all(is.finite(samples)), all(samples > 0))
+  batches <- colMeans(matrix(samples, nrow = 2000L))
+  mcse <- sd(batches) / sqrt(length(batches))
+  stopifnot(abs(mean(samples) - theta_mean) < 6 * mcse,
+            mcse < .03)
+  data.frame(start, expected_mean = theta_mean, sampled_mean = mean(samples), mcse)
+})
+write.csv(do.call(rbind, theta_report), file.path(out, "theta-reference.csv"), row.names = FALSE)
 stopifnot(isTRUE(all.equal(probe("review_precision", 0L), c(1.2, 1/3, 1/7, 1/2))),
           isTRUE(all.equal(probe("review_precision", 1L), c(1.2, 1/7, 1/2, 1/2))))
 log_z <- function(t) log(1 + 2 * exp(-3) + exp(-6 + 2 * t))

@@ -70,6 +70,9 @@
 #'   `control` records effective options, sampler/numerical conventions, version,
 #'   seed and actual fold membership/order. It is additional metadata; the first
 #'   five fields retain their existing meanings.
+#'   Refit results also record `control$refit_seeds`, a rounds-by-fold matrix.
+#'   Supplied folds use the same fitting seed plan as generated folds, so saved
+#'   folds replay predictions under the same runtime and RNG kind.
 #'   Undefined AUCs (single class) and C-indices (no comparable pairs) are `NA`.
 #'
 #' @details
@@ -225,21 +228,12 @@ cv_imr <- function(object, k = 5, rounds = 2,
   rng <- .imr_save_rng()
   on.exit(.imr_restore_rng(rng), add = TRUE)
   set.seed(control$seed)
-  # Generate every split and sampler seed before fitting, since imr() seeds R.
-  partitions <- if (is.null(supplied_folds)) lapply(seq_len(rounds), function(r) {
-    folds <- integer(nrow(subjects))
-    for (idx in groups) {
-      strata <- if (control$outcome_type == "continuous") rep(1, length(idx)) else {
-        outcome[idx, if (control$outcome_type == "binary") 2L else 3L]
-      }
-      folds[idx] <- .imr_cv_folds(strata, k)
-    }
-    folds
-  }) else lapply(seq_len(rounds), function(round) {
+  plan <- .imr_cv_refit_plan(groups, outcome, control$outcome_type, k, rounds)
+  partitions <- if (is.null(supplied_folds)) plan$partitions else lapply(seq_len(rounds), function(round) {
     rows <- supplied_folds[supplied_folds$round == round, , drop = FALSE]
     rows$fold[match(subjects$id, rows$id)]
   })
-  seeds <- matrix(sample.int(.Machine$integer.max, rounds * k, replace = TRUE), rounds, k)
+  seeds <- plan$seeds
   tasks <- unlist(lapply(seq_len(rounds), function(r) {
     lapply(seq_len(k), function(fold) {
       list(round = r, fold = fold, seed = seeds[r, fold],
@@ -280,12 +274,13 @@ cv_imr <- function(object, k = 5, rounds = 2,
     metric = switch(control$outcome_type,
       right.censored = "C-index", binary = "AUC", continuous = "MSE"),
     validation = "refit",
-    control = .imr_cv_control(settings, object, k, rounds, max_models,
+    control = c(.imr_cv_control(settings, object, k, rounds, max_models,
       if (is.null(supplied_folds)) do.call(rbind, lapply(seq_len(rounds), function(r) {
         data.frame(id = subjects$id, round = r, fold = partitions[[r]],
           row_order = as.integer(stats::ave(seq_len(nrow(subjects)), subjects$subgroup, FUN = seq_along)))
       })) else supplied_folds,
-      if (is.null(supplied_folds)) "r" else "supplied")
+      if (is.null(supplied_folds)) "r" else "supplied"),
+      list(refit_seeds = seeds))
   )
 }
 

@@ -2,7 +2,17 @@
 #include <math.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_matrix.h>
+#include <Rmath.h>
 #include "my_header.h"
+
+/* Keep historical arithmetic when the density is representable. R's log
+ * density avoids log(0) and log(Inf) in the tails of the Gamma proposal. */
+static double theta_log_proposal(double value, double shape, double scale)
+{
+    double density = gsl_ran_gamma_pdf(value, shape, scale);
+    return isfinite(density) && density > 0 ? log(density) :
+        dgamma(value, shape, scale, 1);
+}
 
 /*
  * Metropolis-Hastings update for one platform's MRF interaction matrix.
@@ -27,6 +37,14 @@ void sample_mrf_theta(
             double old_shape = MAX(theta_current, 0.2) * old_rate;
             double theta_proposal = gsl_ran_gamma(rng, old_shape, 1 / old_rate);
 
+            /* GSL can round a very small Gamma draw to zero. Zero is outside
+             * the state space; retain the draw's usual acceptance RNG step. */
+            if (!isfinite(theta_proposal) || theta_proposal <= 0)
+            {
+                (void)gsl_ran_flat(rng, 0, 1);
+                continue;
+            }
+
             double shared_selected = 0;
             for (int g = 0; g < n_features; g++)
             {
@@ -48,13 +66,14 @@ void sample_mrf_theta(
                 n_features *
                     (proposed_mrf_log_normalizer - *mrf_log_normalizer);
 
-            double accept = MIN(
-                exp(log_accept_ratio +
-                    log(gsl_ran_gamma_pdf(theta_current, new_shape,
-                                          1 / new_rate)) -
-                    log(gsl_ran_gamma_pdf(theta_proposal, old_shape,
-                                          1 / old_rate))),
-                1);
+            double log_acceptance = log_accept_ratio +
+                theta_log_proposal(theta_current, new_shape, 1 / new_rate) -
+                theta_log_proposal(theta_proposal, old_shape, 1 / old_rate);
+            /* MIN(NaN, 1) evaluates to 1: test before using that macro.
+             * Signed infinite log ratios still have valid MH limits. */
+            double accept = isnan(log_acceptance) ||
+                !isfinite(proposed_mrf_log_normalizer) ? 0 :
+                MIN(exp(log_acceptance), 1);
             double uni = gsl_ran_flat(rng, 0, 1);
             if (uni < accept)
             {

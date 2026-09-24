@@ -227,7 +227,7 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
         gsl_linalg_cholesky_decomp(&m11.matrix);
         beta[l][m] = malloc(k * sizeof(double));
 	        loglik[m] = log_likelihood_nonlocal(k, K, n_selected_features[0], N, alpha, psi, y[m], PG, precision_copy, &m11.matrix,
-	                                   beta[l][m], rr, h[m], h1, h0, hg, maxiter, stop, 0);
+	                                   beta[l][m], rr, h[m], h1, h0, hg, maxiter, stop, 0, numerical, IMR_LAPLACE_PREDICTION);
 	        free(precision);
 	        free(precision_copy);
 	      }

@@ -91,9 +91,10 @@ double log_likelihood_nonlocal(
     double **design, double *precision, const gsl_matrix *chol_precision,
     double *beta_mode, int moment_order, double slab_scale,
     double covariate_scale, double intercept_scale, double first_platform_scale,
-    int max_iter, double tolerance, _Bool positive_beta);
+    int max_iter, double tolerance, _Bool positive_beta,
+    const imr_numerical_control *numerical, int stage);
 
-void maximize_nonlocal_beta(
+int maximize_nonlocal_beta(
     double *xty, double nu, double sigma2, double *precision, int max_iter,
     double tolerance, double *beta_init, int n_coefficients, int moment_order,
     _Bool positive_beta);

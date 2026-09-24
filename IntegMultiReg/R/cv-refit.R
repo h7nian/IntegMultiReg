@@ -1,3 +1,22 @@
+# Generate the historical partitions before seeds, even when external folds
+# will replace them. This preserves ordinary runs and makes saved-fold replay
+# use the same fitting seeds. The caller owns RNG seeding and restoration.
+.imr_cv_refit_plan <- function(groups, outcome, outcome_type, k, rounds) {
+  partitions <- lapply(seq_len(rounds), function(round) {
+    folds <- integer(nrow(outcome))
+    for (idx in groups) {
+      strata <- if (outcome_type == "continuous") rep(1, length(idx)) else {
+        outcome[idx, if (outcome_type == "binary") 2L else 3L]
+      }
+      folds[idx] <- .imr_cv_folds(strata, k)
+    }
+    folds
+  })
+  list(partitions = partitions,
+       seeds = matrix(sample.int(.Machine$integer.max, rounds * k,
+                                 replace = TRUE), rounds, k))
+}
+
 # A deterministic unit of refit CV once its row IDs and sampler seed are fixed.
 # Keep all training-dependent preparation inside .imr_cv_refit(). The caller
 # owns partition generation, RNG restoration and ordered metric aggregation.

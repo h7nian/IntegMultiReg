@@ -1,5 +1,16 @@
 # IntegMultiReg 0.2.0
 
+* Reject nonpositive or nonfinite theta proposals and undefined acceptance
+  ratios. Gamma proposal log densities use a stable fallback when the ordinary
+  density underflows or overflows; the representable-density path is unchanged.
+* Replaying saved folds in refit CV now uses the original fitting seed plan.
+  `control$refit_seeds` records the rounds-by-fold seeds. Ordinary generated-fold
+  results retain their previous numerical behavior.
+* Record fitting-stage Laplace calls, iteration-limit hits, nonfinite likelihoods
+  and factorization failures by subgroup in `control$laplace_diagnostics`.
+  These counters describe initial, selection and latent updates, not prediction
+  or MCMC convergence. Existing fitted objects without counters remain readable.
+
 * Share exactly equal selection matrices when exporting fitted draws to R.
   Every draw and its order remain in the existing nested-list interface; R
   copy-on-modify preserves independent user edits. This reduces live allocation

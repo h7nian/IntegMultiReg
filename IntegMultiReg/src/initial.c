@@ -30,6 +30,7 @@ void initialize_sampler_state(int outcome_type, double **Y, double ***newCC, dou
 
   for (int m = 0; m < n_subgroups; m++)
   {
+    if (numerical->diagnostics) numerical->diagnostics->subgroup = m;
     int N = sample_size_ptr[m];
     int **selected_feature_index = calloc(n_model_platforms_c[m], sizeof(int *));
     int *n_selected_features = calloc(n_model_platforms_c[m], sizeof(int));
@@ -106,9 +107,10 @@ void initialize_sampler_state(int outcome_type, double **Y, double ***newCC, dou
       for (int j = 0; j <= i; j++)
         precision_copy[i * k + j] = precision_copy[j * k + i] = precision[i * k + j];
     gsl_matrix_view m11 = gsl_matrix_view_array(precision, k, k);
-    gsl_linalg_cholesky_decomp(&m11.matrix);
+    if (gsl_linalg_cholesky_decomp(&m11.matrix) != 0)
+      imr_record_laplace(numerical, IMR_LAPLACE_INITIAL, IMR_LAPLACE_FACTORIZATION_FAILURE);
     double *beta_mode = malloc(k * sizeof(double));
-    log_likelihood[m] = log_likelihood_nonlocal(k, K, n_selected_features[0], N, alpha, psi, Y[m], PG, precision_copy, &m11.matrix, beta_mode, rr, h[m], h1, h0, hg, maxiter, stop, 0);
+    log_likelihood[m] = log_likelihood_nonlocal(k, K, n_selected_features[0], N, alpha, psi, Y[m], PG, precision_copy, &m11.matrix, beta_mode, rr, h[m], h1, h0, hg, maxiter, stop, 0, numerical, IMR_LAPLACE_INITIAL);
     free(precision);
     free(precision_copy);
     free(beta_mode);
