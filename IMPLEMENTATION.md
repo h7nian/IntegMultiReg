@@ -1,5 +1,28 @@
 # Anvil implementation, 2026-09-23
 
+## Production checkpoint: September 25, 19:50 local time
+
+All ten audits and all twenty full-parameter pilot tasks have completed and
+passed their respective acceptance gates. Pilot validator `20906255` completed
+successfully in 13m15s, including prediction/score replay, baseline checks and
+the original-scale Table 1 audit. Its measured resource recommendation is
+12288 MiB; the already submitted production tasks retain their conservative
+16384 MiB allocation.
+
+Production array `20905186` is now at its full throttle of 64. The refreshed
+snapshot records 78 completed, 46 running and 525 queued production tasks.
+No task failures, resource retries or execution blockers are recorded. The
+code2017 main simulation's first configuration has all 50 repetitions available;
+its second configuration has 30. These task results await complete-study
+collection and scientific interpretation.
+
+The detached controller is alive. A few nonzero Slurm responses while changing
+an array containing finished elements were handled by the existing refresh/retry
+path; the live throttle and controller state now both confirm 64. No scientific
+job was restarted for those metadata responses. The current progress CSV has
+1465 score rows from 97 completed scored tasks, plus the completed diagnostic
+pilot chain, which is not a score-table task.
+
 ## Concurrency increased: September 25, 12:19 local time
 
 The user requested another increase. The active execution policy now caps the
