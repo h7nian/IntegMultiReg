@@ -21,6 +21,23 @@ and 671 can use shared/highmem; the remaining audit tasks use shared. Controller
 The pilot's acceptance/full-release controller waits for native-check success.
 The frozen source/runtime manifest and the live method status were verified.
 
+At the September 24 22:20 check, audit tasks 670 and 671 had completed in
+14m06s and 18m43s. Task 670 completed both methods; task 671 retained the
+expected zero-ridge IMR rank failure and completed BMS. Eight audits remained
+queued, so tasks 672–674 were given shared/highmem eligibility. Task 672 has
+started. Routing job `20900652` will add that eligibility to further pending
+tasks of this array as the four-submitted-job highmem limit permits. It changes
+neither resources nor scientific settings, excludes tasks exceeding highmem's
+48-hour limit, and stops once no eligible shared-only pending tasks remain.
+Routing events are saved in the study directory; the helper has a two-hour
+batch limit and does not route unrelated jobs.
+
+The current strict package check has passed examples, tests and vignette
+rebuilding with zero errors/warnings and two reviewed NOTEs (instrumented
+example timing and unavailable local HTML tools, covered by CI). The additional
+unrestricted worker suite is still running. Native acceptance, the 20-task
+pilot and full production have not yet completed.
+
 GitHub branch `ci/anvil-candidate-b-20260924`, commit
 `7fa16bbf5afb450324b89cc67fe3d7bcc3a535ea`, matches the frozen R/C/manual/test
 source. All nine jobs succeeded:
