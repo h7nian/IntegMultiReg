@@ -44,9 +44,20 @@ instrumented workers with zero Memcheck errors and definite leaks. All twelve
 graphics controls and both negative controls passed their acceptance checks.
 Hashes and a complete summary are in
 `runtime/candidate-b/evidence/native-validation-summary.json`.
-Audit tasks 670–674 have completed; 675 and 676 are running. The 20-task pilot
+At September 24 23:35 local time, audit tasks 670–678 had completed and task
+679 was running. The 20-task pilot
 and full production remain pending scientific audit acceptance. The manifest's
 `native_validated_at_start = FALSE` is retained as an accurate historical record.
+
+The overnight monitor is now detached from the chat's launching shell with
+its own process session, a 24-hour timeout and durable redirected logs. It
+polls routing metadata every 60 seconds and silently refreshes
+`runs/study-20260923/PROGRESS.md` every 15 minutes. The report records phase
+counts, outstanding controller failures and links to completed-task score CSVs.
+Audit and scientific scores are separate; large RDS fits are never loaded by
+this monitor, and it never creates acceptance markers. The current supervisor
+PID, worker PID, log and schedule are in `runtime/partition-router.json`.
+Scientific arrays and their acceptance controllers remain Slurm jobs.
 
 GitHub branch `ci/anvil-candidate-b-20260924`, commit
 `7fa16bbf5afb450324b89cc67fe3d7bcc3a535ea`, matches the frozen R/C/manual/test

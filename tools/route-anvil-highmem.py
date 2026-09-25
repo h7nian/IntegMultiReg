@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import time
 
 
@@ -43,7 +44,12 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--follow-study", action="store_true",
                         help="Follow recorded phase arrays until collection completes.")
+    parser.add_argument("--poll-seconds", type=int, default=60)
+    parser.add_argument("--report-interval", type=int, default=0,
+                        help="Refresh PROGRESS.md every N seconds; zero disables reports.")
     args = parser.parse_args()
+    if not 1 <= args.poll_seconds <= 60 or args.report_interval < 0:
+        parser.error("poll-seconds must be 1–60 and report-interval nonnegative")
     if not re.fullmatch(r"[1-9][0-9]*", args.array):
         parser.error("array must be a Slurm job ID")
     submissions = (args.study / "submissions.tsv").read_text().splitlines()
@@ -53,9 +59,20 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         print("Router PID", os.getpid(), "array", args.array,
               "within four highmem submissions; wall limit 48 hours.", flush=True)
+        last_report = float("-inf")
         while True:
+            finished = (args.study / "VALIDATION-COMPLETED").exists()
+            if args.report_interval and not args.dry_run and (
+                    finished or time.monotonic() - last_report >= args.report_interval):
+                try:
+                    subprocess.check_call([sys.executable,
+                        str(Path(__file__).resolve().with_name("write-study-progress.py")),
+                        str(args.study)], stdout=subprocess.DEVNULL, timeout=60)
+                except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+                    print("Progress refresh failed; routing continues:", error, flush=True)
+                last_report = time.monotonic()
             if args.follow_study:
-                if (args.study / "VALIDATION-COMPLETED").exists():
+                if finished:
                     break
                 latest = (args.study / "last-array-id").read_text().strip()
                 recorded = {line.split("\t")[0] for line in
@@ -65,7 +82,7 @@ def main():
                 if not re.fullmatch(r"[1-9][0-9]*", latest) or latest not in recorded:
                     if args.once or args.dry_run:
                         break
-                    time.sleep(30)
+                    time.sleep(args.poll_seconds)
                     continue
                 if latest != args.array:
                     args.array = latest
@@ -78,7 +95,7 @@ def main():
                 if args.once or args.dry_run:
                     raise
                 print("Queue query failed; retrying:", error, flush=True)
-                time.sleep(30)
+                time.sleep(args.poll_seconds)
                 continue
             rows = [[field.strip() for field in line.split("|")]
                     for line in output.splitlines() if line.strip()]
@@ -104,7 +121,7 @@ def main():
                 print(json.dumps(record), flush=True)
             if args.once or args.dry_run or (not waiting and not args.follow_study):
                 break
-            time.sleep(30)
+            time.sleep(args.poll_seconds)
 
 
 if __name__ == "__main__":
