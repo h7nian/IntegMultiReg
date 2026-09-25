@@ -109,10 +109,16 @@ def report(study):
                     method=path.name[:-len("-scores.csv")], **fields))
     current_array = submissions[-1][0] if submissions else ""
     controller_problems = []
-    for job, phase, array in controllers:
+    overlap_policy = study / "execution/overlap-policy.json"
+    policy = json.loads(overlap_policy.read_text()) if overlap_policy.exists() else {}
+    superseded = set(policy.get("superseded_controllers", []))
+    last_controller = {phase: (job, array) for job, phase, array in controllers if job not in superseded}
+    for phase, (job, array) in last_controller.items():
         state = queue.get(job, accounting.get(job, {})).get("state", "UNKNOWN")
-        if array == current_array and state.split()[0].rstrip("+") in failures:
+        if state.split()[0].rstrip("+") in failures:
             controller_problems.append({"job": job, "phase": phase, "state": state})
+    execution_path = study / "execution/overlap-state.json"
+    execution = json.loads(execution_path.read_text()) if execution_path.exists() else {}
     now = datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(timespec="seconds")
     snapshot = {"updated": now, "current_array": current_array,
         "current_phase": submissions[-1][1] if submissions else "not submitted",
@@ -121,6 +127,8 @@ def report(study):
                    for group, counts in groups.items()},
         "queue": list(queue.values()), "rank_audits": rank_audits,
         "controller_problems": controller_problems,
+        "execution_blocker": execution.get("blocked"),
+        "concurrency_limit": policy.get("concurrency", 16),
         "gates": {name: (study / name).exists() for name in
                   ("AUDITS-ACCEPTED", "PILOT-ACCEPTED", "VALIDATION-COMPLETED")}}
     progress = study / "progress"
@@ -133,7 +141,9 @@ def report(study):
         atomic_text(progress / (bucket + "-scores.csv"), csv_text(score_rows[bucket], fields))
     names = {"audit": "原法审计", "pilot": "完整参数试跑", "full": "其余全量任务"}
     lines = ["# IntegMultiReg 运行进度", "", "更新时间：" + now, "",
-        "当前阶段：`" + snapshot["current_phase"] + "`；当前数组：`" + current_array + "`。", "",
+        "最近提交阶段：`" + snapshot["current_phase"] + "`；最近数组：`" + current_array + "`。", "",
+        "研究总并发上限：%d；试跑与全量可同时运行。" % snapshot["concurrency_limit"] if policy else
+        "研究总并发上限：16。", "",
         "| 任务 | 总数 | 完成 | 运行 | 排队/等待记账 | 未提交 | 待检查 |",
         "|---|---:|---:|---:|---:|---:|---:|"]
     for group, label in names.items():
@@ -154,6 +164,9 @@ def report(study):
         lines += ["- `{job}`：{phase}，{state}；[日志](logs/accept-{phase}-{job}.log)。".format(**row)
                   for row in controller_problems]
         lines.append("")
+    if snapshot["execution_blocker"]:
+        lines += ["执行需要检查：" + snapshot["execution_blocker"], "",
+                  "详见 [执行记录](execution/ATTENTION.md)。", ""]
     atomic_text(study / "PROGRESS.md", "\n".join(lines))
     print("Progress snapshot refreshed:", now, snapshot["current_phase"], flush=True)
 

@@ -1,5 +1,15 @@
 # Anvil execution
 
+The active study now uses the user-authorized concurrent execution policy in
+`runs/study-20260923/execution/overlap-policy.json`. Its remaining 649 tasks are
+array `20905186`: 642 simulation repetitions and seven diagnostic chains.
+Production has 30 slots while the two remaining pilot tasks run, then 32 after
+pilot acceptance. The old pilot controller was cancelled to prevent a duplicate
+production submission. `manage-study-overlap.py` owns phase-specific retries
+and validation-only jobs; its execution sources are copied and hashed alongside
+the policy. The original scientific source and manifest are unchanged.
+Do not run the serial `advance.sh` concurrently with this controller.
+
 The maintained runners are in `paper/`; this directory prepares, schedules
 and verifies their independent tasks. Every reference is an ordinary set of
 package arguments. Explicit overrides are saved alongside the reference name.
@@ -22,7 +32,7 @@ tasks. These contain code2017 and separately labelled paper/ridge=.001 studies
 (150 main and 180 correlated tasks each), eight million-draw chains, and an
 original-scale code2017 Table 1 repeat.
 
-Submit phases with `bash hpc/submit.sh STUDY audit`, then `pilot`, then `full`.
+For the default serial policy, submit phases with `bash hpc/submit.sh STUDY audit`, then `pilot`, then `full`.
 Only one array can be active for a study, with a global limit of 16 tasks. Run
 `accept-phase.R STUDY audit` or `accept-phase.R STUDY pilot` after the preceding
 array finishes; these check evidence before opening the next phase. Pilot

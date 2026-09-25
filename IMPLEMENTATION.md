@@ -1,5 +1,35 @@
 # Anvil implementation, 2026-09-23
 
+## Production submitted: September 25
+
+At the user's explicit request, the remaining 649 tasks have been submitted and
+released as array `20905186`. They are 642 simulation repetitions plus seven
+diagnostic chains; the initial 20 scientific tasks count toward the same study.
+Production no longer waits for the two unfinished pilot tasks before computing.
+All scientific methods, seeds, draw counts, data and source hashes are unchanged.
+
+The total study concurrency limit is now 32. The existing pilot array
+`20901042` is capped at two slots, and production starts with 30; after genuine
+pilot acceptance, production rises to 32. The initial 16 GiB / nine allocated
+CPU / 48-hour requests are retained conservatively for this early release.
+Highmem's site limits (two running/four submitted per user) still apply.
+
+Obsolete controller `20901043` was cancelled so it cannot submit the full array
+a second time. A detached, bounded concurrent controller now owns separate
+pilot and full ledgers, validation-only Slurm jobs, and once-only resource
+retries. Numerical/cancelled failures stop new admissions for review; final
+collection requires pilot acceptance and all scientific tasks. No validation
+marker was fabricated to permit the concurrent submission.
+
+Execution policy/state and hashed controller copies are under
+`runs/study-20260923/execution/`; the supervisor PID and log are in
+`runtime/overlap-controller.json`. The scientific manifest remains immutable.
+Fourteen scheduling tests passed, covering the shared concurrency budget,
+phase-specific retry resources/reservations, loss-of-response protection,
+validation evidence, collection gates and highmem admission priority. The
+validation job request also passed Slurm's test-only check. Progress still
+refreshes every fifteen minutes without routine chat notifications.
+
 ## Morning checkpoint: September 25, 11:22 local time
 
 All ten strict-method audit tasks completed and `AUDITS-ACCEPTED` was written.
