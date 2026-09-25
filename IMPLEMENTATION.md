@@ -1,5 +1,35 @@
 # Anvil implementation, 2026-09-23
 
+## Morning checkpoint: September 25, 11:22 local time
+
+All ten strict-method audit tasks completed and `AUDITS-ACCEPTED` was written.
+Two method runs retained independently verified zero-ridge rank failures:
+paper simulation configuration 2 IMR, and paper Table 1 clinical/molecular IMR.
+They remain audit evidence rather than successful unpenalized CV results.
+
+Pilot array `20901042` has completed 18 of 20 full-parameter tasks: all nine
+code2017 simulations, eight paper/ridge=.001 simulations, and the original-scale
+Table 1 rerun. The million-draw chain (task 1) and paper main configuration 3
+(task 439) are still actively computing. Task 439 has saved its fit checkpoint.
+No pilot task has an abnormal Slurm exit. Full production's remaining 649 tasks
+have not been submitted; they await pilot acceptance.
+
+Completed scientific tasks have 280 score rows in
+`runs/study-20260923/progress/scientific-scores.csv`. Table 1 has 100/100 valid
+validation scores for every reported method/subgroup. These are current-run
+results, not claims of historical digit agreement or completed scientific review.
+There are 228 saved baseline warnings across six completed pilot tasks: 200
+clinical Cox warnings, 25 glmnet numerical-path warnings and three univariate
+Cox warnings. Their messages are preserved in
+`runs/study-20260923/progress/pilot-warnings-20260925.csv`; the scheduled validators
+will replay results before full release. Warnings are not silently discarded.
+
+Pilot acceptance controller `20901043` now requests twelve hours and can use
+shared/highmem, while retaining its dependency on the entire pilot array.
+The detached monitor remains alive, follows phase changes, and refreshes the
+live [progress report](runs/study-20260923/PROGRESS.md) every fifteen minutes.
+Source, methods, seeds, draw counts and active scientific jobs are unchanged.
+
 ## Current checkpoint: September 24, after GitHub validation
 
 Candidate B has passed the installed regression suite, ASAN/UBSAN, all nine
