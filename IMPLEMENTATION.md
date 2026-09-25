@@ -2,14 +2,15 @@
 
 ## Current checkpoint: September 24, after GitHub validation
 
-Candidate B has passed the installed regression suite, ASAN/UBSAN and all nine
-new GitHub CI jobs. Anvil check `20894476` failed on two vignette Fontconfig
-leak contexts after passing examples and tests. Both contexts now reproduce
-independently without loading the package. Strict check `20899640` is running.
+Candidate B has passed the installed regression suite, ASAN/UBSAN, all nine
+new GitHub CI jobs, and final Anvil strict check `20899640`. The latter completed
+in 3h06m02s with exit code zero; native acceptance was written at
+2026-09-25 02:59:41 UTC (September 24 local time).
 At the user's request, bootstrap `20900072` now starts audits and the pilot
 concurrently with that check, through the explicit `--pending-native-job` option.
-The former waiting bootstrap `20887915` was cancelled. `NATIVE-VALIDATED` does
-not yet exist; full production and collection remain gated. Use Slurm
+The former waiting bootstrap `20887915` was cancelled. All three candidate
+validation markers now exist; full production and collection still require
+their scientific phase gates. Use Slurm
 and `runtime/current-jobs.tsv` for live status. Earlier progress entries below
 retain their original job IDs and observations.
 
@@ -25,18 +26,27 @@ At the September 24 22:20 check, audit tasks 670 and 671 had completed in
 14m06s and 18m43s. Task 670 completed both methods; task 671 retained the
 expected zero-ridge IMR rank failure and completed BMS. Eight audits remained
 queued, so tasks 672–674 were given shared/highmem eligibility. Task 672 has
-started. Routing job `20900652` will add that eligibility to further pending
-tasks of this array as the four-submitted-job highmem limit permits. It changes
-neither resources nor scientific settings, excludes tasks exceeding highmem's
-48-hour limit, and stops once no eligible shared-only pending tasks remain.
-Routing events are saved in the study directory; the helper has a two-hour
-batch limit and does not route unrelated jobs.
+started. Routing job `20900652` also remained queued and was cancelled. A
+lightweight metadata-only process now follows arrays recorded in this study,
+adding highmem eligibility within its four-submitted-job limit. It changes
+neither task resources nor scientific settings and excludes tasks exceeding
+highmem's 48-hour limit. It does not route unrelated jobs, retries transient
+Slurm errors, and is bounded to 24 hours. Its process/session/log details are
+in `runtime/partition-router.json`; routing events are saved in the study.
+Audit acceptance controller `20900091` now requests 30 minutes and can use
+shared/debug/highmem; it only reads the ten audit results and submits the pilot.
 
-The current strict package check has passed examples, tests and vignette
-rebuilding with zero errors/warnings and two reviewed NOTEs (instrumented
-example timing and unavailable local HTML tools, covered by CI). The additional
-unrestricted worker suite is still running. Native acceptance, the 20-task
-pilot and full production have not yet completed.
+The strict package check passed examples, tests and vignette rebuilding with
+zero errors/warnings and two reviewed NOTEs (instrumented example timing and
+unavailable local HTML tools, covered by CI). The additional unrestricted
+suite passed 2850 assertions without failures/warnings/skips, and verified 176
+instrumented workers with zero Memcheck errors and definite leaks. All twelve
+graphics controls and both negative controls passed their acceptance checks.
+Hashes and a complete summary are in
+`runtime/candidate-b/evidence/native-validation-summary.json`.
+Audit tasks 670–674 have completed; 675 and 676 are running. The 20-task pilot
+and full production remain pending scientific audit acceptance. The manifest's
+`native_validated_at_start = FALSE` is retained as an accurate historical record.
 
 GitHub branch `ci/anvil-candidate-b-20260924`, commit
 `7fa16bbf5afb450324b89cc67fe3d7bcc3a535ea`, matches the frozen R/C/manual/test

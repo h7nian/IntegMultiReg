@@ -1,4 +1,4 @@
-"""Add highmem eligibility to one study array within Anvil's four-job limit.
+"""Add highmem eligibility to study arrays within Anvil's four-job limit.
 
 This changes only pending task partition eligibility. Slurm still enforces
 the two-running-job highmem limit and the array's existing concurrency cap.
@@ -41,19 +41,45 @@ def main():
     parser.add_argument("array")
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--follow-study", action="store_true",
+                        help="Follow recorded phase arrays until collection completes.")
     args = parser.parse_args()
     if not re.fullmatch(r"[1-9][0-9]*", args.array):
         parser.error("array must be a Slurm job ID")
     submissions = (args.study / "submissions.tsv").read_text().splitlines()
     if args.array not in {line.split("\t")[0] for line in submissions}:
         parser.error("array is not recorded in this study")
-    with (args.study / (".highmem-routing-" + args.array + ".lock")).open("w") as lock:
+    with (args.study / ".highmem-routing.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        print("Routing array", args.array, "within four highmem submissions; wall limit 48 hours.", flush=True)
+        print("Router PID", os.getpid(), "array", args.array,
+              "within four highmem submissions; wall limit 48 hours.", flush=True)
         while True:
-            output = subprocess.check_output([
-                "squeue", "-h", "-r", "-u", os.environ["USER"],
-                "-o", "%i|%T|%P|%l"], universal_newlines=True)
+            if args.follow_study:
+                if (args.study / "VALIDATION-COMPLETED").exists():
+                    break
+                latest = (args.study / "last-array-id").read_text().strip()
+                recorded = {line.split("\t")[0] for line in
+                            (args.study / "submissions.tsv").read_text().splitlines()}
+                # The submitter writes its ID before appending the ledger row.
+                # Wait through that short interval without guessing an array.
+                if not re.fullmatch(r"[1-9][0-9]*", latest) or latest not in recorded:
+                    if args.once or args.dry_run:
+                        break
+                    time.sleep(30)
+                    continue
+                if latest != args.array:
+                    args.array = latest
+                    print("Following recorded study array", args.array, flush=True)
+            try:
+                output = subprocess.check_output([
+                    "squeue", "-h", "-r", "-u", os.environ["USER"],
+                    "-o", "%i|%T|%P|%l"], universal_newlines=True, timeout=30)
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+                if args.once or args.dry_run:
+                    raise
+                print("Queue query failed; retrying:", error, flush=True)
+                time.sleep(30)
+                continue
             rows = [[field.strip() for field in line.split("|")]
                     for line in output.splitlines() if line.strip()]
             assert all(len(row) == 4 for row in rows)
@@ -64,12 +90,19 @@ def main():
                 if args.dry_run:
                     record["dry_run"] = True
                 else:
-                    subprocess.check_call(["scontrol", "update", "JobId=" + row[0],
-                                           "Partition=shared,highmem"])
+                    try:
+                        subprocess.check_call(["scontrol", "update", "JobId=" + row[0],
+                                               "Partition=shared,highmem"], timeout=30)
+                    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+                        if args.once:
+                            raise
+                        # A pending task may start between the query and update.
+                        print("Update failed; refreshing the queue:", error, flush=True)
+                        break
                     with (args.study / "partition-routing-events.jsonl").open("a") as log:
                         log.write(json.dumps(record) + "\n")
                 print(json.dumps(record), flush=True)
-            if args.once or args.dry_run or not waiting:
+            if args.once or args.dry_run or (not waiting and not args.follow_study):
                 break
             time.sleep(30)
 
