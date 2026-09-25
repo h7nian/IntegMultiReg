@@ -35,8 +35,15 @@ while true; do
   break
 done
 [[ "$job" =~ ^[0-9]+$ ]] || { echo "$job"; exit 2; }
+dependency="afterany:$job"
+if [[ "$next" == pilot ]]; then
+  native=$(Rscript --vanilla -e 'study <- commandArgs(TRUE)[1];
+    source(file.path(study, "source/hpc/study-plan.R"));
+    cat(native_validation_dependency(read_study_plan(study)))' "$study")
+  if [[ -n "$native" ]]; then dependency+=",$native"; fi
+fi
 controller=$(sbatch --parsable --account="$IMR_ACCOUNT" --partition="$IMR_PARTITION" \
-  --dependency="afterany:$job" --nodes=1 --ntasks=1 --cpus-per-task=9 --mem=16G \
+  --dependency="$dependency" --nodes=1 --ntasks=1 --cpus-per-task=9 --mem=16G \
   --time=96:00:00 --job-name="imr-accept-$next" --chdir="$IMR_ROOT" \
   --output="$study/logs/accept-$next-%j.log" "$study/source/hpc/advance.sh" "$study" "$next")
 printf '%s\t%s\t%s\n' "$controller" "$next" "$job" >> "$study/controllers.tsv"

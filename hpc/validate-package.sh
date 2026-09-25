@@ -24,6 +24,7 @@ Rscript --vanilla paper/test-experiment-jobs.R
 Rscript --vanilla paper/test-experiment-checkpoint.R
 Rscript --vanilla hpc/test-plan.R
 Rscript --vanilla hpc/test-phase-gates.R
+Rscript --vanilla hpc/test-concurrent-start.R
 Rscript --vanilla hpc/test-submit.R
 Rscript --vanilla hpc/test-resource-retry.R
 Rscript --vanilla hpc/test-splitting.R "$IMR_ROOT" "$candidate/evidence/task-splitting"

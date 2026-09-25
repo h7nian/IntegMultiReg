@@ -1,11 +1,18 @@
-# Rscript hpc/prepare-study.R CANDIDATE_DIRECTORY NEW_STUDY_DIRECTORY
+# Rscript hpc/prepare-study.R CANDIDATE_DIRECTORY NEW_STUDY_DIRECTORY [--pending-native-job JOB_ID]
 args <- commandArgs(TRUE)
-stopifnot(length(args) == 2L)
+stopifnot(length(args) %in% c(2L, 4L))
+native_job <- NULL
+if (length(args) == 4L) {
+  stopifnot(args[3] == "--pending-native-job", grepl("^[1-9][0-9]*$", args[4]))
+  native_job <- args[4]
+}
 root <- normalizePath(Sys.getenv("IMR_ROOT"), mustWork = TRUE)
 candidate <- normalizePath(args[1], mustWork = TRUE)
 out <- args[2]
+native_validated <- file.exists(file.path(candidate, "NATIVE-VALIDATED"))
 stopifnot(file.exists(file.path(candidate, "UNIT-VALIDATED")),
-          file.exists(file.path(candidate, "NATIVE-VALIDATED")), !dir.exists(out))
+          file.exists(file.path(candidate, "SANITIZER-VALIDATED")),
+          native_validated || !is.null(native_job), !dir.exists(out))
 tested <- readRDS(file.path(candidate, "evidence/research-source-hashes.rds"))
 stopifnot(identical(tools::md5sum(names(tested)), tested))
 source(file.path(root, "hpc/study-plan.R"))
@@ -30,6 +37,7 @@ runtime_files <- c(list.files(file.path(candidate, "library"),
   list.files(dependencies, "[.](rdb|rdx|so|dll)$", recursive = TRUE, full.names = TRUE))
 tasks <- make_study_plan()
 plan <- list(tasks = tasks, candidate = candidate, dependencies = dependencies,
+  native_validated_at_start = native_validated, native_validation_job = native_job,
   source = frozen, hashes = tools::md5sum(c(destinations, runtime_files)),
   R_version = R.version, rng_kind = RNGkind(),
   gsl_version = system2("gsl-config", "--version", stdout = TRUE),

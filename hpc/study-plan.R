@@ -6,6 +6,15 @@ read_study_plan <- function(study) {
   readRDS(path)
 }
 
+# Audits and the pilot may overlap native checks; full production must wait.
+native_validation_dependency <- function(plan) {
+  if (file.exists(file.path(plan$candidate, "NATIVE-VALIDATED"))) return("")
+  job <- plan$native_validation_job
+  stopifnot(is.character(job), length(job) == 1L, !is.na(job),
+            grepl("^[1-9][0-9]*$", job))
+  paste0("afterok:", job)
+}
+
 make_study_plan <- function() {
   rows <- list()
   add <- function(kind, experiment, reference, ridge, marker_design,

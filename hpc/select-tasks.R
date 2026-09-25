@@ -3,9 +3,11 @@ args <- commandArgs(TRUE)
 stopifnot(length(args) %in% 2:3, args[2] %in% c("audit", "pilot", "full"))
 study <- normalizePath(args[1], mustWork = TRUE)
 source(file.path(study, "source/hpc/study-plan.R"))
-tasks <- read_study_plan(study)$tasks
+plan <- read_study_plan(study)
+tasks <- plan$tasks
 if (args[2] != "audit") stopifnot(file.exists(file.path(study, "AUDITS-ACCEPTED")))
-if (args[2] == "full") stopifnot(file.exists(file.path(study, "PILOT-ACCEPTED")))
+if (args[2] == "full") stopifnot(file.exists(file.path(study, "PILOT-ACCEPTED")),
+  file.exists(file.path(plan$candidate, "NATIVE-VALIDATED")))
 keep <- switch(args[2], audit = tasks$kind == "audit",
   pilot = tasks$kind != "audit" & tasks$pilot,
   full = tasks$kind != "audit")

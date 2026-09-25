@@ -7,8 +7,9 @@
 `SOURCE-VERIFIED.json` 记录恢复来源；Git 基线保留恢复时的源码。
 原目录以及冻结历史结果不覆盖，历史 MSI 脚本在 `provenance/msi-before-anvil/`。
 
-当前已安排依赖构建、候选回归、sanitizer 和严格 Valgrind 检查。
-正式研究需依次通过候选验证、原法审计和完整规模 pilot；不能从旧 CI
+依赖构建、候选回归、sanitizer 和九项 GitHub CI 已通过，严格 Valgrind 仍在运行。
+按用户要求，可用 `--pending-native-job JOB_ID` 让原法审计和完整规模 pilot
+与严格检查并行；全量任务和最终汇总仍要求严格检查通过。不能从旧 CI
 通过记录或 Slurm 作业结束推断当前候选已通过，也不能手工创建验收标记。
 
 方法参数仍由同一套公开 API 处理：code2017 原法、paper 严格零 ridge 审计，

@@ -5,11 +5,21 @@
 Candidate B has passed the installed regression suite, ASAN/UBSAN and all nine
 new GitHub CI jobs. Anvil check `20894476` failed on two vignette Fontconfig
 leak contexts after passing examples and tests. Both contexts now reproduce
-independently without loading the package. Fresh strict check `20899640` has
-been submitted; bootstrap `20887915` depends on its successful completion. Scientific
-sampling has not started and `NATIVE-VALIDATED` does not yet exist. Use Slurm
+independently without loading the package. Strict check `20899640` is running.
+At the user's request, bootstrap `20900072` now starts audits and the pilot
+concurrently with that check, through the explicit `--pending-native-job` option.
+The former waiting bootstrap `20887915` was cancelled. `NATIVE-VALIDATED` does
+not yet exist; full production and collection remain gated. Use Slurm
 and `runtime/current-jobs.tsv` for live status. Earlier progress entries below
 retain their original job IDs and observations.
+
+Bootstrap `20900072` completed successfully and froze all 679 tasks into
+`runs/study-20260923`. Audit array `20900090` contains tasks 670–679; task 670
+has begun IMR fitting on highmem alongside native check `20899640`. Tasks 670
+and 671 can use shared/highmem; the remaining audit tasks use shared. Controller
+`20900091` will accept the audit and submit the 20 full-parameter pilot tasks.
+The pilot's acceptance/full-release controller waits for native-check success.
+The frozen source/runtime manifest and the live method status were verified.
 
 GitHub branch `ci/anvil-candidate-b-20260924`, commit
 `7fa16bbf5afb450324b89cc67fe3d7bcc3a535ea`, matches the frozen R/C/manual/test
@@ -57,12 +67,22 @@ invalid-access, uninitialized-read or package-frame rules.
 
 New attempt `20899640` uses `strict-anvil-3`, replays all twelve graphics
 controls, reruns both negative controls and the full package/standalone worker
-checks, and writes `NATIVE-VALIDATED` only on success. The failed dependency
-on `20894476` has been replaced with `afterok:20899640` on bootstrap `20887915`.
+checks, and writes `NATIVE-VALIDATED` only on success. The dependency on this
+check now applies to the controller that accepts the pilot and releases full
+production, allowing audit/pilot computation to proceed first.
 Tested research-source hashes, the frozen package
 source manifest, and all 32 dependency versions/load paths were reverified.
 After validation, the bootstrap freezes `runs/study-20260923` and schedules
 audit → full-parameter pilot → full study → collection with concurrency 16.
+
+The concurrent-launch change passed five orchestration checks: explicit
+preparation/default refusal, native and phase gates, real submitter/controller
+logic with mock Slurm, bounded retries, and all 679 task settings. The source
+audit proved that every prior non-orchestration input and the frozen package
+source were unchanged. Original and refreshed research-source acceptance are
+both retained under `runtime/candidate-b/evidence/concurrent-orchestration/`.
+Package validation markers were not changed. The frozen manifest records native
+validation as pending, and actual acceptance is required before full production.
 
 The user also reported a Claude contributor avatar on the GitHub homepage.
 All seven live branches, tags (none), author/committer identities and coauthor

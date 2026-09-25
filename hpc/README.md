@@ -15,8 +15,8 @@ an immutable package-source snapshot; `validate-package.sh CANDIDATE` runs its
 installed tests, baseline comparisons and independent sampler checks. Further
 instrumented validation is required before `NATIVE-VALIDATED` can be created.
 
-After the candidate passes both gates, run `prepare-study.R CANDIDATE STUDY`
-in the configured R environment. It copies research sources and data, hashes
+By default, `prepare-study.R CANDIDATE STUDY` requires completed native and
+installed-suite validation. Run it in the configured R environment. It copies research sources and data, hashes
 the runtime, and records 679 tasks: ten strict paper audits and 669 scientific
 tasks. These contain code2017 and separately labelled paper/ridge=.001 studies
 (150 main and 180 correlated tasks each), eight million-draw chains, and an
@@ -35,6 +35,17 @@ Terminal OOM or timeout failures may receive one resource increase; node failure
 or preemption may receive one unchanged retry. Numerical failures and cancelled
 jobs are not automatically retried. All retries retain the original task identity
 and scientific settings.
+
+To overlap scientific computation with an already running native check, use
+`start-study.sh CANDIDATE STUDY --pending-native-job JOB_ID`. This explicit
+option requires installed-suite and sanitizer acceptance, verifies that the
+native job belongs to the submitting user, and records its ID and pending
+status in the frozen manifest. The original no-option launch remains gated.
+Audits and the full-parameter pilot can run while the native check continues.
+The pilot acceptance controller waits for both its array and native-check
+success; full-task submission and final collection independently require the
+actual `NATIVE-VALIDATED` marker. A failed native check stops further release.
+No acceptance marker is fabricated for this mode.
 
 Each array task has its own directory and lock. Completed tasks are skipped;
 failed tasks keep their status, logs and completed fit checkpoints. A fit that
