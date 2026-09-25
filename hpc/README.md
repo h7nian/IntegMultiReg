@@ -3,7 +3,7 @@
 The active study now uses the user-authorized concurrent execution policy in
 `runs/study-20260923/execution/overlap-policy.json`. Its remaining 649 tasks are
 array `20905186`: 642 simulation repetitions and seven diagnostic chains.
-Production has 30 slots while the two remaining pilot tasks run, then 32 after
+Production now has 63 slots while the last pilot task runs, then 64 after
 pilot acceptance. The old pilot controller was cancelled to prevent a duplicate
 production submission. `manage-study-overlap.py` owns phase-specific retries
 and validation-only jobs; its execution sources are copied and hashed alongside

@@ -1,5 +1,21 @@
 # Anvil implementation, 2026-09-23
 
+## Concurrency increased: September 25, 12:19 local time
+
+The user requested another increase. The active execution policy now caps the
+study at 64 tasks: production array `20905186` has throttle 63 and the remaining
+pilot array `20901042` has throttle 1. Production rises to 64 after pilot
+acceptance. The prior cap-32 policy was archived under `execution/policy-history/`.
+The detached controller was restarted with the amended policy and both live
+Slurm throttles were verified. Scientific job IDs and settings were retained.
+
+At the unchanged nine allocated CPUs per initial task, 64 tasks request at most
+576 CPUs, below shared's 2048-CPU per-user limit. Highmem still permits only two
+running jobs per user. Actual execution at this checkpoint is one diagnostic
+pilot and one production chain; other production tasks await scheduling.
+The nineteenth pilot task has completed. Raising the array cap does not itself
+remove the current partition/priority constraints.
+
 ## Production submitted: September 25
 
 At the user's explicit request, the remaining 649 tasks have been submitted and
