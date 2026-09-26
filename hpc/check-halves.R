@@ -3,7 +3,7 @@
 args <- commandArgs(TRUE)
 stopifnot(length(args) == 2L)
 root <- normalizePath(args[1])
- out <- args[2]
+out <- args[2]
 paths <- file.path(root, sprintf('chain-%02d-diagnostic.rds', 1:8))
 rows <- list()
 for (ch in 1:8) {

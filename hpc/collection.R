@@ -1,15 +1,15 @@
 # Shared collector for verified task directories in manifest order.
 collect_tasks <- function(kind, tasks, out) {
-settings <- readRDS(file.path(tasks[1], 'settings.rds'))
-stopifnot(identical(tools::md5sum(names(settings$source_hashes)), settings$source_hashes),
+  settings <- readRDS(file.path(tasks[1], 'settings.rds'))
+  stopifnot(identical(tools::md5sum(names(settings$source_hashes)), settings$source_hashes),
   identical(tools::md5sum(names(settings$data_hash)), settings$data_hash))
-if (kind != 'chains') stopifnot(identical(settings$experiment, kind))
-n <- if (kind == 'chains') 8L else settings$replicates * if (kind == 'simulation') 3L else 6L
-stopifnot(length(tasks) == n)
-from <- to <- character()
-add <- function(src, dst) {from <<- c(from, src)
+  if (kind != 'chains') stopifnot(identical(settings$experiment, kind))
+  n <- if (kind == 'chains') 8L else settings$replicates * if (kind == 'simulation') 3L else 6L
+  stopifnot(length(tasks) == n)
+  from <- to <- character()
+  add <- function(src, dst) {from <<- c(from, src)
   to <<- c(to, dst)}
-for (id in seq_len(n)) {
+  for (id in seq_len(n)) {
     task <- tasks[id]
     stopifnot(identical(readRDS(file.path(task, 'settings.rds')), settings))
     selection <- readRDS(file.path(task, 'task.rds'))
@@ -52,16 +52,16 @@ for (id in seq_len(n)) {
     }
     add(file.path(task, 'task.rds'), file.path('task-provenance', sprintf('%03d-task.rds', id)))
     add(file.path(task, 'sessionInfo.txt'), file.path('task-provenance', sprintf('%03d-sessionInfo.txt', id)))
-}
-stopifnot(!anyDuplicated(to))
-for (file in c('settings.rds', 'settings.txt', 'sessionInfo.txt')) add(file.path(tasks[1], file), file)
-hashes <- tools::md5sum(from)
-if (dir.exists(out)) {
+  }
+  stopifnot(!anyDuplicated(to))
+  for (file in c('settings.rds', 'settings.txt', 'sessionInfo.txt')) add(file.path(tasks[1], file), file)
+  hashes <- tools::md5sum(from)
+  if (dir.exists(out)) {
     saved <- readRDS(file.path(out, 'COLLECTION.rds'))
     stopifnot(identical(saved$input_hashes, hashes), identical(saved$destinations, to),
       identical(unname(tools::md5sum(file.path(out, to))), unname(hashes)))
     cat('Existing complete collection verified; continuing validation.\n')
-} else {
+  } else {
     temporary <- paste0(out, '.partial-', Sys.getpid())
     dir.create(temporary, recursive = TRUE)
     for (i in seq_along(from)) {
@@ -74,6 +74,6 @@ if (dir.exists(out)) {
       file.path(temporary, 'COLLECTION.rds'))
     stopifnot(file.rename(temporary, out))
     cat('Collected', n, 'complete tasks without changing their scientific settings.\n')
-}
+  }
 
 }

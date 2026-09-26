@@ -3,14 +3,14 @@
 args <- commandArgs(TRUE)
 stopifnot(length(args) %in% 2:3, requireNamespace('posterior', quietly = TRUE))
 root <- normalizePath(args[1])
- out <- args[2]
+out <- args[2]
 nchains <- if (length(args) == 3L) as.numeric(args[3]) else 8L
 stopifnot(length(nchains) == 1L, is.finite(nchains), nchains == as.integer(nchains), nchains >= 2L, nchains <= 8L)
 paths <- file.path(root, sprintf('chain-%02d-diagnostic.rds', seq_len(nchains)))
 for (i in seq_len(nchains))stopifnot(identical(readRDS(file.path(root,
  sprintf('chain-%02d.rds.status.rds', i)))$status, 'completed'))
 fits <- lapply(paths, readRDS)
- ref <- fits[[1]]
+ref <- fits[[1]]
 for (f in fits)stopifnot(identical(f$model, ref$model), identical(f$control$mcmc, ref$control$mcmc))
 rows <- list()
 for (p in seq_along(ref$posterior$interaction_draws)) {

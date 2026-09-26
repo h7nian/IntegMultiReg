@@ -3,11 +3,11 @@ source(file.path(dirname(normalizePath(script)), 'original-experiment-helpers.R'
 library(IntegMultiReg)
 id <- 1:30
 fit <- imr(list(a = data.frame(id, x = sin(id)), b = data.frame(id, x = cos(id))),
- data.frame(id, y = sin(id / 3)), outcome_type = 'continuous', draws = 30, burnin = 5,
- min_subgroup_size = 0, seed = 71)
+  data.frame(id, y = sin(id / 3)), outcome_type = 'continuous', draws = 30, burnin = 5,
+  min_subgroup_size = 0, seed = 71)
 path <- tempfile(fileext = '.rds')
 set.seed(42)
- rng <- .Random.seed
+rng <- .Random.seed
 saved <- experiment_fit_checkpoint(path, fit)
 stopifnot(identical(.Random.seed, rng), identical(saved, fit))
 container <- readRDS(path)

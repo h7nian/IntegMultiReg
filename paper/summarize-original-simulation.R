@@ -2,7 +2,7 @@
 args <- commandArgs(TRUE)
 stopifnot(length(args) == 1L)
 root <- normalizePath(args[1])
- s <- readRDS(file.path(root, 'settings.rds'))
+s <- readRDS(file.path(root, 'settings.rds'))
 stopifnot(s$experiment %in% c('simulation', 'correlated'))
 for (name in c('simulation-acceptance.rds', 'baseline-selection-acceptance.rds')) {
   audit <- readRDS(file.path(root, name))
@@ -13,7 +13,7 @@ stopifnot(identical(tools::md5sum(names(s$source_hashes)), s$source_hashes),
 configs <- if (s$experiment == 'simulation') data.frame(scenario = 1:3, rho = 0, half = FALSE) else
   expand.grid(scenario = 1, rho = c(.2, .5, .8), half = c(FALSE, TRUE))
 rows <- list()
- hashes <- character()
+hashes <- character()
 read_csv <- function(path) {
   hashes <<- c(hashes, tools::md5sum(path))
   read.csv(path, colClasses = c(subgroup = 'character'))
@@ -51,7 +51,7 @@ for (configuration in seq_len(nrow(configs))) for (replicate in seq_len(s$replic
   }
 }
 values <- do.call(rbind, rows)
- rownames(values) <- NULL
+rownames(values) <- NULL
 keys <- c('configuration', 'method', 'metric', 'platform', 'subgroup')
 key <- do.call(paste, c(values[keys], sep = ':'))
 stopifnot(!anyDuplicated(paste(key, values$replicate, sep = ':')))

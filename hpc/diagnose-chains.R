@@ -1,5 +1,5 @@
 args <- commandArgs(TRUE)
- stopifnot(length(args) == 1L)
+stopifnot(length(args) == 1L)
 stopifnot(capabilities('png'))
 options(bitmapType = if (capabilities('aqua')) 'quartz' else 'cairo')
 script <- normalizePath(sub('^--file=', '', grep('^--file=', commandArgs(FALSE), value = TRUE)[1]))

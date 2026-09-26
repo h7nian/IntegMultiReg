@@ -20,7 +20,7 @@ observed <- character()
 value <- withCallingHandlers(record_experiment_job(path, {
   warning("test convergence warning")
   42L
-}), warning = function(w) {
+  }), warning = function(w) {
   observed <<- c(observed, conditionMessage(w))
   invokeRestart("muffleWarning")
 })
