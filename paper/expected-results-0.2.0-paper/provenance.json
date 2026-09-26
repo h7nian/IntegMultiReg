@@ -1,0 +1,17 @@
+{
+  "promoted_at": "2026-09-22T04:23:30.299334+00:00",
+  "package_sha256": "00d557a648f27663996fbd6e9270759d3499b59e693b9388d07268d00c00cec2",
+  "scope": "Current 0.2.0 manuscript-scale paper sampler/refit reference; not original-study or historical mismatch reproduction.",
+  "evidence": {
+    "output/manuscript-full-20260921/candidate-reference/table_prediction_comparison.csv": "3801842dc32d7c6f4ec5b2296ec14d53c43fd101216bb7d67f19f5fe65dff185",
+    "output/manuscript-full-20260921/acceptance-AB.log": "ef87c31988ff3a030b8fbe0748a416b2f193188d7ed7c072e05c8b9a2cb43c5c",
+    "output/manuscript-full-20260921/AB-numeric-comparison.csv": "ccaa19676fe9fb0ecafd2ebfd0c8278fd3d59347c528ccf01e1fd1068c6d75f9",
+    "output/manuscript-full-20260921/figure-audit/A-vs-B.json": "435e099f40cbc93dd667be260791e2f531dcd6c6b0d7cd0cc7e78e569caf333a",
+    "output/manuscript-full-20260921/run-A/sessionInfo.txt": "31fa72a3a66019d11b57f03020d4c9e21bfce091b4e8847fab3ca24518e1ee55",
+    "output/manuscript-full-20260921/run-B/sessionInfo.txt": "31fa72a3a66019d11b57f03020d4c9e21bfce091b4e8847fab3ca24518e1ee55",
+    "paper/IntegMultiReg-replication.R": "069a3cd093bc4fe8218400bd59c95d42947617c8371b59d1dbf39929d280d28c",
+    "paper/IntegMultiReg-covariate-comparison.R": "8038887d33e6b69513b571de152ccccb229e4a970bbeec2c0a3d5c09602bc774",
+    "paper/validate-manuscript-run.R": "1d20a87f844392050a68dc9b8081c8ed0587063789e93329a86148a2847fe66b",
+    "output/shared-candidate-check-20260921/IntegMultiReg_0.2.0.tar.gz": "00d557a648f27663996fbd6e9270759d3499b59e693b9388d07268d00c00cec2"
+  }
+}

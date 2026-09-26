@@ -16,6 +16,45 @@ and `collect-study.R`. The validation-only wrapper supplies the explicit
 configuration coverage without changing any frozen inputs used by running
 tasks; the override files and prior policy are hashed and archived.
 
+## Recovering the overlap controller
+
+The controller is a detached login-node process, and it is the only component
+that submits the final `full` validation. If it stops, array `20905186` keeps
+computing under its Slurm-side `ArrayTaskThrottle`, but highmem routing, the
+fifteen-minute progress refresh, bounded resource retries and that final
+submission all stop with it. A stale `PROGRESS.md` timestamp is the signal.
+
+`manage-study-overlap.py STUDY --once` performs exactly one poll and exits. It
+takes the same `.highmem-routing.lock`, so it fails with `BlockingIOError` and
+writes nothing while a controller is alive, and otherwise carries out whatever
+that poll is due to do. It is safe to run at any time and safe to schedule.
+
+To restore continuous operation, relaunch with its own process session so it
+survives logout, and give it a new log name rather than truncating the record
+of the previous run:
+
+```
+cd /anvil/scratch/x-szhang30/IntegMultReg/work/anvil-20260923
+setsid timeout 604800 python3 -u \
+  runs/study-20260923/execution/manage-study-overlap.py runs/study-20260923 \
+  < /dev/null > runs/study-20260923/logs/overlap-controller-NAME.log 2>&1 &
+```
+
+Never `SIGKILL` a live controller. `retry()` and `validate()` record
+`submission_in_progress` before calling `sbatch` and clear it afterwards; a kill
+inside that window leaves the flag set, and the next poll then calls `block()`,
+which holds both array jobs.
+
+Two recorded states stop a restart. When `blocked` is non-null the process
+starts, refreshes the report and exits immediately; no code path clears it, so
+set `"blocked": null` in `execution/overlap-state.json`, `scontrol release` the
+jobs named in `hold_requests`, and delete `execution/ATTENTION.md`. When
+`submission_in_progress` is non-null, first establish from `sacct` whether the
+recorded submission actually landed: if it did, append it to
+`state[phase]["arrays"]` and to `submissions.tsv` before clearing the flag.
+Editing `overlap-state.json` is safe; it is not among the hashed execution
+sources. Editing any of those six hashed files is not, and blocks the study.
+
 The maintained runners are in `paper/`; this directory prepares, schedules
 and verifies their independent tasks. Every reference is an ordinary set of
 package arguments. Explicit overrides are saved alongside the reference name.

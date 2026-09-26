@@ -1,0 +1,1758 @@
+\documentclass[article]{jss}
+
+\usepackage{amsmath,amssymb,amsfonts,bm,array}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{placeins}
+\usepackage{needspace}
+\usepackage[normalem]{ulem}
+\hypersetup{hypertexnames=false}
+\providecommand{\sn}[1]{\textcolor{blue}{#1}}
+\RecustomVerbatimEnvironment{CodeOutput}{Verbatim}{fontsize=\small}
+
+%% -- Author/title metadata ---------------------------------------------------
+\author{Sinian Zhang\\University of Minnesota \And
+        Jianfeng Wang\\University of Minnesota \And
+        Thierry Chekouo\\University of Minnesota}
+\Plainauthor{Sinian Zhang, Jianfeng Wang, Thierry Chekouo}
+
+\title{\pkg{IntegMultiReg}: An \proglang{R} Package for Integrative
+  \proglang{Bayesian} Multi-Regression of Multi-Platform Biomarkers}
+\Plaintitle{IntegMultiReg: An R Package for Integrative Bayesian
+  Multi-Regression of Multi-Platform Biomarkers}
+\Shorttitle{\pkg{IntegMultiReg}}
+
+\Abstract{
+  The integration of high-dimensional molecular data measured on several
+  platforms can sharpen the discovery of prognostic biomarkers, but it is
+  routinely undermined by a loss of sample size: only a subset of subjects is
+  typically measured on \emph{all} platforms, and complete-case analyses
+  discard the rest. The \proglang{R} package \pkg{IntegMultiReg} implements the
+  integrative multi-regression (IMR) model of \citet{chekouo2017}, which avoids
+  this loss by partitioning subjects into the availability subgroups of a Venn
+  diagram, fitting one regression per subgroup, and sharing information across
+  subgroups through a Markov random field (MRF) prior on the
+  variable-selection indicators combined with non-local priors on the
+  regression coefficients. Whereas the original method targeted time-to-event
+  outcomes, \pkg{IntegMultiReg} additionally supports continuous and binary
+  outcomes through a unified interface. Posterior inference is
+  carried out by a Markov chain Monte Carlo sampler written in \proglang{C} for
+  efficiency, and the package provides standard \code{print}, \code{summary},
+  \code{plot}, \code{coef} and \code{predict} methods, out-of-sample prediction
+  for new subjects, explicit computational options, and cross-validated
+  assessment of predictive accuracy. We
+  describe the model, the package design, and illustrate both biomarker
+  selection and the effect of borrowing strength across subgroups on a
+  simulated multi-platform data set.
+}
+\Keywords{\proglang{Bayesian} variable selection, data integration, multi-omics,
+  Markov random field, non-local prior, missing platforms, \proglang{R}}
+\Plainkeywords{Bayesian variable selection, data integration, multi-omics,
+  Markov random field, non-local prior, missing platforms, R}
+
+\Address{
+  Sinian Zhang, Jianfeng Wang and Thierry Chekouo\\
+  Division of Biostatistics and Health Data Science\\
+  University of Minnesota\\
+  2221 University Ave SE, Suite 200\\
+  Minneapolis, MN 55414, United States of America\\
+  E-mails: \email{zhan9381@umn.edu}, \email{wan01188@umn.edu},
+  \email{tchekouo@umn.edu}
+}
+
+\begin{document}
+
+\clearpage
+
+%% ===========================================================================
+\section{Introduction}\label{sec:intro}
+%% ===========================================================================
+
+Modern biomedical studies characterise the same patients on multiple molecular
+platforms -- for example gene expression, protein abundance, methylation or
+metabolite levels -- in the hope that combining them improves the identification
+of biomarkers that are associated with a clinical outcome
+\citep{chekouo2015,chekouo2017}. A practical obstacle, observed across many
+large cohorts, is that the platforms are rarely measured on exactly the same
+subjects: a substantial fraction of patients are profiled on only a subset of
+the available platforms. The most common remedy, restricting the analysis to
+subjects with complete data on \emph{all} platforms, can discard more than half
+of the available samples and, with it, much of the statistical power
+\citep{chekouo2017}.
+
+\citet{chekouo2017} proposed an integrative multi-regression (IMR) framework
+that circumvents this loss. The key idea is to organise subjects into the
+$2^{K}-1$ non-empty regions of a $K$-set Venn diagram according to which of the
+$K$ platforms they have measured, to fit a separate regression model within
+each region, and then to \emph{borrow strength} across these regions so that
+biomarkers supported in one region inform selection in the others. Borrowing is
+achieved through a Markov random field (MRF) prior on the binary
+variable-selection indicators \citep{li2010,stingo2011,peterson2015}, while
+sparsity and the elimination of spurious small effects are enforced by non-local
+(product moment) priors on the regression coefficients
+\citep{johnson2012,rossell2017}. The original work focused on accelerated
+failure time (AFT) models for censored survival outcomes; the present package
+extends the same machinery to continuous and binary responses.
+
+A number of \proglang{R} packages address \proglang{Bayesian} variable selection
+for high-dimensional and/or multivariate data. \pkg{spikeSlabGAM}
+\citep{scheipl2011} provides spike-and-slab selection for structured additive
+regression terms. \pkg{BayesSUR} \citep{zhao2021}
+fits seemingly unrelated regressions with a choice of priors for the variable
+selection indicators (including an MRF prior) and for the residual covariance
+\citep{bottolo2021}; \pkg{mBvs} \citep{lee2017} performs multivariate
+\proglang{Bayesian} variable selection exploiting dependence among outcomes.
+\pkg{BayesSUR} and \pkg{mBvs} focus on dependence among multiple responses. Their
+multivariate-response setting differs from the platform-availability problem
+considered here. \pkg{IntegMultiReg} addresses a different and complementary problem:
+a single outcome is regressed on predictors that come from several platforms,
+and the platforms are observed on overlapping but distinct subsets of subjects.
+The package therefore makes the missing-platform structure -- rather than the
+outcome covariance -- the central modelling object.
+
+Several multi-omics packages address related integration tasks. \pkg{MOFA}
+\citep{argelaguet2018} learns unsupervised latent factors and can accommodate
+incomplete entries, whereas \pkg{BIPnet} \citep{chekouo2023bipnet},
+\pkg{SIDA} \citep{safo2022sida}, and \pkg{RandMVLearn}
+\citep{safo2025rand} perform supervised association, classification, or
+prediction through shared multiview representations. These methods are useful
+for discovering variation or association across data views, but they do not
+implement the IMR construction of separate outcome regressions for arbitrary
+platform-availability subgroups with MRF-linked feature-selection indicators.
+This availability-subgroup formulation is the distinguishing target of
+\pkg{IntegMultiReg}.
+
+These comparisons separate two sources of complexity: dependence among outcomes
+and incomplete overlap among predictor platforms. Table~\ref{tab:software-scope}
+places IMR alongside representative regression tools. Its closest predecessor
+is the study-specific \proglang{C} implementation supplied with
+\citet{chekouo2017}. \pkg{IntegMultiReg} builds on that method by providing
+validated data objects, standard \proglang{R} methods, prediction for new
+subjects and reproducible analysis workflows, while extending the outcome
+families to continuous and binary responses.
+
+\begin{table}[t!]
+\centering
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.8cm}
+                >{\raggedright\arraybackslash}p{3.3cm}
+                >{\raggedright\arraybackslash}p{3.2cm}
+                >{\raggedright\arraybackslash}p{4.4cm}@{}}
+\toprule
+Software or model & Primary modelling target & Treatment of incomplete
+platforms & Relation to \pkg{IntegMultiReg} \\
+\midrule
+\citet{chekouo2017} supplement &
+Single right-censored outcome with mRNA, miRNA and methylation predictors &
+Availability subgroups are modelled directly through IMR &
+Methodological basis; study-specific \proglang{C} workflow, survival outcome
+only. \\
+\pkg{BayesSUR} &
+Multiple continuous responses in a seemingly unrelated regression &
+Common sample and predictor matrices are assumed after preprocessing &
+Shares Bayesian variable selection and MRF ideas, but targets outcome
+covariance rather than platform availability. \\
+\pkg{mBvs} &
+Multivariate outcome regression with dependence among outcomes &
+Common subjects and predictors are assumed &
+Complementary multivariate-response setting; no explicit Venn-diagram
+subgroup structure. \\
+\pkg{glmnet} &
+Penalised generalized linear and Cox models &
+Requires a complete design matrix or externally imputed features &
+Useful prediction baseline; no posterior inclusion probabilities or MRF
+borrowing across availability subgroups. \\
+\pkg{IntegMultiReg} &
+One outcome with predictors from several partly observed platforms &
+Subjects are partitioned into observed-platform subgroups and linked by an MRF
+prior &
+Reusable \proglang{R} implementation with survival, binary and continuous
+outcomes, S3 methods, prediction and cross-validation. \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:software-scope}Scope of \pkg{IntegMultiReg} relative to
+closely related software and modelling workflows.}
+\end{table}
+
+The same distinction applies across software environments
+(Table~\ref{tab:cross-language}). MOFA2 provides the Python
+\pkg{mofapy2} implementation as well as an R interface; it learns latent
+factors from multiple omics views, including partially overlapping samples
+\citep{mofaDocs2026}. The Python \pkg{mvlearn} library includes CCA and
+multiview extensions \citep{mvlearnDocs2026}. Similarity network fusion (SNF)
+was implemented in MATLAB with R software distributed alongside the paper
+\citep{wang2014snf}. In Julia, \pkg{MultivariateStats.jl} supplies CCA for two
+matrices with aligned observations \citep{juliaCca2026}. These provide concrete
+alternatives for factor discovery, correlated representations or network-based
+integration. Their documented modelling targets differ from IMR's separate
+outcome regressions for availability subgroups linked by feature-selection
+priors. This is a comparison of scope, not a cross-package performance ranking
+or a claim that related capabilities are absent from any language.
+
+\begin{table}[t!]
+\centering\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.0cm}>{\raggedright\arraybackslash}p{2.0cm}>{\raggedright\arraybackslash}p{4.1cm}>{\raggedright\arraybackslash}p{4.1cm}@{}}
+\toprule
+Software & Environment & Related functionality & Distinction from IMR \\
+\midrule
+MOFA2 / \pkg{mofapy2} & R, Python &
+Unsupervised multi-omics factors; missing entries omitted from the likelihood &
+Describes shared variation rather than subgroup-specific outcome regression. \\
+\pkg{mvlearn} & Python & CCA, multiview CCA and related embeddings &
+Learns correlated representations; the documented CCA family is not the IMR selection model. \\
+SNF & MATLAB, R & Fuses patient-similarity networks across data types &
+Network integration rather than MRF-linked variable selection. \\
+\pkg{MultivariateStats.jl} & Julia & CCA with a common observation count in both matrices &
+A two-view correlation analysis, not regression over arbitrary availability subgroups. \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:cross-language}Selected integration tools in R, Python, MATLAB and Julia, grouped by
+modelling target rather than implementation language alone. Sources are the project documentation and the
+SNF methods paper; documentation was consulted on September 21, 2026.}
+\end{table}
+
+The package is available through
+\url{https://CRAN.R-project.org/package=IntegMultiReg}; version 0.2.0 accompanies
+the revised replication materials. The remainder of the paper follows the
+analysis workflow from model specification to empirical assessment.
+Section~\ref{sec:model} describes the IMR model and the priors that link the
+regression models across subgroups. Section~\ref{sec:package} presents the
+design of the package: the main fitting function and its arguments, the fitted
+object and its methods, and the prediction and cross-validation utilities.
+Section~\ref{sec:illustration} illustrates the package on a simulated
+multi-platform data set, examining biomarker recovery and comparing prediction with and without
+MRF borrowing. Section~\ref{sec:reproducibility} records the
+replication materials and computational workflow. Section~\ref{sec:summary}
+concludes.
+
+
+%% ===========================================================================
+\section{The integrative multi-regression model}\label{sec:model}
+%% ===========================================================================
+
+\subsection{Data structure and availability subgroups}\label{sec:subgroups}
+
+Suppose $K$ platforms are available, and let $\bm{X}^{(k)}$ denote the
+$p_k$ standardized features measured on platform $k$, $k=1,\dots,K$. Because a
+subject may be measured on any subset of the platforms, the subjects partition
+into at most $2^{K}-1$ disjoint \emph{availability subgroups}, one for each
+non-empty region of the $K$-set Venn diagram. We index a subgroup by the binary
+string $s=(s_K\cdots s_1)$, where $s_k=1$ if the subjects in that subgroup have
+platform $k$ observed and $s_k=0$ otherwise; the right-most digit refers to the
+first platform. For instance, with $K=3$ platforms the string \code{011}
+denotes subjects observed on platforms~1 and~2 but not~3, \code{100}
+denotes platform~3 only, \code{101} denotes platforms~1 and~3, and
+\code{111} denotes all three platforms.  In schematic output we write the
+platforms as \code{P1}, \code{P2}, \dots, \code{PK}; the $g$th feature on
+platform \code{Pk} is denoted by \code{Pk:Fg} (or \code{PFkg} in compact
+tables).  The package output also keeps the original platform and feature names
+whenever they are supplied by the user.
+
+For three platforms, Table~\ref{tab:bitstring-key} is a compact
+Venn-diagram legend.  We use this table-like display, together with
+\code{plot\_subgroup\_sizes()}, because it remains readable when some Venn
+regions are empty or removed by the subgroup-size threshold.
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{c c c c l}
+\toprule
+Bitstring & \code{P1} & \code{P2} & \code{P3} &
+Availability subgroup \\
+\midrule
+\code{001} & yes & no  & no  & \code{P1} only \\
+\code{010} & no  & yes & no  & \code{P2} only \\
+\code{100} & no  & no  & yes & \code{P3} only \\
+\code{011} & yes & yes & no  & \code{P1}+\code{P2} \\
+\code{101} & yes & no  & yes & \code{P1}+\code{P3} \\
+\code{110} & no  & yes & yes & \code{P2}+\code{P3} \\
+\code{111} & yes & yes & yes & all platforms \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:bitstring-key}Bitstring notation for a three-platform
+availability structure.  The right-most digit corresponds to \code{P1}.}
+\end{table}
+
+Within subgroup $s$, let $n_s$ be the number of subjects and let
+$\bm{y}^{(s)}$ be the (possibly latent) outcome vector. A subgroup is included
+in the analysis only if $n_s$ exceeds a user-specified threshold, so that each
+fitted regression is supported by enough data.
+
+\subsection{Within-subgroup regression models}\label{sec:regression}
+
+For each retained subgroup $s$, the standardized features of the platforms
+present in $s$, collected in the design matrix $\bm{X}^{(s)}$, together with the
+clinical covariates $\bm{C}^{(s)}$ (which are always included), enter a linear
+model for a latent Gaussian response $\bm{y}^{\star(s)}$,
+%
+\begin{equation}\label{eq:linear}
+  \bm{y}^{\star(s)} \;=\; \beta_0^{(s)}\bm{1}_{n_s}
+  + \bm{C}^{(s)}\bm{\beta}_{C}^{(s)}
+  + \bm{X}^{(s)}\bm{\beta}_{X}^{(s)} + \bm{\varepsilon}^{(s)},
+  \qquad \bm{\varepsilon}^{(s)}\sim\mathcal{N}\!\left(\bm{0},\sigma_s^{2}\bm{I}_{n_s}\right).
+\end{equation}
+%
+Here $\bm{\beta}_{C}^{(s)}$ and $\bm{\beta}_{X}^{(s)}$ are, respectively, the
+coefficient vectors for the always-included clinical covariates and the
+candidate molecular features. Depending on the outcome type,
+$\bm{y}^{\star(s)}$ is defined as follows:
+the notation $\bm{y}^{\star(s)}$ is a working response used to keep the
+regression and variable-selection layers common across outcome types, not a new
+observed endpoint shared by all analyses.  Once this working response is
+observed or augmented, the same pMOM prior and MRF borrowing structure can be
+used for feature selection.
+%
+\begin{itemize}
+\item \emph{continuous} outcomes set $\bm{y}^{\star(s)}=\bm{y}^{(s)}$ directly;
+\item \emph{right-censored} survival outcomes use an AFT specification in which
+  $y^{\star(s)}_n=\log(t^{(s)}_n)$ for an event and, for a censored observation,
+  $y^{\star(s)}_n>\log(t^{(s)}_n)$ is imputed by data augmentation
+  \citep{tanner1987}, where $t^{(s)}_n$ denotes the observed event or censoring
+  time for subject $n$ in subgroup $s$;
+\item \emph{binary} outcomes use a probit data-augmentation scheme in which the
+  latent $y^{\star(s)}_n$ is the underlying Gaussian utility whose sign gives the
+  observed $0/1$ label \citep{albert1993}. This latent response is a
+  computational augmentation, not an additional observed biological endpoint;
+  the user still supplies only the observed binary labels, and the Gaussian
+  utility is imputed inside the sampler.  Related Bayesian predictive
+  imaging-genetics models use the same latent-Gaussian idea for binary disease
+  classification
+  \citep{chekouo2016aoas}.
+\end{itemize}
+%
+A conjugate inverse-gamma prior with shape $\alpha$ and rate $\psi$ is placed on
+the error variance $\sigma_s^2$. The always-included intercept and clinical
+coefficients also have first-order pMOM priors, with scale $h_0$, as in
+Section~3.1 of the original paper. A large $h_0$ makes this prior diffuse;
+it does not make it a normal prior, and $h_0$ is not its marginal variance. Detailed likelihood and
+data-augmentation forms for the continuous and binary extensions are given in
+Appendices~\ref{sec:appendix-continuous} and~\ref{sec:appendix-binary}.
+
+\subsection{Non-local priors for variable selection}\label{sec:nlp}
+
+Selection is performed by binary indicators $\gamma^{(s)}_{kg}\in\{0,1\}$ that
+flag whether feature $g$ of platform $k$ enters the regression for subgroup $s$.
+Conditional on $\gamma^{(s)}_{kg}=0$ the coefficient is set to zero; conditional
+on $\gamma^{(s)}_{kg}=1$ it follows a first-order non-local product-moment
+(pMOM) prior \citep{johnson2012},
+%
+\begin{equation}\label{eq:pmom}
+  p\!\left(\beta^{(s)}_{kg}\mid\gamma^{(s)}_{kg}=1\right)\;\propto\;
+  \left(\beta^{(s)}_{kg}\right)^{2}
+  \exp\!\left\{-\frac{1}{2\,\tau_k\,\sigma^2_s}\left(\beta^{(s)}_{kg}\right)^{2}\right\}.
+\end{equation}
+%
+Because the density~\eqref{eq:pmom} vanishes at the origin, non-local priors
+assign vanishing prior mass to negligible effects and thereby discard models
+that contain unnecessary predictors, yielding more parsimonious and more
+interpretable biomarker sets than the usual local (spike-and-slab) priors. The
+scale $\tau_k$ is controlled by the argument \code{molecular\_prior\_scale}.
+
+\subsection{A Markov random field prior to borrow strength}\label{sec:mrf}
+
+To encourage the \emph{same} biomarkers to be selected across the regression
+models, the vector of indicators
+$\bm{\gamma}_{k,g}=(\gamma^{(s)}_{kg})_{s}$ for feature $g$ of platform $k$ is
+given a Markov random field prior,
+%
+\begin{equation}\label{eq:mrf}
+  p\!\left(\bm{\gamma}_{k,g}\mid\nu_k,\bm{\Theta}_k\right)
+  \;=\; Z(\nu_k,\bm{\Theta}_k)^{-1}
+  \exp\!\left(\nu_k\,\bm{1}^{\top}\bm{\gamma}_{k,g}
+  + \bm{\gamma}_{k,g}^{\top}\bm{\Theta}_k\,\bm{\gamma}_{k,g}\right),
+\end{equation}
+%
+where $\nu_k$ is a sparsity parameter (the prior log-odds of inclusion for
+platform $k$) and the symmetric matrix $\bm{\Theta}_k$ has zero diagonal and
+non-negative off-diagonal entries $\theta^{(k)}_{ss'}$ that measure how strongly
+subgroups $s$ and $s'$ share biomarkers of platform $k$. A large
+$\theta^{(k)}_{ss'}$ favours co-inclusion of the same feature in
+the two subgroups, so a strong marker discovered in a large subgroup can be
+recovered in a smaller one. The off-diagonal entries are assigned independent
+gamma priors with shape $\alpha_0$ and rate $\beta_0$ (distinct from the
+intercept $\beta_0^{(s)}$ of Equation~\ref{eq:linear}). Setting all
+$\theta^{(k)}_{ss'}=0$ removes the dependence and recovers a non-integrative
+\proglang{Bayesian} multi-step (BMS) analysis that fits each subgroup
+separately; this variant is available for comparison through the argument
+\code{method}.
+
+\subsection{Posterior inference and prediction}\label{sec:inference}
+
+The regression coefficients and variance parameters are integrated out using a
+Laplace approximation to the marginal likelihood \citep{johnson2012}, and the
+remaining parameters -- the selection indicators $\bm{\gamma}$, the MRF
+interaction matrices $\bm{\Theta}_k$, and the augmented latent responses -- are
+updated by a Metropolis-within-Gibbs Markov chain Monte Carlo (MCMC) sampler.
+The post-burn-in draws yield, for every platform and subgroup, the marginal
+posterior inclusion probability (mPIP) $\hat\gamma^{(s)}_{kg}$, which is the
+package's primary measure of biomarker importance.
+
+Predictions for new subjects are obtained by \proglang{Bayesian} model
+averaging over the sampled selection models, weighted by their marginal
+likelihoods. A new subject is first assigned to the subgroup matching its own
+pattern of observed platforms; its features are standardized using the training
+centring and scaling factors, and the averaged regression yields a predicted
+latent response (a survival/continuous value, or a probability through the
+probit link for binary outcomes).
+Concretely, for a new subject in subgroup $s$, the implementation keeps the
+highest-posterior distinct selection models and uses the following
+model average:
+\[
+  \widehat{y}^{\star(s)}_{\mathrm{new}}
+  =
+  \sum_{\ell=1}^{L}
+  w_{\ell}^{(s)}
+  \bm{z}_{\mathrm{new}}\!\left(\bm{\gamma}_{\ell}^{(s)}\right)^{\top}
+  \widehat{\bm{\beta}}_{\ell}^{(s)}, \qquad
+  w_{\ell}^{(s)}
+  =
+  \frac{\exp\{\log p(\bm{\gamma}_{\ell}^{(s)},\bm{\Theta}\mid
+  \widehat{\bm{y}}^{\star})\}}
+  {\sum_{r=1}^{L}\exp\{\log p(\bm{\gamma}_{r}^{(s)},\bm{\Theta}\mid
+  \widehat{\bm{y}}^{\star})\}},
+\]
+which is the package analogue of the model-averaged prediction formula in
+\citet{chekouo2017}.  Here $\bm{z}_{\mathrm{new}}(\bm{\gamma}_{\ell}^{(s)})$
+contains the intercept, clinical covariates and selected platform features for
+selection model $\ell$.
+
+\subsection{Analysis strategies represented by the package}\label{sec:strategies}
+
+It is useful to distinguish three analysis strategies that are often conflated
+in multi-platform studies.  A \emph{complete-case} strategy first restricts the
+data to subjects measured on every platform and then fits a single regression
+model.  This gives a simple design matrix, but it discards all subjects in the
+platform-specific regions of the Venn diagram.  In the KIRC case study of
+\citet{chekouo2017}, the complete three-platform region contains only a
+minority of the subjects with at least one platform measured, so the
+complete-case analysis is both smaller and scientifically narrower.
+
+The \emph{Bayesian multi-step} (BMS) strategy keeps the availability subgroups
+but removes the MRF interaction terms by setting the subgroup-dependence
+parameters to zero.  Each subgroup then has its own variable-selection problem,
+with the same non-local prior on active regression effects but without borrowing
+strength across subgroups.  This is the no-borrowing comparator used by
+\citet{chekouo2017} to isolate the contribution of the MRF prior.  BMS is
+therefore a useful internal comparator: it answers the question of how much is
+gained by linking the subgroup-specific selection indicators rather than simply
+fitting all retained subgroups independently.
+
+The \emph{integrative multi-regression} (IMR) strategy keeps the BMS
+within-subgroup likelihoods and non-local priors, but adds the MRF prior in
+Equation~\ref{eq:mrf}.  IMR is not an imputation method for missing molecular
+features; no unobserved platform values are filled in.  Instead, it uses the
+observed data in each availability subgroup and shares selection information at
+the biomarker level whenever the same platform appears in multiple subgroups.
+This distinction is important for interpretation.  A feature with high mPIP in
+a small subgroup is supported by that subgroup's observed outcomes and
+covariates, but its posterior probability may be stabilized by evidence for the
+same feature in larger neighbouring subgroups.  Conversely, when a subgroup is
+large enough to identify its own signal, the MRF prior need not force agreement;
+the likelihood can still dominate the borrowing term.
+
+In \pkg{IntegMultiReg}, the two subgroup-preserving strategies are selected by
+\code{method = "imr"} and \code{method = "bms"}.  A complete-case analysis can
+be produced by supplying only the rows with all platforms observed, but it is
+not the default because the central use case of the package is precisely to
+avoid unnecessary loss of partially observed subjects.
+
+%% ===========================================================================
+\section[The package IntegMultiReg]{The package \pkg{IntegMultiReg}}\label{sec:package}
+%% ===========================================================================
+
+The model determines what information is shared across subgroups; the package
+interface determines how an analyst supplies, inspects and validates that
+analysis. We first describe the data objects, then fit a model and examine
+its summaries, uncertainty and predictions.
+
+\pkg{IntegMultiReg} is written in \proglang{R} \citep{rcore} with the
+computationally intensive MCMC sampler implemented in \proglang{C} and linked
+against the GNU Scientific Library \citep[GSL,][]{galassi2009}, which must be
+available on the system (\code{brew install gsl} on macOS,
+\code{apt-get install libgsl-dev} on Debian/Ubuntu, or Rtools on Windows).
+
+\subsection{Data workflow and object design}\label{sec:workflow}
+
+The package provides a dedicated \code{"imr\_data"} class so that alignment is
+validated independently of model fitting.  The constructor \code{imr\_data()}
+checks identifiers, feature types, outcome coding and dimensions, records the
+observed-platform pattern for every analysis-eligible subject, reports subjects
+excluded for missing required outcome/covariate rows, and supports \code{print()},
+\code{summary()} and \code{validate\_imr\_data()}.  The same object can be
+passed to \code{predict()} when it contains new platform measurements and
+covariates.  This avoids repeating the alignment logic separately for fitting
+and prediction.
+
+The package accepts ordinary rectangular \proglang{R} data frames and validates
+them through the dedicated \code{"imr\_data"} container.  Each
+platform is supplied as one data frame with an \code{id} column and numeric
+features; the outcome and optional clinical covariates use the same identifier.
+The fitting function then constructs the modelled data structure in five steps.
+First, subjects are restricted to those with the required outcome (and
+covariate) information and at least one molecular platform.  Second, a platform
+presence matrix is created and converted to the bitstring convention described
+in Section~\ref{sec:subgroups}.  Third, subgroups with at most \code{min\_subgroup\_size}
+subjects are removed.  Fourth, outcome, covariate and platform rows are aligned
+by \code{id} within every retained subgroup; this alignment is explicit, so the
+input data frames need not share the same row order.  Finally, the molecular
+features and clinical covariates are standardized within each subgroup, and the
+corresponding centring and scaling factors are stored for prediction.
+
+This preprocessing layer is implemented in \proglang{R}, where the inputs can be
+validated with informative error messages.  The computationally intensive
+updates are delegated to compiled \code{.Call} routines, while the
+\proglang{R} wrapper records the call, hyperparameters, platform labels,
+feature names, subgroup sizes and normalization constants needed by downstream
+methods.
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.7cm}
+                >{\raggedright\arraybackslash}p{10.5cm}@{}}
+\toprule
+Component & Role in the fitted \code{"imr"} object \\
+\midrule
+\code{control} & Outcome and response scale, priors, MCMC settings, seed, sampling and numerical conventions. \\
+\code{model} & Platform and feature names, covariates, availability subgroups and their mappings. \\
+\code{preprocessing} & Validated raw inputs, transformed matrices, centring/scaling factors and formula terms. \\
+\code{posterior} & Inclusion probabilities, interaction draws and means, selection draws, latent-response means and log-posterior trace. \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:object}Main components of the fitted \code{"imr"} object.}
+\end{table}
+
+Two design choices are particularly important in applied multi-omics analyses.
+The first is that clinical covariates are carried through the same subgroup
+alignment and standardization workflow as molecular features, but are always
+included rather than selected.  This matches the case-study use in which age,
+sex, stage and grade are adjustment variables rather than candidate
+biomarkers.  The second is that the prediction code repeats the training
+availability logic for new subjects.  A user may supply only the platforms that
+are available in the test set; each new subject is routed to a retained
+availability subgroup, standardized with the training means and standard
+deviations for that subgroup, and predicted by the corresponding averaged
+regression model.  Subjects whose observed-platform pattern was not retained
+during fitting are reported and omitted rather than silently assigned to an
+incompatible model.
+
+\subsection{Fitting the model}\label{sec:fit}
+
+The main function is \code{imr()}. Its arguments are deliberately
+\emph{orthogonal}: each controls a single, distinct aspect of the analysis, so
+that data, likelihood, model, prior, computation and output can be varied
+independently. Table~\ref{tab:args} groups the arguments by their role, in the
+grouping used in the discussion below.
+
+\begin{table}[!htbp]
+\centering\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.5cm}
+                >{\raggedright\arraybackslash}p{4.6cm}
+                >{\raggedright\arraybackslash}p{6.8cm}@{}}
+\toprule
+Role & Argument & Description \\
+\midrule
+\emph{Data}        & \code{x} & List of per-platform data frames; each has an \code{id} column and feature columns. \\
+                   & \code{outcome}          & Data frame with \code{id} and the response (and event/censoring columns for survival). \\
+                   & \code{covariates}              & Optional clinical covariates (always included, never selected). \\
+\emph{Likelihood}  & \code{outcome\_type}     & \code{"right.censored"}, \code{"binary"} or \code{"continuous"}. \\
+\emph{Model}       & \code{method}           & \code{"imr"} (integrative) or \code{"bms"} (independent subgroups). \\
+\emph{Filtering}   & \code{min\_subgroup\_size}            & Minimum subgroup size; smaller subgroups are dropped. \\
+\emph{Prior}       & \code{nu}               & Prior log-odds of inclusion, one per platform (sparsity). \\
+                   & \code{molecular\_prior\_scale}               & Scale of the non-local prior on the regression effects. \\
+                   & \code{forced\_prior\_scale}               & pMOM scale for intercept and clinical effects. \\
+                   & \code{residual\_prior}    & Shape and rate of the error-variance prior. \\
+                   & \code{interaction\_prior}    & Shape and rate of the MRF interaction prior. \\
+\emph{Computation} & \code{draws}, \code{burnin}      & Retained and discarded MCMC iterations, respectively. \\
+                   & \code{seed}             & Optional seed; drawn from R's RNG when \code{NULL} (default). \\
+                   & \code{sampler\_method} & Legacy updates or the corrected paper-target sampler. \\
+                   & \code{initial} & Optional named selection and IMR interaction matrices for explicit chain starts. \\
+                   & \code{prior\_indexing} & Standard precision blocks or the released-code indexing convention. \\
+                   & \code{laplace\_max\_iter}, \code{laplace\_tolerance} & Stage-specific coefficient-mode iteration limits and convergence tolerance. \\
+\emph{Preprocessing} & \code{standardize} & Standardize predictors by default; disable for already transformed inputs. \\
+                   & \code{survival\_scale} & Log positive survival times by default; identity is an explicit historical alternative. \\
+\emph{Output}      & \code{verbose}          & Print sampler progress (default \code{FALSE}). \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:args}Arguments of \code{imr()}, grouped by the orthogonal
+aspect of the analysis that each one controls.}
+\end{table}
+
+A typical call, on the simulated data set \code{simIMR} shipped with the
+package (three platforms -- \code{genomic}, \code{proteomic},
+\code{metabolomic} -- with 20, 10 and 8 features measured on overlapping subsets
+of 300 subjects, plus three clinical covariates), is
+
+\begin{CodeChunk}
+\begin{CodeInput}
+R> options(width = 72)
+R> library("IntegMultiReg")
+R> data("simIMR")
+R> analysis_data <- imr_data(
++    platforms    = simIMR$platforms,
++    outcome      = simIMR$outcome.survival,
++    covariates   = simIMR$covariates,
++    outcome_type = "right.censored")
+R> fit <- imr(
++    x = analysis_data,
++    nu                 = c(-4, -3, -4),
++    draws = 8000, burnin = 2000,
++    sampler_method = "paper",
++    min_subgroup_size              = 30,
++    seed               = 1)
+\end{CodeInput}
+\end{CodeChunk}
+
+The original component-wise call remains supported for backward compatibility.
+For analyses organised as one subject-level data frame, a formula method is
+also available.  A binary response and adjustment covariates can be specified
+by the formula \code{y \textasciitilde{} age + sex + stage}, with the subject
+table supplied through \code{data = clinical} and the assay tables through
+\code{platforms = assays}. Standard \code{model.frame()} and
+\code{model.matrix()} processing then handles numeric and factor covariates,
+while subject identifiers continue to align the separate platform tables.
+Prediction from raw clinical data reuses the training terms, factor levels,
+contrasts and supported transformation bases. The identifier is excluded when
+expanding a dot formula. Because the IMR model includes an intercept and does
+not implement offsets, formulas that remove the intercept or specify an offset
+are rejected explicitly.
+
+The function returns an object of class \code{"imr"}. Printing it gives a
+compact overview: the outcome type, the method, the modelled availability
+subgroups with their sizes, and the number of features selected per platform at
+a marginal inclusion probability above the user-specified
+reporting threshold, whose default is $0.5$.  The threshold is an explicit
+argument of \code{print()} and \code{summary()}, as shown below.
+The high-dimensional posterior summaries remain accessible as ordinary
+\proglang{R} objects: for example, \code{coef(fit)\$genomic} is a matrix whose
+rows are availability subgroups and whose columns are genomic features.
+
+The \code{print()} method also gives a platform key so that the bitstrings
+can be read without consulting a separate Venn diagram.  When a compact ranked
+feature list is desired, \code{print(fit, rank = TRUE, top = 3)} appends the
+top features per platform, ordered by each feature's maximum mPIP over
+availability subgroups.
+
+\begin{CodeChunk}
+\begin{CodeInput}
+R> print(fit, threshold = 0.5)
+\end{CodeInput}
+\begin{CodeOutput}
+Integrative Bayesian Multi-Platform Regression (IMR)
+----------------------------------------------------
+Call:
+  imr.imr_data(x = analysis_data, nu = c(-4, -3, -4), draws = 8000, 
+    burnin = 2000, sampler_method = "paper", min_subgroup_size = 30, 
+    seed = 1)
+
+Outcome type : right.censored
+Method       : IMR
+Platforms    : 3 (genomic, proteomic, metabolomic)
+MCMC         : 8000 retained draws after 2000 burn-in
+
+Platform key:
+  P1 = genomic
+  P2 = proteomic
+  P3 = metabolomic
+
+Availability subgroups modelled (bitstring : platforms : size):
+  011 : P1 + P2      : 120
+  100 : P3           : 60
+  101 : P1 + P3      : 60
+  111 : P1 + P2 + P3 : 60
+
+Features with mPIP > 0.50 (in any subgroup):
+  genomic      : 5 of 20
+  proteomic    : 2 of 10
+  metabolomic  : 2 of 8
+\end{CodeOutput}
+\end{CodeChunk}
+
+Setting \code{rank = TRUE} appends a short per-platform ranking of the
+highest-mPIP features to the same overview, with \code{top} controlling how many
+are listed:
+
+\begin{CodeChunk}
+\begin{CodeInput}
+R> print(fit, rank = TRUE, top = 3)
+\end{CodeInput}
+\begin{CodeOutput}
+Integrative Bayesian Multi-Platform Regression (IMR)
+----------------------------------------------------
+Call:
+  imr.imr_data(x = analysis_data, nu = c(-4, -3, -4), draws = 8000, 
+    burnin = 2000, sampler_method = "paper", min_subgroup_size = 30, 
+    seed = 1)
+
+Outcome type : right.censored
+Method       : IMR
+Platforms    : 3 (genomic, proteomic, metabolomic)
+MCMC         : 8000 retained draws after 2000 burn-in
+
+Platform key:
+  P1 = genomic
+  P2 = proteomic
+  P3 = metabolomic
+
+Availability subgroups modelled (bitstring : platforms : size):
+  011 : P1 + P2      : 120
+  100 : P3           : 60
+  101 : P1 + P3      : 60
+  111 : P1 + P2 + P3 : 60
+
+Features with mPIP > 0.50 (in any subgroup):
+  genomic      : 5 of 20
+  proteomic    : 2 of 10
+  metabolomic  : 2 of 8
+
+Top 3 ranked features by maximum subgroup mPIP:
+  genomic
+     feature max_mpip subgroup
+         G01        1      011
+         G02        1      011
+         G03        1      011
+
+  proteomic
+     feature max_mpip subgroup
+         P01    1.000      011
+         P02    1.000      011
+         P06    0.178      111
+
+  metabolomic
+     feature max_mpip subgroup
+         M01    1.000      100
+         M02    0.505      111
+         M06    0.403      111
+
+\end{CodeOutput}
+\end{CodeChunk}
+
+\subsection{Choosing analysis settings}\label{sec:settings}
+
+The preceding example specifies a complete analysis, but its settings should
+be reconsidered for each study.  The subgroup-size threshold \code{min\_subgroup\_size} is the first such choice.  A
+small value retains more availability patterns, but may create regressions with
+too few events or too little outcome variation to support stable inference.  A
+large value removes sparse regions of the Venn diagram and reduces computation,
+but may discard scientifically relevant platform combinations.  In practice we
+recommend first inspecting the platform-availability table, then setting
+\code{min\_subgroup\_size} so that every retained subgroup has enough outcome information for
+the chosen likelihood.  The function \code{plot\_subgroup\_sizes()} provides a
+quick visual check after fitting.
+
+The sparsity parameter \code{nu} is platform-specific because different assays
+often have different effective dimensions and signal densities.  More negative
+values favour smaller selected sets.  The KIRC analysis follows
+\citet{chekouo2017} and uses \code{nu = c(-4, -3, -4)} for mRNA, miRNA and
+methylation; in the simulated examples the same pattern is used for consistency.
+The non-local prior scale \code{molecular\_prior\_scale} controls how strongly active effects are
+kept away from zero.  Larger values allow broader slab effects, whereas smaller
+values place active effects closer to zero but still retain the pMOM density's
+zero-at-the-origin behaviour.  The MRF hyperparameters in
+\code{interaction\_prior} govern the prior strength of borrowing; setting
+\code{method = "bms"} is the most direct sensitivity analysis for this component
+because it removes the MRF interactions while leaving the rest of the modelling
+pipeline unchanged.
+
+These prior choices define the target model. The sampler convention must also
+be stated, because the published model and the released implementation differ
+in their updates.
+
+The stated symmetric MRF has conditional log-odds
+$\nu_k + 2\sum_{s'\ne s}\theta^{(k)}_{ss'}\gamma^{(s')}_{kg}$.
+The released selection code uses a factor of one and omits the Hastings
+correction when flip proposals cross an empty/full-model boundary.
+The explicit \code{sampler\_method = "paper"} option implements the stated
+conditional, the proposal correction and the negative Gamma rate term in the
+log-posterior trace. The default \code{"legacy"} retains historical updates;
+its invariant distribution is not the stated paper posterior. The main fit and predictive simulation comparison request \code{"paper"}
+explicitly. The separate covariate-formula workflow retains the legacy sampler
+for both candidates; its results are not combined with this comparison.
+\code{prior\_indexing = "code2017"} and stage-specific
+\code{laplace\_max\_iter} expose two further released-code conventions.
+\code{standardize = FALSE} accepts externally transformed historical inputs;
+users remain responsible for the scope of that external transformation.
+
+Several package arguments are thresholds or size controls, but they affect
+different parts of the workflow and should not be interpreted as the same
+quantity.  Table~\ref{tab:thresholds} separates these controls.  In particular,
+\code{min\_subgroup\_size} determines which availability subgroups are fitted, whereas the
+\code{threshold} argument in \code{print()} and \code{summary()} only determines
+which fitted features are reported as selected.  The number of candidate
+features is fixed by the columns supplied in each platform data frame after any
+external screening; \pkg{IntegMultiReg} then estimates their posterior
+inclusion probabilities rather than choosing the input feature dimension
+automatically.
+
+\begin{table}[!htbp]
+\centering
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.2cm}
+                >{\raggedright\arraybackslash}p{4.4cm}
+                >{\raggedright\arraybackslash}p{6.0cm}@{}}
+\toprule
+Control & Where used & Interpretation \\
+\midrule
+\code{min\_subgroup\_size} & \code{imr()} &
+Minimum subgroup size for fitting; subgroups with at most this many
+subjects are removed before MCMC. \\
+\code{nu} & \code{imr()} &
+Platform-specific prior log-odds of feature inclusion; more negative values
+encode stronger sparsity. \\
+\code{threshold} & \code{print()}, \code{summary()} &
+Reporting cutoff for mPIP; it changes the displayed selected-feature list,
+not the MCMC fit. \\
+\code{rank}, \code{top} & \code{print()},
+\code{plot\_top\_features()} &
+\code{rank = TRUE} adds top-feature rankings to \code{print()}; \code{top}
+sets how many highest-mPIP features are shown in the print output or ranked
+feature plot. \\
+\code{max\_models} & \code{predict()}, \code{cv\_imr()} &
+Maximum number of distinct sampled selection models retained for
+Bayesian model averaging in prediction. \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:thresholds}Thresholds and size controls used by
+\pkg{IntegMultiReg}.}
+\end{table}
+
+Finally, MCMC length should be scaled to the purpose of the run.  Short chains
+are useful for checking data alignment, subgroup retention and the absence of
+obvious numerical problems.  Longer chains should be used for reported mPIPs,
+theta summaries and cross-validated prediction.  The package stores the full
+log-posterior trace, and \code{plot(fit, type = "trace")} gives a quick
+diagnostic display; for high-dimensional applications, we also recommend
+repeating the final analysis under several seeds and checking that the leading
+selected features are stable.
+
+
+\subsection{The fitted object and its methods}\label{sec:methods}
+
+The fitted \code{"imr"} object carries the posterior summaries together with
+the metadata needed for prediction. Standard \proglang{S}3 methods and
+diagnostic helpers are provided
+(Table~\ref{tab:methods}). The \code{summary} method ranks, per platform, the
+features whose marginal inclusion probability exceeds a threshold, together with
+the subgroup in which that maximum is attained.
+
+
+\Needspace{6\baselineskip}
+The printed and summarized output therefore has two layers of names:
+availability subgroups are labelled by the bitstrings in
+Table~\ref{tab:bitstring-key}, while platforms and features use the names
+stored in the fitted object.  In simulations those names are \code{genomic},
+\code{proteomic}, \code{metabolomic} and feature labels such as \code{G01} or
+\code{P01}; in generic notation they correspond to \code{P1}, \code{P2} and
+features such as \code{P1:F01}.
+
+\begin{table}[!htbp]
+\centering
+\begin{tabular}{l p{9.6cm}}
+\toprule
+Method & Description \\
+\midrule
+\code{print}   & Overview of the fit, platform key, availability bitstrings and selected-feature counts at a chosen mPIP threshold. \\
+\code{summary} & Per-platform table of selected biomarkers and their inclusion probabilities. \\
+\code{coef}    & List of per-platform matrices of marginal posterior inclusion probabilities (mPIP). \\
+\code{plot}    & Heatmaps of the mPIP or MRF interactions and trace plots for the log-posterior, theta interactions or individual selection indicators. \\
+\code{predict} & Predicted outcomes for new subjects by Bayesian model averaging. \\
+\code{confint} & Equal-tail credible intervals from retained selection-indicator and theta draws. \\
+\code{validate\_imr} & Structural and numerical validation of a saved fitted object. \\
+\code{compare\_imr} & Descriptive comparison of several fits at a common mPIP threshold. \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:methods}Methods and diagnostic helpers for objects of class
+\code{"imr"}.}
+\end{table}
+
+\Needspace{30\baselineskip}
+\begin{CodeChunk}
+\begin{CodeInput}
+R> summary(fit, threshold = 0.5)
+\end{CodeInput}
+\begin{CodeOutput}
+Integrative Bayesian Multi-Platform Regression (IMR) -- summary
+--------------------------------------------------------------
+Outcome type : right.censored   Method: IMR
+Selection threshold (mPIP) : 0.50
+
+Platform 'genomic': 5 selected feature(s)
+ feature max_mpip subgroup
+     G01    1.000      011
+     G02    1.000      011
+     G03    1.000      011
+     G19    0.712      011
+     G05    0.630      101
+
+Platform 'proteomic': 2 selected feature(s)
+ feature max_mpip subgroup
+     P01        1      011
+     P02        1      011
+
+Platform 'metabolomic': 2 selected feature(s)
+ feature max_mpip subgroup
+     M01    1.000      100
+     M02    0.505      111
+
+\end{CodeOutput}
+\end{CodeChunk}
+
+The printed ranking compresses each feature's subgroup-specific probabilities
+to one maximum. The full matrices returned by \code{coef(fit)} retain these
+differences, which the heatmap displays directly (Figure~\ref{fig:selection}).
+Similar high-probability columns across subgroups indicate agreement in
+selection, but this plot alone cannot attribute that agreement to the MRF
+prior. The ranked view summarises the strongest feature scores
+(Figure~\ref{fig:top}); the trace instead describes the sampled log-posterior
+trajectory (Figure~\ref{fig:trace}). The IMR--BMS comparison in
+Section~\ref{sec:gain} examines the consequences of including MRF borrowing.
+Posterior standard deviations and credible intervals from the retained
+selection-indicator and MRF-interaction draws are returned by
+\code{posterior\_summary(fit)} or the standard \code{confint(fit)} method.
+Parameter-specific traces are available through
+\code{plot(fit, type = "theta\_trace", ...)} and
+\code{plot(fit, type = "selection\_trace", ...)}.
+
+
+\FloatBarrier
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/selection.pdf}
+\caption{\label{fig:selection}Marginal posterior inclusion probabilities
+(mPIP) for the simulated right-censored example (8000 retained draws after
+2000 burn-in iterations). Rows identify availability subgroups and columns
+identify features. A shared grayscale maps mPIP from 0 (light) to 1 (dark),
+allowing direct comparison across platforms. The display is produced by
+\code{plot(fit, type = "selection")}.}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.7\textwidth]{figures/top_features.pdf}
+\caption{\label{fig:top}The ten largest platform-feature scores produced by
+\code{plot\_top\_features(fit)}.  For each platform-feature pair, the score is
+the highest mPIP attained among the availability subgroups containing that
+platform, and each bar is annotated with the availability subgroup (bitstring)
+in which that maximum was attained. Bars are coloured by platform and the dashed
+line marks the $0.5$ reporting cutoff. Scores come from the same fit as
+Figure~\ref{fig:selection}; a maximum does not imply high inclusion probability
+in every subgroup.}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.7\textwidth]{figures/trace.pdf}
+\caption{\label{fig:trace}Log-posterior trajectory for the fit in Figure~\ref{fig:selection},
+produced by \code{plot(fit, type = "trace")}. The dashed line separates the
+2000 burn-in iterations from the 8000 retained iterations. This single-chain
+display can reveal gross instability but does not establish convergence.}
+\end{figure}
+
+
+\FloatBarrier
+
+\subsection{Coefficient and predictive intervals}
+
+Inclusion probabilities describe feature selection; coefficient and predictive
+intervals address uncertainty in effect sizes and outcomes. The optional
+\code{posterior\_draws(fit)} stage
+resamples whole retained selection states, preserving their empirical joint
+subgroup distribution, and draws coefficients and residual variances
+conditionally on each subgroup model. All active coefficients, including the
+intercept and clinical effects, use the original first-order pMOM prior.
+Inactive molecular coefficients remain exactly zero. Binary and censored
+outcomes are augmented within these conditional chains using the observed data.
+
+The function \code{posterior\_draws()} returns an \code{"imr\_posterior"}
+object. Its \code{confint()} method gives coefficient intervals on the
+transformed predictor scales. The method
+\code{predict()} on this object with \code{type = "mean"} gives intervals for conditional
+response means or binary event probabilities; \code{type = "response"}
+adds future outcome variability. For log-time survival fits these are
+transformed to time units and the point summaries are medians. A posterior
+mean on the time scale need not exist under an inverse-gamma variance mixture.
+Future censoring times are not generated.
+
+These intervals retain the original sampler's Laplace approximation to model
+weights. Conditional split R-hat is reported for each sampled model, with an
+alert above 1.05 or when undefined; it does not diagnose the selection chain.
+Both stages require adequate exploration. These additions do not introduce
+clinical covariate selection.
+
+\subsection{Prediction and cross-validation}\label{sec:predict}
+
+The \code{predict} method produces predictions for new subjects, automatically
+routing each subject to the subgroup that matches its observed platforms and
+applying the stored training transformation. The standard \code{predict()}
+generic handles both point predictions and conditional posterior summaries.
+
+\Needspace{18\baselineskip}
+\begin{CodeChunk}
+\begin{CodeInput}
+R> newX <- simIMR$platforms$genomic[1:20, ]
+R> newP <- simIMR$platforms$proteomic[1:20, ]
+R> pred <- predict(fit, newdata = list(newX, newP),
++    covariates = simIMR$covariates)
+R> print(pred[["model:011"]][1:3, ], digits = 3)
+\end{CodeInput}
+\begin{CodeOutput}
+  id prediction
+1  1      0.397
+2  2     -0.228
+3  3      0.290
+\end{CodeOutput}
+\end{CodeChunk}
+
+For the default log-time survival fit these point predictions are on the log-time
+scale. The returned predictions retain full floating-point precision; rounding in the
+display above is controlled by the user through the printing method and does
+not alter the returned values.
+
+Prediction for supplied subjects and validation of the fitting procedure answer
+different questions. For the latter, \code{cv\_imr(cv\_method = "refit")}
+recomputes preprocessing, formula transformations, selection draws and
+predictive weights within each training fold. This is the workflow used in
+the manuscript's predictive comparison. Its cost is approximately one full fit
+per fold and round; binary predictions average model-specific probabilities
+on the response scale.
+
+The two post-fit modes instead reuse a model fitted to the full data. The
+default \code{cv\_method = "legacy"} uses ranked distinct selection states
+and historical scoring. The \code{"importance"} mode preserves all retained
+states, including their multiplicities, for the importance average in
+Equations (6)--(7) of \citet{chekouo2017}. Both use full-fit transformed
+predictors and augmented response means; the response plug-in is stated in
+Section 4.1 of that article. Held-out outcomes enter inverse-density weights
+as part of the importance correction. These workflows therefore require their
+own interpretation and should not be labelled training-fold refits.
+
+Mode names supply defaults. The optional arguments \code{ridge},
+\code{model\_set}, \code{df\_method} and \code{score\_method} choose the
+coefficient penalty, selection-state collection, predictive degrees of freedom
+and metric convention independently. Paper-oriented post-fit CV uses
+\code{ridge = 0}, \code{model\_set = "draws"} and
+\code{df\_method = "fractional"}. The released code instead uses
+\code{model\_set = "ranked\_unique"}, \code{max\_models = 100},
+\code{df\_method = "legacy\_integer"} and \code{score\_method = "legacy"},
+also with zero ridge. The package retains 0.001 as its default penalty.
+
+These numerical choices also determine when prediction is well defined.
+A singular unpenalized solve stops with round, fold and subgroup context.
+This restriction is material for the bundled KIRC inputs: in a 20,000-state
+paper-sampler pilot with clinical covariates, subgroup 011 had more selected
+columns (including intercept and covariates) than training subjects in
+22.065\% to 28.060\% of retained states, depending on the fold. An independently
+reconstructed design had 64 rows, 69 columns and rank 64. Thus this pilot does
+not supply an unpenalized all-state CV estimate. A positive-penalty control
+completed, but changes the estimator and is not a paper-reference result.
+These pilot observations do not replace the original-scale experiments.
+
+
+Once a validation workflow has been chosen, its predictions can be summarised
+in two ways. The returned fields \code{pooled} and \code{fold\_mean} distinguish pooled
+out-of-fold accuracy from the average fold-specific score. The ordinary
+\code{predictions} data frame records subjects, subgroups, rounds, folds and
+predictions; \code{control} records effective settings and a reusable fold
+table. Supplying \code{folds = cv\$control\$folds} pairs analyses by actual
+membership and preserves post-fit row order. Identical seeds do not pair the
+R refit and GSL post-fit generators. New fits can request
+\code{fold\_rng = "continue"} to continue the fit's GSL stream, matching the
+released program's convention. This does not assert that preceding random
+consumption or initial states match that program.
+
+The preceding choices concern the analysis itself. To distribute its computation,
+all modes support \code{workers} for deterministic process parallelism.
+Settings and partitions are resolved before dispatch; each worker needs its own
+fit and workspace. Hyperparameter or feature-screening choices selected from
+data require outer validation. Existing results retain their interpretation;
+changing a computation option requires a new fit or CV evaluation.
+
+\subsection{Comparing and choosing covariate specifications}\label{sec:covariate-comparison}
+
+\code{compare\_imr()} provides structural summaries; prediction-based comparison
+uses \code{cv\_imr()} on the same cohort and identical fold assignments.
+The companion script demonstrates two prespecified formulas,
+\code{y \textasciitilde{} age} and
+\code{y \textasciitilde{} age + sex + stage}, on the 300 synthetic subjects.
+The covariate names are illustrative; this is not a clinical selection result.
+Both candidates use the same assays, priors and 2000 retained plus 500 burn-in
+draws. Two rounds of three-fold CV yield mean MSEs of 0.349793 and 0.376508,
+respectively. The expanded-minus-age-only differences are 0.020337 and 0.033092.
+These paired round summaries are descriptive; overlapping training samples do
+not provide independent replicates for a significance test.
+
+For data-driven formula choice, the script additionally performs three-fold
+outer validation. Within each outer training set, three-fold inner CV chooses
+between the two formulas using MSE, with matched inner partitions. The selected
+training fit predicts only its outer test subjects. The script checks the actual
+ID/fold assignments and verifies that inner records contain no outer test IDs.
+The age-only candidate was selected in all three outer folds; the pooled outer
+MSE of this selection procedure was 0.340617. This is a separate evaluation of
+the selection procedure, not the smaller of the two preceding CV estimates.
+
+From the extracted replication directory, the following commands print the
+comparison and nested-selection results. The main replication script invokes
+the same function and retains its tables and subject-level records.
+\Needspace{48\baselineskip}
+\begin{CodeInput}
+R> source("IntegMultiReg-covariate-comparison.R")
+R> covariate_comparison <- run_covariate_comparison()
+R> print(covariate_comparison$paired_summary, digits = 6)
+R> print(covariate_comparison$nested_summary, digits = 6)
+\end{CodeInput}
+\begin{CodeOutput}
+
+Prespecified candidates: paired CV (MSE; lower is better)
+           fit    outcome method platforms subgroups retained_draws
+      age_only continuous    imr         3         4           2000
+ age_sex_stage continuous    imr         3         4           2000
+ selected_features
+                 6
+                 6
+     candidate               formula  mean_mse sd_across_rounds
+      age_only               y ~ age 0.3497932      0.012413876
+ age_sex_stage y ~ age + sex + stage 0.3765077      0.003394637
+
+Paired round differences (not independent inferential replicates)
+ round  age_only age_sex_stage expanded_minus_age_only
+     1 0.3585712     0.3789081              0.02033692
+     2 0.3410153     0.3741073              0.03309205
+
+Nested selection: the outer responses are used only for scoring
+ outer_fold selected n_train n_test inner_mse_age_only
+          1 age_only     200    100          0.3648101
+          2 age_only     200    100          0.4379168
+          3 age_only     200    100          0.4123364
+ inner_mse_age_sex_stage outer_mse
+               0.3971183 0.4648348
+               0.4925576 0.2626127
+               0.4597745 0.2944039
+                  procedure n_subjects outer_folds inner_folds
+ inner-CV formula selection        300           3           3
+ pooled_outer_mse
+        0.3406171
+      candidate               formula mean_mse sd_across_rounds
+1      age_only               y ~ age 0.349793       0.01241388
+2 age_sex_stage y ~ age + sex + stage 0.376508       0.00339464
+                   procedure n_subjects outer_folds inner_folds
+1 inner-CV formula selection        300           3           3
+  pooled_outer_mse
+1         0.340617
+\end{CodeOutput}
+
+This workflow selects a predictive specification from a fixed candidate list;
+it does not introduce a new clinical-coefficient selection prior. Variables
+required for adjustment must remain in every candidate formula. Candidate lists,
+feature screening and tuning must be confined to training data if selected
+adaptively. The example's narrow synthetic setting does not establish clinical
+utility, high-dimensional calibration or MCMC convergence.
+
+\Needspace{5\baselineskip}
+\subsection{Computational scale}\label{sec:computational-scale}
+
+The computational cost is driven primarily by the number of retained
+availability subgroups, the number of candidate molecular features in the
+platforms appearing in those subgroups, and the total number of MCMC iterations.
+Refit cross-validation repeats preprocessing and the full MCMC fit for each fold
+and round, multiplying the main fitting cost by the number of folds and rounds.
+The argument \code{max\_models} controls a second
+cost in prediction: the maximum number of distinct sampled selection
+models used for Bayesian model averaging.
+
+Every retained selection state remains available in its original order.
+Identical platform-specific selection matrices share storage in a newly fitted
+object, while ordinary R edits retain copy-on-modify behaviour. The research
+runner uses lossless compact checkpoints to preserve this sharing on recovery;
+ordinary RDS files preserve the values but may use more memory after reload.
+Memory requirements still depend on the number of distinct states and native
+workspaces, so full-scale runs require measured resource checks.
+
+Table~\ref{tab:scale} summarises the scale of the workflows used in this
+paper.  The simulated-data workflow is designed to be a routine replication
+check.  The reduced KIRC workflow exercises the real multi-platform data
+structure while remaining suitable for examples. The covariate-comparison
+workflow adds paired cross-validation and nested formula selection; its repeated
+training fits make it more costly than a single illustrative fit.
+
+\begin{table}[!htbp]
+\centering
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.2cm}
+                r r r
+                >{\raggedright\arraybackslash}p{3.9cm}@{}}
+\toprule
+Workflow & Subjects & Features & Subgroups & Manuscript configuration \\
+\midrule
+\code{simIMR} figures and Table~\ref{tab:compare} & 300 & 38 & 4 &
+Figures use 8000 retained draws and 2000 burn-in; prediction comparison uses
+4000 retained draws, 1000 burn-in and 10 rounds of 5-fold cross-validation. \\
+\code{kircIMR} reduced example & 521 & 130 & 4 &
+Runnable real-data example with 4000 retained draws and 1000 burn-in in the
+manuscript code. \\
+Covariate comparison and nested selection & 300 & 38 & 4 &
+2000 retained draws and 500 burn-in; paired 2 rounds of 3-fold CV, followed by
+3 outer folds with 3-fold inner selection. \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:scale}Computational scale of the main workflows.  Candidate
+features exclude clinical covariates.}
+\end{table}
+
+The current replication materials generate the simulation results, the
+covariate-comparison workflow and the reduced KIRC interface example. Legacy
+raw-time KIRC results and their provenance are retained in a separate historical
+audit directory; they are not performance evidence for the current package.
+
+
+\FloatBarrier
+
+\Needspace{5\baselineskip}
+\subsection{Software validation}\label{sec:software-validation}
+
+The package includes automated checks at both the \proglang{R} interface and
+compiled-code boundary.  The \proglang{R} layer validates identifiers, numeric
+feature columns, binary/survival outcome coding, subgroup-size choices,
+hyperparameter lengths and prediction inputs before calling the sampler.  This
+is especially important for multi-platform data, where a silent row-order
+mismatch between outcome, covariate and platform data would invalidate the
+analysis.  The compiled routines follow standard \proglang{R} registration and
+error-handling practices so that numerical failures are reported through the
+\proglang{R} interface.
+
+The test suite is organised around the public workflow, covering input
+validation, subgroup construction, helper functions, model fitting,
+reproducibility under fixed seeds, continuous, binary and survival outcome handling,
+S3 methods, plots, prediction, cross-validation and
+the KIRC data object.
+Local package checks verify installation, examples, tests, vignette rebuilding,
+compiled-code checks and manual building.
+The revision adds independent checks for computational conventions. Frozen
+package results cover six outcome/model configurations and eighteen CV
+combinations. An independently compiled function from the 2017 archive checks
+conditional CV predictions at fixed states, latent responses and ordered
+partitions. Finite-state transition checks establish detailed balance for the
+paper selection update, and native-chain frequencies are compared with
+exhaustively enumerated conditional targets. Gamma log-density increments are
+checked against \code{dgamma()}, including interactions below 0.001.
+
+Historical regression tests remain in place for response scaling, formula
+transformations, binary probability averaging, native garbage-collection
+protection, subgroup-pair labels, worker consistency and numerical-failure
+cleanup. Source-package checks and instrumented CI have separate roles;
+previous remote sanitizer or Valgrind results are not evidence that this
+unpublished candidate has passed those jobs. The accompanying validation
+report identifies the source, environment, completed checks and outstanding
+experiments. Conditional coefficient intervals retain the selection sampler's
+Laplace approximation and finite-chain uncertainty.
+These checks are not a substitute for substantive model diagnostics, but they
+reduce the chance that a package user reaches the MCMC stage with misaligned
+data or an unsupported prediction request.
+
+%% ===========================================================================
+\section{Illustration}\label{sec:illustration}
+%% ===========================================================================
+
+This section evaluates selection and prediction on simulated data with known
+truth. Appendix~\ref{sec:appendix-kirc} reports sample retention and provides
+a runnable illustration using the reduced KIRC data.
+
+The package ships with two example data sets.  The first, \code{kircIMR}, is a
+reduced public UCSC Xena TCGA-KIRC data set that follows the kidney cancer
+case-study structure of \citet{chekouo2017}.  It is built from public sampleMap
+files, not controlled-access TCGA/GDC files, and stores a reduced screened
+feature panel with package-internal patient identifiers.  The second,
+\code{simIMR}, is a simulated data set with known truth; we use it for the
+quantitative recovery and prediction summaries because the true biomarkers are
+known and the full analysis is fast to reproduce.
+
+\subsection{Simulated example with known truth}\label{sec:sim-illustration}
+
+We use the simulated \code{simIMR} data, in which a handful of features per
+platform (recorded in \code{simIMR\$truth}: \code{G01}--\code{G03},
+\code{P01}--\code{P02}, \code{M01}) drive the outcomes through a common latent
+signal. The four non-empty subgroups are \code{011} ($n=120$, genomic +
+proteomic), \code{111} ($n=60$, all three), \code{101} ($n=60$, genomic +
+metabolomic) and \code{100} ($n=60$, metabolomic only). All numbers and figures
+below are reproduced by the accompanying replication scripts.
+
+\subsection{Biomarker recovery}\label{sec:recovery}
+
+Table~\ref{tab:recovery} contrasts the largest inclusion probability among
+associated and null features on each platform. Each platform contains at least one true feature whose largest subgroup mPIP
+rounds to 1.000, while the corresponding null-feature maxima range from 0.178
+to 0.712. These maxima describe the strongest selection signals; they do not
+measure recovery of every true feature or the false-positive rate. The high
+null-feature probabilities also motivate checking sensitivity to sparsity and
+MRF borrowing before interpreting the selected set.
+
+\begin{table}[!htbp]
+\centering
+\begin{tabular}{l r r r r}
+\toprule
+Platform & \#features & \#true & max mPIP (true) & max mPIP (null) \\
+\midrule
+genomic     & 20 & 3 & 1.000 & 0.712 \\
+proteomic   & 10 & 2 & 1.000 & 0.178 \\
+metabolomic &  8 & 1 & 1.000 & 0.505 \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:recovery}Largest marginal inclusion probability among the
+truly associated versus the null features of each platform (right-censored
+outcome, 8000 retained MCMC draws).}
+\end{table}
+
+The table reports
+the maximum mPIP over availability subgroups, matching the ranking used by
+\code{summary()} and \code{plot\_top\_features()}.
+
+\subsection{Comparing integration with independent subgroup models}\label{sec:gain}
+
+Borrowing strength can change both selection and prediction. Its effect is
+evaluated against the no-borrowing BMS comparator. Using the training-fold refitting cross-validation
+assessment described in Section~\ref{sec:predict},
+Table~\ref{tab:compare} compares the integrative model (\code{method = "imr"})
+with the non-integrative variant (\code{method = "bms"}) that fits every
+subgroup independently. For each of the three outcome types we report the
+out-of-fold predictive accuracy
+($5$ folds, averaged over $10$ rounds) per subgroup and overall.
+
+\begin{table}[t!]
+\centering
+\begin{tabular}{l l l r r r r r}
+\toprule
+Outcome & Measure & Method & \code{011} & \code{100} & \code{101} & \code{111} & all \\
+\midrule
+binary & AUC ($\uparrow$) & IMR & \textbf{0.660} & \textbf{0.640} & 0.605 & \textbf{0.605} & \textbf{0.628} \\
+ &  & BMS & 0.609 & 0.617 & \textbf{0.674} & 0.504 & 0.607 \\
+continuous & MSE ($\downarrow$) & IMR & 0.298 & 0.271 & \textbf{0.375} & \textbf{0.479} & \textbf{0.344} \\
+ &  & BMS & \textbf{0.294} & \textbf{0.270} & 0.492 & 0.658 & 0.402 \\
+right-censored & C-index ($\uparrow$) & IMR & 0.854 & 0.633 & 0.762 & \textbf{0.811} & \textbf{0.801} \\
+ &  & BMS & \textbf{0.861} & \textbf{0.650} & \textbf{0.764} & 0.761 & 0.794 \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:compare}Cross-validated predictive accuracy of the
+integrative (IMR) and non-integrative (BMS) models by subgroup and overall,
+for each outcome type ($5$-fold cross-validation averaged over $10$ rounds).
+The assessment uses independent training-fold refits described in
+Section~\ref{sec:predict}. Arrows indicate the favourable direction; the better
+of the two point estimates is in \textbf{bold}, without implying statistical
+significance. The overall column pools subject predictions within each round
+before averaging the scores across rounds.}
+\end{table}
+
+In this example, overall IMR AUC is 0.628 versus 0.607 for BMS, MSE is
+0.344 versus 0.402, and concordance is 0.801 versus 0.794. The subgroup
+comparisons are mixed: IMR has lower continuous MSE in \code{101} and
+\code{111}, but higher MSE in \code{011} and \code{100}. Survival
+concordance is higher under BMS in three of the four subgroups. These are
+results for the explicit paper sampler and fixed priors on this example;
+they do not establish a general predictive advantage or assess Monte Carlo
+uncertainty across independent data sets.
+
+
+\subsection{Diagnostics and sensitivity checks}\label{sec:diagnostics}
+
+The examples above use fixed seeds so that the printed tables and figures are
+exactly reproducible.  In a final applied analysis, we recommend treating the
+reported fit as one element of a small diagnostic workflow.  First, the
+log-posterior trace should be inspected for gross non-stationarity or numerical
+instability; \code{plot(fit, type = "trace")} provides this check directly from
+the fitted object.  Second, the leading selected features should be compared
+across several seeds or longer chains.  In high-dimensional biomarker
+selection, exact mPIPs for borderline features may change across runs, but the
+top-ranked features and the separation between strong signals and null features
+should be reasonably stable.
+
+The comparison between IMR and BMS is also a sensitivity analysis for the MRF
+borrowing assumption.  Agreement between the fits indicates limited sensitivity to the borrowing
+choice in that comparison; it does not identify where the evidence originates.
+Differences in mPIPs or prediction show that the choice matters, but their
+direction need not favour IMR. Shared feature effects across availability
+patterns provide a scientific rationale for borrowing, which should be assessed
+against subject-matter knowledge as well as the no-borrowing fit.  Similarly, changing \code{nu} probes sensitivity to
+the prior sparsity level, and changing the reporting threshold in
+\code{summary(fit, threshold = ...)} distinguishes robust high-probability
+markers from features near the conventional 0.5 cutoff.
+
+For prediction, subgroup-specific performance is as important as the pooled
+column.  A model can have good overall AUC or C-index while performing poorly in
+a small availability subgroup.  The column-labelled output of \code{cv\_imr()}
+is therefore designed to make this failure mode visible.  The simulated comparison contains both improvements and declines by subgroup,
+illustrating why the pooled score alone is insufficient.
+
+%% ===========================================================================
+\section{Reproducibility and replication materials}\label{sec:reproducibility}
+%% ===========================================================================
+
+The current manuscript's numerical results are generated by
+\code{IntegMultiReg-replication.R} and its covariate-comparison companion.
+Figures and biomarker recovery use 8000 retained and 2000 burn-in draws;
+prediction comparisons use 4000 retained and 1000 burn-in draws with ten rounds
+of five-fold training-refit validation. The covariate example uses its separately
+reported paired and nested validation settings. Fixed seeds, subject-level fold
+assignments, numerical outputs and session information are retained. Quick mode
+is a smoke test, not a source of the manuscript numbers.
+
+The synthetic \code{simIMR} data provide known feature truth and the predictive
+examples. The reduced public UCSC Xena \code{kircIMR} data exercise the real
+missing-platform structure and the survival interface. Their globally screened
+feature panel makes them suitable for an interface demonstration, not an unbiased
+estimate of generalization performance. The manuscript makes no full-scale KIRC
+performance claim for version 0.2.0.
+
+The original-scale runner is separate from the interface illustration. It
+uses the released 778/91/729-feature matrices for Table 1 and compiles the
+archived data generator for the three overlap scenarios and the six
+correlation settings of Web Appendix E. A full configuration retains 350000
+draws after 50000 burn-in iterations; Table 1 requests ten rounds of ten-fold
+CV and reports the mean over 100 validation sets, with SD and standard error
+stored separately. The simulation design distinguishes released fixed marker indices from
+random marker identities described in the article. A common seeded permutation
+per platform maps the archived signal pattern to random identities while
+preserving signal counts and overlap; output columns and truth labels are
+restored to the original feature order. Actual permutations and inner L1-CPH
+fold assignments are saved. Unknown historical replicate seeds and the article's
+776-versus-archive's-778 gene count remain documented.
+These differences prevent an automatic claim of historical-digit reproduction.
+The \code{initial} argument supports explicitly different selection and
+interaction starts for multi-chain diagnostics. Historical starting values
+are unavailable; eight short interface checks do not establish convergence
+or reproduce the published Appendix F diagnostics.
+The archive's global screening is retained as an experimental condition;
+training-fold screening is a separate predictive evaluation choice.
+
+Historical scripts and previous numerical references are retained in
+\code{historical-audit}. Short runs verify orchestration and are kept separate
+from full-scale scientific results. The reproduction status, elapsed times,
+source/data hashes and outstanding analyses are recorded in the accompanying
+report. No proprietary IPA network analysis is regenerated.
+
+%% ===========================================================================
+\section{Summary}\label{sec:summary}
+%% ===========================================================================
+
+\pkg{IntegMultiReg} makes the availability-subgroup model of
+\citet{chekouo2017} available through a common \proglang{R} workflow for
+survival, continuous and binary outcomes. The data and model interfaces allow
+partially observed subjects to contribute through their measured platforms,
+subject to the outcome, covariate and subgroup-size requirements. Standard
+methods then connect fitting to selection summaries, uncertainty assessment,
+prediction and cross-validation.
+
+The simulated illustration shows why both feature-level and subgroup-level
+results matter. High inclusion probabilities occur among true and null
+features, and the predictive comparisons favour different methods in different
+subgroups. The package therefore supports examining the consequences of MRF
+borrowing rather than assuming that integration improves every analysis.
+Multi-chain diagnostics, prior sensitivity and validation appropriate to the
+prediction target remain necessary for substantive applications.
+
+The current model uses platform-specific sparsity parameters $\nu_k$.
+Extensions could incorporate known biological interactions among features or
+adapt the feature-ordering and population-structure construction of
+\citet{dai2023} to this availability-subgroup setting.
+
+%% ---------------------------------------------------------------------------
+\section*{Computational details}
+The revised simulation and reduced KIRC results were obtained using
+\proglang{R}~4.4.2 on macOS~26.3.1 (ARM64), with \pkg{IntegMultiReg}~0.2.0
+and GSL~2.8. The supplementary materials include the source package and
+workflows reproducing the current figures and simulated-data tables.
+Historical audit materials are supplied separately.
+
+\bibliography{IntegMultiReg}
+
+%% ===========================================================================
+\appendix
+\renewcommand{\thetable}{\thesection.\arabic{table}}
+\renewcommand{\thefigure}{\thesection.\arabic{figure}}
+\renewcommand{\theequation}{\thesection.\arabic{equation}}
+\renewcommand{\theHtable}{appendix.\thesection.\arabic{table}}
+\renewcommand{\theHfigure}{appendix.\thesection.\arabic{figure}}
+\setcounter{table}{0}
+\setcounter{figure}{0}
+\setcounter{equation}{0}
+\clearpage
+\section{Supplementary empirical analyses and outcome extensions}
+\label{sec:appendix-kirc}
+%% ===========================================================================
+
+\subsection{Complete-case sample retention}\label{sec:complete-case}
+
+The practical motivation for IMR is illustrated by comparing the number of
+subjects retained under a complete-case analysis with the number retained by
+the subgroup-preserving IMR workflow.  Table~\ref{tab:complete-case} reports
+this comparison for the two example data objects.  In both cases the
+complete-case analysis keeps only the \code{111} subgroup, i.e., subjects with
+all three platforms observed.  IMR instead keeps every availability subgroup
+whose size exceeds the modelling threshold.
+
+\begin{table}[!htbp]
+\centering
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{4.3cm} r r r r@{}}
+\toprule
+Data set & Any platform & Complete cases & IMR modelled &
+Complete-case \% \\
+\midrule
+\code{simIMR} & 300 & 60 & 300 & 20.0\% \\
+\code{kircIMR} reduced example & 522 & 172 & 521 & 33.0\% \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:complete-case}Sample retained by complete-case analysis
+compared with the subgroup-preserving IMR workflow.  The reduced KIRC example
+contains one methylation-only subject below the default \code{min\_subgroup\_size = 30}
+threshold, so 521 of 522 subjects are modelled.}
+\end{table}
+
+The table also clarifies the role of BMS in the package.  BMS is not a
+complete-case method: it retains the same modelled availability subgroups as
+IMR, but fits them independently.  Thus the comparison between IMR and BMS
+isolates the effect of MRF borrowing, whereas the comparison with complete-case
+analysis isolates the effect of retaining partially observed subjects.
+
+\subsection{Reduced package example}\label{sec:kirc}
+
+The original Biometrics analysis integrated mRNA expression, miRNA expression
+and DNA methylation with clinical covariates for right-censored survival.  After
+pre-processing, the published article reports 776 mRNA transcripts, 91 miRNA
+markers and 729 DNA methylation probes \citep{chekouo2017}.  The supplementary
+\proglang{C} data files distributed with that article, which are used for the
+separate historical audit, contain 778 named
+mRNA columns, 91 miRNA columns and 729 methylation columns.  We therefore use
+the published screening counts when describing the scientific study and the
+supplement matrix dimensions when documenting the source files.  For the
+package example, \code{kircIMR} keeps the same scientific structure but stores
+a smaller Cox-screened panel (50, 30 and 50 features, respectively), so that the
+data object is small enough to ship with the package while still exercising the
+multi-platform missingness pattern.
+
+The reduced example is intended to demonstrate the software workflow rather
+than to serve as a literal repetition of the original KIRC marker-selection
+analysis.  It uses the same three platform types, the same survival-outcome
+structure and the same adjustment covariates, but it replaces the long
+full-data MCMC analysis by a compact data object suitable for examples, tests
+and vignettes.
+
+These distinctions are important because the three KIRC-related objects serve
+different replication targets rather than repeated runs of a single identical
+analysis: (i) the distributed \code{kircIMR} object is a reduced public example
+for users and tests; (ii) a public UCSC Xena reprocessing with approximately the
+published feature counts is useful for auditing the data-preparation pipeline;
+and (iii) the Biometrics supplementary-data workflow is preserved only in the
+separate historical audit.  Differences in
+feature counts, patient identifiers, subgroup sizes and selected marker lists
+should therefore be interpreted through these data provenance and distribution
+boundaries rather than treated as numerical disagreement from a single
+repeated analysis.
+
+The shipped object was generated from public UCSC Xena TCGA-KIRC sampleMap
+files \citep{tcgaKirc2013,gdcPortal,goldman2020}.  It does not distribute
+controlled-access TCGA/GDC data or the full Biometrics/Wiley supplementary data
+files.  To reduce unnecessary linkage risk in a package example, the TCGA
+barcodes are replaced by package-internal labels such as \code{KIRC001}; no
+barcode mapping is distributed, and users should not attempt participant
+re-identification or linkage to external resources.
+
+\begin{CodeChunk}
+\begin{CodeInput}
+R> data("kircIMR")
+R> dims <- sapply(kircIMR$platforms, dim)
+R> rownames(dims) <- c("subjects", "variables")
+R> dims
+\end{CodeInput}
+\begin{CodeOutput}
+          mrna mirna methylation
+subjects   521   235         312
+variables   51    31          51
+\end{CodeOutput}
+\begin{CodeInput}
+R> kircIMR$model_subgroup_sizes
+\end{CodeInput}
+\begin{CodeOutput}
+bitstrings
+011 101 001 111 
+ 63 139 147 172 
+\end{CodeOutput}
+\end{CodeChunk}
+
+The subgroup bitstrings use the same convention as the fitted object: with
+platform order \code{mrna}, \code{mirna}, \code{methylation}, the right-most bit
+corresponds to mRNA and the left-most bit to methylation.  Thus
+\code{001} denotes mRNA only, \code{011} mRNA plus miRNA, \code{101} mRNA plus
+methylation and \code{111} all three platforms.  These are the subgroups
+modelled with the default illustration threshold \code{min\_subgroup\_size = 30}; a single
+methylation-only subject is present in the raw availability table but is too
+small to model.
+
+A survival analysis on this data set uses the same hyperparameters as the
+reference paper for the non-local prior scale and sparsity pattern:
+
+\Needspace{39\baselineskip}
+\begin{CodeChunk}
+\begin{CodeInput}
+R> fit_kirc <- imr(
++    x = kircIMR$platforms,
++    outcome            = kircIMR$outcome.survival,
++    covariates         = kircIMR$covariates,
++    outcome_type       = "right.censored",
++    nu                 = c(-4, -3, -4),
++    draws = 4000, burnin = 1000,
++    sampler_method = "paper",
++    min_subgroup_size              = 30,
++    seed               = 1)
+R> summary(fit_kirc, threshold = 0.5)
+\end{CodeInput}
+\begin{CodeOutput}
+Integrative Bayesian Multi-Platform Regression (IMR) -- summary
+--------------------------------------------------------------
+Outcome type : right.censored   Method: IMR
+Selection threshold (mPIP) : 0.50
+
+Platform 'mrna': 3 selected feature(s)
+ feature max_mpip subgroup
+    PRH2    1.000      111
+   NOP56    0.731      001
+  COPS7B    0.525      011
+
+Platform 'mirna': 8 selected feature(s)
+      feature max_mpip subgroup
+ MIMAT0000450    1.000      111
+ MIMAT0017994    1.000      111
+ MIMAT0004671    1.000      111
+ MIMAT0004588    0.986      111
+ MIMAT0004556    0.953      111
+ MIMAT0003880    0.934      111
+ MIMAT0000099    0.560      011
+ MIMAT0000076    0.516      011
+
+Platform 'methylation': 0 selected feature(s)
+
+\end{CodeOutput}
+\end{CodeChunk}
+
+This compact fit is a runnable real-data example aligned with the case study.
+
+\subsection{Continuous-outcome extension}\label{sec:appendix-continuous}
+
+For a retained subgroup $s$, write the linear predictor as
+%
+\begin{equation}\label{eq:eta-continuous}
+  \bm{\eta}^{(s)}
+  = \beta_0^{(s)}\bm{1}_{n_s}
+  + \bm{C}^{(s)}\bm{\beta}_{C}^{(s)}
+  + \bm{X}_{\gamma}^{(s)}\bm{\beta}_{\gamma}^{(s)},
+\end{equation}
+%
+where $\bm{X}_{\gamma}^{(s)}$ contains only the molecular features selected by
+the current selection model $\bm{\gamma}$, and
+$\bm{\beta}_{\gamma}^{(s)}$ denotes the corresponding nonzero regression
+coefficients.  For a continuous response no augmentation is required and
+%
+\begin{equation}\label{eq:continuous-model}
+  \bm{y}^{(s)}=\bm{y}^{\star(s)}, \qquad
+  \bm{y}^{(s)}\mid\bm{\eta}^{(s)},\sigma_s^2
+  \sim \mathcal{N}\!\left(\bm{\eta}^{(s)},\sigma_s^2\bm{I}_{n_s}\right).
+\end{equation}
+%
+The corresponding likelihood is therefore
+%
+\begin{equation}\label{eq:continuous-likelihood}
+  L_s(\bm{\beta}_{\gamma}^{(s)},\sigma_s^2)
+  \propto (\sigma_s^2)^{-n_s/2}
+  \exp\!\left\{
+    -\frac{1}{2\sigma_s^2}
+    \left\|\bm{y}^{(s)}-\bm{\eta}^{(s)}\right\|^2
+  \right\}.
+\end{equation}
+%
+Combining this Gaussian likelihood with the inverse-gamma prior on
+$\sigma_s^2$ and pMOM priors on all active coefficients, including the
+intercept and clinical effects, gives the same marginal
+likelihood calculation used by the sampler.  Thus the continuous extension is
+obtained by taking the observed response itself as the latent Gaussian
+response.
+
+\subsection{Binary-outcome extension}\label{sec:appendix-binary}
+
+For a binary outcome, the package uses the standard latent Gaussian probit
+data augmentation representation of \citet{albert1993}; the same construction
+is used in Bayesian predictive
+imaging-genetics models for binary case-control classification
+\citep{chekouo2016aoas}.  For subject $i$ in subgroup $s$, let
+%
+\begin{equation}\label{eq:binary-latent}
+  z_i^{(s)} = \eta_i^{(s)} + e_i^{(s)}, \qquad
+  e_i^{(s)} \sim \mathcal{N}(0,\sigma_s^2),
+\end{equation}
+%
+where $\eta_i^{(s)}$ is the $i$th element of the linear predictor in
+Equation~\ref{eq:eta-continuous}.  The latent variable
+$z_i^{(s)}$ is continuous only inside the sampler; the data supplied by the user
+remain the observed binary labels.  The observed binary label is generated by
+thresholding the latent Gaussian utility,
+%
+\begin{equation}\label{eq:binary-threshold}
+  y_i^{(s)} = I\!\left(z_i^{(s)} > 0\right).
+\end{equation}
+%
+Marginalizing over $z_i^{(s)}$ gives the probit likelihood
+%
+\begin{equation}\label{eq:binary-probit}
+  \Pr\!\left(y_i^{(s)}=1\mid\eta_i^{(s)}\right)
+  = \Phi\!\left(\eta_i^{(s)}/\sigma_s\right), \qquad
+  \Pr\!\left(y_i^{(s)}=0\mid\eta_i^{(s)}\right)
+  = 1-\Phi\!\left(\eta_i^{(s)}/\sigma_s\right),
+\end{equation}
+%
+where $\Phi(\cdot)$ is the standard normal distribution function. The
+implementation approximates unit variance using an inverse-gamma prior with
+shape and rate $10^5$; it does not impose an exact point mass at one. In the
+conditional coefficient sampler, the probability is therefore
+$\Phi(\eta_i^{(s)}/\sigma_s)$ for each variance draw. Because the
+regression coefficients $\bm{\beta}_{\gamma}^{(s)}$ are integrated out of the
+marginal likelihood under the non-local pMOM prior, the latent utilities do not
+have a closed-form Gaussian full conditional and are instead updated with a
+Metropolis--Hastings step.  Following \citet{chekouo2016aoas}, a candidate
+$\tilde{z}_i^{(s)}$ that respects the sign constraint implied by $y_i^{(s)}$ is
+drawn from a one-sided exponential proposal with mean $1/|z_i^{(s)}|$,
+%
+\begin{equation}\label{eq:binary-latent-update}
+  \tilde{z}_i^{(s)} \sim \mathrm{Exp}_{\mathrm{mean}}\!\left(1/|z_i^{(s)}|\right)
+  \ \text{if } y_i^{(s)}=1,
+  \qquad
+  \tilde{z}_i^{(s)} \sim -\,\mathrm{Exp}_{\mathrm{mean}}\!\left(1/|z_i^{(s)}|\right)
+  \ \text{if } y_i^{(s)}=0,
+\end{equation}
+%
+and accepted with the Metropolis--Hastings probability formed from the non-local
+marginal likelihood.  The proposal keeps observed $1$s at positive latent
+utilities and observed $0$s at negative ones, so the sign constraint of the
+probit augmentation is preserved throughout the chain.
+%
+Conditional on the augmented vector
+$\bm{z}^{(s)}=(z_1^{(s)},\dots,z_{n_s}^{(s)})^\top$, the binary model again has
+a Gaussian working likelihood,
+%
+\begin{equation}\label{eq:binary-working}
+  \bm{z}^{(s)}\mid\bm{\eta}^{(s)}
+  \sim \mathcal{N}\!\left(\bm{\eta}^{(s)},\sigma_s^2\bm{I}_{n_s}\right).
+\end{equation}
+%
+The variable-selection step can therefore use the same selected design matrix
+$\bm{X}_{\gamma}^{(s)}$, the same pMOM prior on the active molecular effects,
+and the same MRF prior that links the indicators across availability subgroups.
+For point prediction, the probit link is applied within each retained selection
+model before Bayesian model averaging. If $w_m$ is the normalized predictive
+weight and $\hat{\eta}_m$ the fitted latent linear predictor for model $m$, the
+implementation uses the unit-variance approximation
+\[
+  \widehat{\Pr}(y=1\mid\text{data})
+  = \sum_m w_m\,\Phi(\hat{\eta}_m), \qquad \sum_m w_m=1.
+\]
+Thus, probabilities are averaged on the response scale. Conditional posterior
+prediction instead evaluates $\Phi(\eta/\sigma)$ for each sampled coefficient
+and variance draw, retaining uncertainty as described in the fitted-object
+section.
+
+\end{document}

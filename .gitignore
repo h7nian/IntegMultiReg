@@ -13,6 +13,25 @@ IntegMultiReg/config.status
 !paper/
 !paper/*.R
 !paper/*.md
+!paper/*.tex
+!paper/*.bib
+!paper/jss.bst
+!paper/jss.cls
+!paper/reference/
+!paper/reference/*.c
+!paper/expected-results-0.2.0-paper/
+!paper/expected-results-0.2.0-paper/**
+!paper/historical-audit/
+!paper/historical-audit/**
+# paper/data and paper/figures stay untracked. The Biometrics/Wiley supplement
+# under paper/data has a different license and distribution boundary from the
+# reduced public example shipped as kircIMR, and paper/figures holds generated
+# results rather than sources.
+!provenance/
+!provenance/msi-before-anvil/
+!provenance/msi-before-anvil/**
+!provenance/original-runners/
+!provenance/original-runners/*.R
 !hpc/
 !hpc/**
 !tools/

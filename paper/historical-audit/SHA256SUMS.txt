@@ -1,0 +1,3 @@
+7dc219909ed8168a32c756099464609d58effdcd1196c52e4c4232bca4cde53e  IntegMultiReg-replication-before-scope-revision.R
+de600062462f29c512d7bff741da1f30d2e0b942f3a492abc87814fd3029c162  README.md
+f385bab5f0a8b231c1b1f38203da8069e0d0cb5310a252b1d09180f2752ef258  legacy-kirc-section.tex

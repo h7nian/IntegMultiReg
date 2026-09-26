@@ -1,5 +1,32 @@
 # Anvil implementation, 2026-09-23
 
+## Controller watchdog: September 26, 18:51 local time
+
+The detached controller on login01 is the only component that submits the final
+`full` validation, and `overlap-state.json` still records `"validator": null`.
+A temporary user crontab on login01 now runs the controller's existing
+`--once` entry point every ten minutes, appending to
+`runs/study-20260923/logs/watchdog-cron.log`.
+
+No code was added. `--once` takes the same `.highmem-routing.lock`, so it exits
+with `BlockingIOError` and writes nothing while the controller is alive. A
+manual invocation at 18:47 confirmed that behaviour: the process exited 1, and
+`overlap-state.json` kept its `2026-09-25T18:58:58Z` timestamp unchanged. The
+entry point is already covered by `execution_source_hashes`, so scheduling it
+perturbs no gate. Recovery procedure and the verbatim relaunch command are now
+in `hpc/README.md`.
+
+This crontab lives in login01's local spool, so it does not survive a reboot of
+that node, and it is a stopgap rather than a supported scheduler. **Remove it
+with `crontab -r` once `runs/study-20260923/VALIDATION-COMPLETED` exists.**
+
+Hosting the controller inside a Slurm job was rejected: `sbatch --test-only` for
+a 1-CPU, 96-hour `shared` job returned an estimated start of 2026-12-22, which
+trades the login-node dependency for a worse queueing one.
+
+At this checkpoint 531 of the 679 tasks have `TASK-COMPLETED`, the array holds
+its 64-task throttle, and `blocked` and `submission_in_progress` are both null.
+
 ## Collection coverage correction: September 25, 20:55 local time
 
 Review of the final collector found a validator variable-shadowing error:
