@@ -9,6 +9,7 @@ sha256sum --check --quiet SOURCE-SHA256SUMS
 mkdir library baseline evidence
 export R_LIBS_USER="$candidate/library" R_LIBS="$candidate/library:$IMR_DEPENDENCIES"
 export RUNNER_TEMP="$candidate/evidence"
+Rscript --vanilla "$IMR_ROOT/hpc/check-script-style.R"
 Rscript --vanilla "$IMR_ROOT/hpc/check-research-source.R" capture "$candidate/evidence/research-source-hashes.rds"
 R CMD INSTALL --preclean --install-tests --library="$candidate/library" source
 R CMD INSTALL --library="$candidate/baseline" "$IMR_ROOT/IntegMultiReg_0.2.0.tar.gz"
@@ -28,5 +29,6 @@ Rscript --vanilla hpc/test-concurrent-start.R
 Rscript --vanilla hpc/test-submit.R
 Rscript --vanilla hpc/test-resource-retry.R
 Rscript --vanilla hpc/test-splitting.R "$IMR_ROOT" "$candidate/evidence/task-splitting"
+python3 tools/test-study-overlap.py
 Rscript --vanilla "$IMR_ROOT/hpc/check-research-source.R" verify "$candidate/evidence/research-source-hashes.rds"
 date -u +%FT%TZ > "$candidate/UNIT-VALIDATED"
