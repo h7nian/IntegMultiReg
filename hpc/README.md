@@ -10,6 +10,12 @@ and validation-only jobs; its execution sources are copied and hashed alongside
 the policy. The original scientific source and manifest are unchanged.
 Do not run the serial `advance.sh` concurrently with this controller.
 
+The active execution snapshot also contains a corrected simulation validator
+and `collect-study.R`. The validation-only wrapper supplies the explicit
+`--simulation-validator FILE` option to that collector. This fixes complete
+configuration coverage without changing any frozen inputs used by running
+tasks; the override files and prior policy are hashed and archived.
+
 The maintained runners are in `paper/`; this directory prepares, schedules
 and verifies their independent tasks. Every reference is an ordinary set of
 package arguments. Explicit overrides are saved alongside the reference name.

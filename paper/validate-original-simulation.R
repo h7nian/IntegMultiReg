@@ -26,14 +26,14 @@ auc_pairwise <- function(score,truth) {
 }
 reports <- list()
 configs <- if(s$experiment=='simulation')3L else 6L
-selection <- list(configurations = seq_len(configs), replicates = seq_len(s$replicates))
+task_selection <- list(configurations = seq_len(configs), replicates = seq_len(s$replicates))
 if (!full_study && file.exists(file.path(root, "task.rds"))) {
- selection <- readRDS(file.path(root, "task.rds"))
- stopifnot(identical(selection$kind, s$experiment),
-   all(selection$configurations %in% seq_len(configs)),
-   all(selection$replicates %in% seq_len(s$replicates)))
+ task_selection <- readRDS(file.path(root, "task.rds"))
+ stopifnot(identical(task_selection$kind, s$experiment),
+   all(task_selection$configurations %in% seq_len(configs)),
+   all(task_selection$replicates %in% seq_len(s$replicates)))
 }
-for(config in selection$configurations) for(rep in selection$replicates) {
+for(config in task_selection$configurations) for(rep in task_selection$replicates) {
  job<-file.path(root,sprintf('configuration-%02d-replicate-%03d',config,rep))
  data<-readRDS(file.path(job,'data.rds'))$data
  for(method in c('imr-molecular','bms-molecular','l1-cph')) {
@@ -55,13 +55,13 @@ for(config in selection$configurations) for(rep in selection$replicates) {
     if(!(name=='fold_rng' && method=='bms-molecular' &&
          !identical(s$reference_arguments$cv$fold_rng,'continue')))
       stopifnot(identical(cv$control[[name]],s$reference_arguments$cv[[name]]))
-   selection<-result$selection
+   selection_summary<-result$selection
    for(p in seq_along(data$truth)) {
     groups<-fit$model$subgroup_names[fit$model$platform_subgroups[[p]]]
     truth<-data$truth[[p]][groups,,drop=FALSE]
     prob<-fit$posterior$inclusion_probabilities[[p]]
     expected<-vapply(seq_along(groups),function(i)auc_pairwise(prob[i,],truth[i,]),numeric(1))
-    got<-selection$auc[match(paste(fit$model$platform_names[p],groups),paste(selection$platform,selection$subgroup))]
+    got<-selection_summary$auc[match(paste(fit$model$platform_names[p],groups),paste(selection_summary$platform,selection_summary$subgroup))]
     stopifnot(isTRUE(all.equal(unname(got),unname(expected),tolerance=1e-12)))
    }
    pred<-cv$predictions;folds<-cv$control$folds;score_method<-cv$control$score_method
@@ -86,8 +86,15 @@ for(config in selection$configurations) for(rep in selection$replicates) {
  stopifnot(all(is.finite(uni$auc)),all(uni$auc>=0 & uni$auc<=1))
 }
 report<-do.call(rbind,reports)
+expected<-expand.grid(config=task_selection$configurations,rep=task_selection$replicates,
+ method=c('imr-molecular','bms-molecular','l1-cph'),stringsAsFactors=FALSE)
+report_key<-function(x)paste(x$config,x$rep,x$method,sep=':')
+stopifnot(nrow(report)==nrow(expected),!anyDuplicated(report_key(report)),
+ setequal(report_key(report),report_key(expected)))
 write.csv(report,file.path(root,'simulation-acceptance.csv'),row.names=FALSE)
+validator_path<-sub('^--file=','',grep('^--file=',commandArgs(FALSE),value=TRUE)[1])
 saveRDS(list(settings=s,report=report,full_study=full_study,verified_at=Sys.time(),
+ validator_hash=tools::md5sum(validator_path),
  scope='Executed manifest, fit settings, pairwise IMR/BMS selection AUC, folds and predictive scores. Univariate/L1 scientific stability needs separate warning review.'),
  file.path(root,'simulation-acceptance.rds'))
 cat('PASS executed manifest. Complete-study requirement:',full_study,'\n')

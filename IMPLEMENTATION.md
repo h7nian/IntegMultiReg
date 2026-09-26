@@ -1,5 +1,38 @@
 # Anvil implementation, 2026-09-23
 
+## Collection coverage correction: September 25, 20:55 local time
+
+Review of the final collector found a validator variable-shadowing error:
+`selection` held the requested configuration/replicate list, then was replaced
+by a fitted selection-AUC table inside the loop. A combined run could therefore
+validate only its first configuration. The prior six-task smoke fixture's audit
+had six rows instead of the expected eighteen. Individual pilot validations each
+cover one configuration, so their checks were not skipped by this issue.
+
+The validator now uses separate `task_selection` and `selection_summary` names
+and verifies complete configuration/replicate/method coverage before acceptance.
+Regression job `20909668` completed in 21 seconds: it reproduced the old missed
+failure, checked all eighteen expected entries with the fix, and rejected a
+failed result in configuration 3 / replicate 2. Evidence is retained under
+`runtime/validation-coverage-1/`. The normal serial/split regression harness now
+also includes this coverage assertion and late-configuration negative control.
+
+Corrected validation-only snapshots and an explicit collector override were
+installed under the active study's `execution/` directory, with updated hashes
+and archived prior policy. The scientific source tree, study manifest, running
+samplers and results were not changed. Frozen scientific hashes were reverified;
+prior research-source acceptance was archived before accepting the tested
+postprocessing updates. Collector dispatch checks and fourteen scheduling tests
+passed. The detached execution controller is healthy after the handoff.
+
+The scheduled regression finished before a separately attempted fallback step
+started. The fallback refused to overwrite its completed fixture and exited in
+one second; that expected guard log is retained in EXECUTION-NOTE.txt. The
+scientific batch continued, and no sampler ran in the fallback step.
+
+The current production snapshot is 105 completed, 58 running and 486 queued.
+Progress reports continue every fifteen minutes with the 64-task limit.
+
 ## Production checkpoint: September 25, 19:50 local time
 
 All ten audits and all twenty full-parameter pilot tasks have completed and

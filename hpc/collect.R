@@ -1,6 +1,12 @@
-# Rscript hpc/collect.R STUDY -- executes existing scientific validators after collection.
+# Rscript hpc/collect.R STUDY [--simulation-validator FILE]
+# The optional, provenance-recorded validator replaces validation only, never data.
 args <- commandArgs(TRUE)
-stopifnot(length(args) == 1L)
+stopifnot(length(args) %in% c(1L, 3L))
+simulation_validator <- NULL
+if (length(args) == 3L) {
+  stopifnot(args[2] == "--simulation-validator")
+  simulation_validator <- normalizePath(args[3], mustWork = TRUE)
+}
 study <- normalizePath(args[1], mustWork = TRUE)
 source(file.path(study, "source/hpc/study-plan.R"))
 plan <- read_study_plan(study)
@@ -10,8 +16,10 @@ source(file.path(plan$source, "hpc/collection.R"))
 .libPaths(c(file.path(plan$candidate, "library"), plan$dependencies, .libPaths()))
 Sys.setenv(R_LIBS = paste(.libPaths(), collapse = .Platform$path.sep))
 run <- function(script, arguments) {
+  validator <- if (identical(script, "paper/validate-original-simulation.R") &&
+                   !is.null(simulation_validator)) simulation_validator else file.path(plan$source, script)
   status <- system2(file.path(R.home("bin"), "Rscript"),
-    c("--vanilla", shQuote(file.path(plan$source, script)), vapply(arguments, shQuote, "")))
+    c("--vanilla", shQuote(validator), vapply(arguments, shQuote, "")))
   if (status != 0L) stop("Validation failed: ", script)
 }
 tasks <- plan$tasks[plan$tasks$kind != "audit", ]
