@@ -160,7 +160,8 @@ class Controller:
         self.state["submission_in_progress"] = {"phase": phase, "validation": True}
         self.save()
         job = self.sbatch(["--output=" + str(self.study / ("logs/accept-" + phase + "-%j.log"))],
-            self.directory / "validate-study-stage.sh", [str(self.study), phase], "imr-accept-" + phase)
+            self.directory / "validate-study-stage.sh", [str(self.study), phase], "imr-accept-" + phase,
+            hours=48 if phase == "full" else 12)
         self.state["submission_in_progress"]["job"] = job
         self.save()
         array = self.state[phase]["arrays"][-1]["job"]

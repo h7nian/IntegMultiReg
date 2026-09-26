@@ -101,6 +101,12 @@ class OverlapTests(unittest.TestCase):
         self.assertEqual(args[2], [str(self.study), "pilot"])
         self.assertEqual((self.study / "controllers.tsv").read_text(), "500\tpilot\t100\n")
         self.assertEqual(self.c.state["pilot"]["validator"], "500")
+        self.assertEqual(self.c.sbatch.call_args[1]["hours"], 12)
+
+    def test_full_collection_has_time_for_all_replicates(self):
+        self.c.sbatch = Mock(return_value="501")
+        module.Controller.validate(self.c, "full")
+        self.assertEqual(self.c.sbatch.call_args[1]["hours"], 48)
 
     def test_routing_prioritizes_validator_within_available_capacity(self):
         self.c.state["pilot"]["validator"] = "300"

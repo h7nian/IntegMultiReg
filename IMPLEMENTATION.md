@@ -32,6 +32,9 @@ scientific batch continued, and no sampler ran in the fallback step.
 
 The current production snapshot is 105 completed, 58 running and 486 queued.
 Progress reports continue every fifteen minutes with the 64-task limit.
+Final collection/validation now has a 48-hour reservation (within highmem's
+limit) to cover all 660 simulation results and eight chains; the pilot check
+keeps its 12-hour limit. All fifteen scheduling tests passed after this change.
 
 ## Production checkpoint: September 25, 19:50 local time
 
