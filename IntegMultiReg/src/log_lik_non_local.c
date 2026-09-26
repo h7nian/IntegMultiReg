@@ -71,7 +71,6 @@ double *build_posterior_precision(
         }
       }
       precision[i * k + j] = precision[j * k + i] = a;
-      // printf("%f %d %d \n",precision[i*k+j],i,j);
     }
   }
   return precision;

@@ -27,9 +27,9 @@ for (i in seq_len(nrow(tasks))) {
 }
 source(file.path(dirname(dirname(normalizePath(script))), "paper/original-experiment-helpers.R"))
 strict <- resolve_experiment_arguments("paper", list())
-ridge <- resolve_experiment_arguments("paper", list("--ridge" = "0.001"))
-stopifnot(strict$cv$ridge == 0, ridge$cv$ridge == .001,
-          identical(strict$fit, ridge$fit),
+paper_ridge_arguments <- resolve_experiment_arguments("paper", list("--ridge" = "0.001"))
+stopifnot(strict$cv$ridge == 0, paper_ridge_arguments$cv$ridge == .001,
+          identical(strict$fit, paper_ridge_arguments$fit),
           identical(reference_arguments("code2017"), resolve_experiment_arguments("code2017", list())))
 for (options in list(list("--ridge" = "NaN"), list("--ridge" = "-1"),
                     list("--cv-method" = "refit", "--ridge" = "0"))) {

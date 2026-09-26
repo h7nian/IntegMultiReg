@@ -23,7 +23,7 @@ args <- commandArgs(trailingOnly = TRUE)
 
 has_flag <- function(flag) any(args == flag)
 
-arg_value <- function(flag, default = NULL) {
+option_value <- function(flag, default = NULL) {
   hit <- which(args == flag)
   if (!length(hit) || hit == length(args)) default else args[hit + 1L]
 }
@@ -42,7 +42,7 @@ root_candidates <- unique(c(dirname(script_dir), script_dir,
                             normalizePath(getwd(), mustWork = TRUE)))
 root_hit <- root_candidates[vapply(root_candidates, function(x) {
   dir.exists(file.path(x, "IntegMultiReg")) && dir.exists(file.path(x, "paper"))
-}, logical(1L))]
+  }, logical(1L))]
 inside_repository <- length(root_hit) > 0L
 project_root <- if (inside_repository) root_hit[1L] else script_dir
 materials_root <- if (inside_repository) {
@@ -57,12 +57,12 @@ if (has_flag("--full-kirc") || has_flag("--smoke-kirc")) {
 }
 run_reduced_kirc_fit <- !has_flag("--skip-reduced-kirc-fit")
 update_reference <- has_flag("--update-reference")
-reference_dir <- arg_value("--reference-dir", file.path(materials_root, "expected-results-0.2.0-paper"))
+reference_dir <- option_value("--reference-dir", file.path(materials_root, "expected-results-0.2.0-paper"))
 if (update_reference && quick) stop("Reference tables require a full run, not --quick.")
 
 default_output <- file.path(materials_root, "replication-output")
 if (quick) default_output <- paste0(default_output, "-quick")
-out_dir <- normalizePath(arg_value("--out-dir", default_output),
+out_dir <- normalizePath(option_value("--out-dir", default_output),
                          mustWork = FALSE)
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 

@@ -6,9 +6,9 @@ source(file.path(materials, 'appendix-chain-diagnostics.R'))
 args <- parse_experiment_args(commandArgs(TRUE))
 allowed <- c('--out-dir', '--data', '--draws', '--burnin', '--seed', '--quick', '--chain')
 if (any(!names(args) %in% allowed)) stop('Unsupported chain-runner argument')
-value <- function(flag, fallback) if (is.null(args[[flag]])) fallback else args[[flag]]
-int <- function(flag, fallback, minimum) {
-  x <- suppressWarnings(as.numeric(value(flag, fallback)))
+option_value <- function(flag, fallback) if (is.null(args[[flag]])) fallback else args[[flag]]
+option_integer <- function(flag, fallback, minimum) {
+  x <- suppressWarnings(as.numeric(option_value(flag, fallback)))
   if (length(x) != 1L || !is.finite(x) || x != floor(x) || x < minimum || x > .Machine$integer.max - 8L)
     stop('Invalid ', flag)
   as.integer(x)
@@ -16,13 +16,13 @@ int <- function(flag, fallback, minimum) {
 library(IntegMultiReg)
 stopifnot(requireNamespace('coda', quietly = TRUE), requireNamespace('digest', quietly = TRUE))
 quick <- isTRUE(args[['--quick']])
-data_path <- normalizePath(value('--data', file.path(materials, 'data/kirc_table1_full.rda')))
-out <- value('--out-dir', file.path(dirname(materials), 'output/appendix-chains', if (quick) 'quick' else 'full'))
+data_path <- normalizePath(option_value('--data', file.path(materials, 'data/kirc_table1_full.rda')))
+out <- option_value('--out-dir', file.path(dirname(materials), 'output/appendix-chains', if (quick) 'quick' else 'full'))
 dir.create(out, recursive = TRUE, showWarnings = FALSE)
 out <- normalizePath(out)
-settings <- list(draws = int('--draws', if (quick) 100L else 350000L, 4L),
-  burnin = int('--burnin', if (quick) 20L else 50000L, 0L),
-  seeds = int('--seed', 100L, 0L) + 0:7, sampler_method = 'paper', nu = c(-4, -3, -4),
+settings <- list(draws = option_integer('--draws', if (quick) 100L else 350000L, 4L),
+  burnin = option_integer('--burnin', if (quick) 20L else 50000L, 0L),
+  seeds = option_integer('--seed', 100L, 0L) + 0:7, sampler_method = 'paper', nu = c(-4, -3, -4),
   quick = quick, data_hash = tools::md5sum(data_path),
   source_hashes = tools::md5sum(c(script,
     file.path(materials, c('original-experiment-helpers.R', 'appendix-chain-diagnostics.R')),
@@ -34,8 +34,8 @@ saveRDS(settings, manifest)
 writeLines(capture.output(dput(settings)), file.path(out, 'settings.txt'))
 capture.output(sessionInfo(), file = file.path(out, 'sessionInfo.txt'))
 e <- new.env()
- load(data_path, e)
- d <- e$kirc_full
+load(data_path, e)
+d <- e$kirc_full
 # A one-draw fit obtains public, correctly named initial-state templates only.
 # Its result is never included in diagnostics.
 template_fit <- imr(d$platforms, d$outcome.raw, covariates = d$covariates,
@@ -43,14 +43,14 @@ template_fit <- imr(d$platforms, d$outcome.raw, covariates = d$covariates,
 selection <- lapply(coef(template_fit), function(m) { storage.mode(m) <- "integer"
  m })
 rm(template_fit)
- gc()
+gc()
 atomic_save <- function(x, path) {
   tmp <- paste0(path, '.tmp-', Sys.getpid())
    on.exit(unlink(tmp))
   saveRDS(x, tmp)
    if (!file.rename(tmp, path)) stop('Could not commit ', path)
 }
-chains <- if (is.null(args[['--chain']])) 1:8 else int('--chain', 1L, 1L)
+chains <- if (is.null(args[['--chain']])) 1:8 else option_integer('--chain', 1L, 1L)
 stopifnot(all(chains <= 8L))
 record_task_selection(out, list(kind = 'chains', chains = chains))
 slim <- vector('list', 8L)

@@ -2,46 +2,46 @@
 # for quick/full, experiment, reference, configuration, replicate and method.
 script <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1])
 materials <- dirname(normalizePath(script))
- root <- dirname(materials)
+root <- dirname(materials)
 source(file.path(materials, "original-reference.R"))
 source(file.path(materials, "original-experiment-helpers.R"))
 options <- parse_experiment_args(commandArgs(TRUE))
 if (!is.null(options[["--chain"]])) stop("--chain applies only to the chain runner")
-value <- function(flag, default) if (is.null(options[[flag]])) default else options[[flag]]
-experiment <- match.arg(value("--experiment", "table1"), c("table1", "simulation", "correlated"))
-reference <- match.arg(value("--reference", "paper"), c("paper", "code2017", "package"))
+option_value <- function(flag, default) if (is.null(options[[flag]])) default else options[[flag]]
+experiment <- match.arg(option_value("--experiment", "table1"), c("table1", "simulation", "correlated"))
+reference <- match.arg(option_value("--reference", "paper"), c("paper", "code2017", "package"))
 quick <- isTRUE(options[["--quick"]])
-out <- value("--out-dir", file.path(root, "output", "original-experiments", if (quick) "quick" else "full", reference, experiment))
-integer_value <- function(flag, default, minimum) {
-  x <- as.numeric(value(flag, default))
+out <- option_value("--out-dir", file.path(root, "output", "original-experiments", if (quick) "quick" else "full", reference, experiment))
+option_integer <- function(flag, default, minimum) {
+  x <- as.numeric(option_value(flag, default))
   if (length(x) != 1L || !is.finite(x) || x != floor(x) || x < minimum || x > .Machine$integer.max)
     stop("Invalid ", flag)
   as.integer(x)
 }
 settings <- list(experiment = experiment, reference = reference, quick = quick,
-  draws = integer_value("--draws", if (quick) 50 else 350000, 1),
-  burnin = integer_value("--burnin", if (quick) 20 else 50000, 0),
-  k = integer_value("--k", if (quick) 2 else 10, 2),
-  rounds = integer_value("--rounds", if (quick || experiment != "table1") 1 else 10, 1),
-  replicates = integer_value("--replicates", if (quick || experiment == "table1") 1 else
+  draws = option_integer("--draws", if (quick) 50 else 350000, 1),
+  burnin = option_integer("--burnin", if (quick) 20 else 50000, 0),
+  k = option_integer("--k", if (quick) 2 else 10, 2),
+  rounds = option_integer("--rounds", if (quick || experiment != "table1") 1 else 10, 1),
+  replicates = option_integer("--replicates", if (quick || experiment == "table1") 1 else
     if (experiment == "correlated") 30 else 50, 1),
-  workers = integer_value("--workers", 1, 1),
-  seed = integer_value("--seed", 100, 0),
+  workers = option_integer("--workers", 1, 1),
+  seed = option_integer("--seed", 100, 0),
   reference_arguments = resolve_experiment_arguments(reference, options),
   audit = isTRUE(options[["--audit"]]))
 if (experiment == "table1" && !is.null(options[["--marker-design"]]))
   stop("--marker-design applies only to simulation or correlated experiments")
 settings$marker_design <- if (experiment == "table1") NULL else
-  match.arg(value("--marker-design", if (reference == "paper") "random" else "fixed"),
-    c("random", "fixed"))
+  match.arg(option_value("--marker-design", if (reference == "paper") "random" else "fixed"),
+  c("random", "fixed"))
 library(IntegMultiReg)
 if (!requireNamespace("digest", quietly = TRUE))
   stop("The research checkpoint writer requires the digest package")
 if (settings$audit) source(file.path(materials, "audit-unpenalized-cv.R"))
 stopifnot(packageVersion("IntegMultiReg") == "0.2.0")
 dir.create(out, recursive = TRUE, showWarnings = FALSE)
- out <- normalizePath(out)
-data_path <- value("--data", file.path(materials, "data", "kirc_table1_full.rda"))
+out <- normalizePath(out)
+data_path <- option_value("--data", file.path(materials, "data", "kirc_table1_full.rda"))
 settings$data_hash <- tools::md5sum(data_path)
 settings$source_hashes <- tools::md5sum(c(script,
   file.path(materials, c("original-reference.R", "original-experiment-helpers.R", "reference/original-generator.c")),
@@ -55,8 +55,8 @@ saveRDS(settings, manifest)
 writeLines(capture.output(dput(settings)), file.path(out, "settings.txt"))
 writeLines(capture.output(sessionInfo()), file.path(out, "sessionInfo.txt"))
 e <- new.env()
- load(data_path, e)
- original <- e$kirc_full
+load(data_path, e)
+original <- e$kirc_full
 # Old prepared objects retained log time in outcome.survival; always choose raw.
 original$outcome <- original$outcome.raw
 original$standardize <- TRUE
@@ -77,8 +77,8 @@ configurations <- if (experiment == "table1") data.frame(scenario = 0, rho = 0, 
 if (experiment != "table1") generator <- load_original_generator(
   file.path(root, "Ref", "biom12587-sup-0002-suppdata_code.zip"),
   file.path(out, "reference-generator"), file.path(materials, "reference", "original-generator.c"))
-selected_configurations <- if (is.null(options[['--configuration']])) seq_len(nrow(configurations)) else integer_value('--configuration', 1L, 1L)
-selected_replicates <- if (is.null(options[['--replicate']])) seq_len(settings$replicates) else integer_value('--replicate', 1L, 1L)
+selected_configurations <- if (is.null(options[['--configuration']])) seq_len(nrow(configurations)) else option_integer('--configuration', 1L, 1L)
+selected_replicates <- if (is.null(options[['--replicate']])) seq_len(settings$replicates) else option_integer('--replicate', 1L, 1L)
 stopifnot(all(selected_configurations <= nrow(configurations)), all(selected_replicates <= settings$replicates))
 record_task_selection(out, list(kind = experiment, configurations = selected_configurations, replicates = selected_replicates))
 for (configuration in selected_configurations) for (replicate in selected_replicates) {

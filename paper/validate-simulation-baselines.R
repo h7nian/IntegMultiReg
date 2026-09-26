@@ -7,23 +7,26 @@ s <- readRDS(file.path(root, 'settings.rds'))
 stopifnot(s$experiment %in% c('simulation', 'correlated'),
   identical(tools::md5sum(names(s$source_hashes)), s$source_hashes),
   identical(tools::md5sum(names(s$data_hash)), s$data_hash))
-auc <- function(score, truth) {
+# Deliberately recomputes selection_auc() from the helpers by a different route:
+# the pairwise probability that a positive exceeds a negative, rather than the
+# rank form. Keeping the second derivation is what makes the check independent.
+independent_pairwise_auc <- function(score, truth) {
   stopifnot(length(score) == length(truth), all(is.finite(score)))
   positive <- score[truth == 1]
-   negative <- score[truth == 0]
+  negative <- score[truth == 0]
   if (!length(positive) || !length(negative)) return(NA_real_)
   difference <- outer(positive, negative, '-')
   mean((difference > 0) + .5 * (difference == 0))
 }
 compare_rows <- function(actual, expected) {
-  key <- function(x) paste(x$platform, x$subgroup, sep = ':')
-  stopifnot(!anyDuplicated(key(actual)), !anyDuplicated(key(expected)),
-    setequal(key(actual), key(expected)),
-    isTRUE(all.equal(actual$auc[match(key(expected), key(actual))],
+  platform_subgroup_key <- function(x) paste(x$platform, x$subgroup, sep = ':')
+  stopifnot(!anyDuplicated(platform_subgroup_key(actual)), !anyDuplicated(platform_subgroup_key(expected)),
+    setequal(platform_subgroup_key(actual), platform_subgroup_key(expected)),
+    isTRUE(all.equal(actual$auc[match(platform_subgroup_key(expected), platform_subgroup_key(actual))],
       expected$auc, tolerance = 1e-12, check.attributes = FALSE)))
 }
 reports <- list()
- warning_records <- list()
+warning_records <- list()
 configurations <- seq_len(if (s$experiment == 'simulation') 3L else 6L)
 replicates <- seq_len(s$replicates)
 if (file.exists(file.path(root, 'task.rds'))) {
@@ -71,7 +74,7 @@ for (configuration in configurations) {
     for (p in which(present)) {
       n <- ncol(data$platforms[[p]]) - 1L
       rows[[length(rows) + 1L]] <- data.frame(platform = names(data$platforms)[p],
-        subgroup = d$subgroup, auc = auc(coefficients[offset + seq_len(n)],
+        subgroup = d$subgroup, auc = independent_pairwise_auc(coefficients[offset + seq_len(n)],
           data$truth[[p]][d$subgroup, ]))
       offset <- offset + n
     }
@@ -92,7 +95,7 @@ for (configuration in configurations) {
     score <- 1 - stats::p.adjust(values, method = 'hommel')
     groups <- rownames(data$truth[[p]])
     rows[[p]] <- data.frame(platform = names(data$platforms)[p], subgroup = groups,
-      auc = vapply(groups, function(g) auc(score, data$truth[[p]][g, ]), numeric(1)))
+      auc = vapply(groups, function(g) independent_pairwise_auc(score, data$truth[[p]][g, ]), numeric(1)))
     }
     compare_rows(do.call(rbind, rows), read.csv(file.path(job, 'uni-cph-selection.csv'),
       colClasses = c(subgroup = 'character')))

@@ -14,7 +14,7 @@ writeLines("12345\tpilot\t16384\t1,9\t48", file.path(study, "submissions.tsv"))
 writeLines(c("#!/bin/sh", 'cat "$IMR_ACCOUNTING_FIXTURE"'), file.path(study, "bin/sacct"))
 Sys.chmod(file.path(study, "bin/sacct"), "0755")
 fixture <- file.path(study, "accounting.txt")
-run <- function(rows, success) {
+run_with_accounting <- function(rows, success) {
   writeLines(rows, fixture)
   log <- tempfile(tmpdir = study)
   status <- system2(file.path(R.home("bin"), "Rscript"),
@@ -24,11 +24,11 @@ run <- function(rows, success) {
   stopifnot(identical(status == 0L, success))
   if (success) readLines(log)
 }
-observed <- run(c("12345_1|OUT_OF_MEMORY|", "12345_9|FAILED|"), TRUE)
+observed <- run_with_accounting(c("12345_1|OUT_OF_MEMORY|", "12345_9|FAILED|"), TRUE)
 if (!identical(observed, c("1", "32768", "48"))) stop(paste(observed, collapse = " | "))
-run(c("12345_1|OUT_OF_MEMORY|", "12345_9|FAILED|"), FALSE)
-stopifnot(identical(run(c("12345_1|COMPLETED|", "12345_9|TIMEOUT|"), TRUE),
+run_with_accounting(c("12345_1|OUT_OF_MEMORY|", "12345_9|FAILED|"), FALSE)
+stopifnot(identical(run_with_accounting(c("12345_1|COMPLETED|", "12345_9|TIMEOUT|"), TRUE),
                     c("9", "16384", "96")))
-run(c("12345_1|CANCELLED|", "12345_9|TIMEOUT|"), FALSE)
+run_with_accounting(c("12345_1|CANCELLED|", "12345_9|TIMEOUT|"), FALSE)
 unlink(study, recursive = TRUE)
 cat("PASS: bounded OOM/timeout retries; no numerical-failure or duplicate retries.\n")

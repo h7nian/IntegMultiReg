@@ -72,7 +72,6 @@ void ridge_predict_only(const double *X, const double *y,
 float generate_normal(const float sigma)
 {
 
-  // srand(1);
   float x, y, r2;
 
   do
@@ -84,8 +83,6 @@ float generate_normal(const float sigma)
 // Clean, standard R-compatible uniform sampling between -1 and 1
 x = -1.0 + 2.0 * unif_rand();
 y = -1.0 + 2.0 * unif_rand();
-    // printf("X=%2.5f \n",x);
-    // printf("Y=%2.5f \n",y);
     /* see if it is in the unit circle */
     r2 = x * x + y * y;
   } while (r2 > 1.0 || r2 == 0);
@@ -113,7 +110,6 @@ double rexponential(const double mu)
 /* Exponential rejection sampling (a,inf) */
 double ers_a_inf(double a)
 {
-  // SAMPLER_DEBUG("ers_a_inf", a, R_PosInf);
   const double ainv = 1.0 / a;
   double x, z, rho;
   do
@@ -129,7 +125,6 @@ double ers_a_inf(double a)
 /* Normal rejection sampling (a,inf) */
 double nrs_a_inf(double a)
 {
-  // SAMPLER_DEBUG("nrs_a_inf", a, R_PosInf);
   // double x = -DBL_AX;
   double x = generate_normal(1.0);
   // double x = gsl_ran_ugaussian(r);
@@ -265,11 +260,6 @@ double ***r_list_matrix_to_c(int listlength, SEXP ListMat)
     {
         SEXP mYY = VECTOR_ELT(ListMat, i);
         SEXP dimsYY = getAttrib(mYY, R_DimSymbol);
-        //if (dimsYY == R_NilValue)
-        //{
-          //  UNPROTECT(2);
-        //    error("ListMat element %d does not have dimension attributes.", i);
-        //}
         int n_rows_yy = INTEGER(dimsYY)[0];
         int n_col_yy = INTEGER(dimsYY)[1];
         double *dataYY = REAL(mYY);
@@ -343,7 +333,6 @@ void free_r_list_list_matrix_to_c(double ****X0, int listlength, SEXP ListListMa
             SEXP df = VECTOR_ELT(subgroup, j);
             SEXP dims = getAttrib(df, R_DimSymbol);
             int n_rows = INTEGER(dims)[0];
-            // printf("number of rows: %d \n", n_rows);
 
             for (int r = 0; r < n_rows; r++)
             {
@@ -504,7 +493,6 @@ double norm(int n, double *x)
     for (i = 0; i < n; i++)
     {
         normx += pow(x[i], 2);
-        // printf("NormXXX==%f \n",x[i]);
     }
     return sqrt(normx);
 }
@@ -611,5 +599,4 @@ void nrerror(char error_text[])
     Rprintf("Utils run-time error...\n");
     Rprintf("%s\n", error_text);
     Rf_error("...now exiting to system...\n");
-    // exit(1);
 }

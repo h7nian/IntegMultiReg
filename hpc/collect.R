@@ -15,7 +15,7 @@ stopifnot(file.exists(file.path(plan$candidate, "NATIVE-VALIDATED")),
 source(file.path(plan$source, "hpc/collection.R"))
 .libPaths(c(file.path(plan$candidate, "library"), plan$dependencies, .libPaths()))
 Sys.setenv(R_LIBS = paste(.libPaths(), collapse = .Platform$path.sep))
-run <- function(script, arguments) {
+run_validator <- function(script, arguments) {
   validator <- if (identical(script, "paper/validate-original-simulation.R") &&
                    !is.null(simulation_validator)) simulation_validator else file.path(plan$source, script)
   status <- system2(file.path(R.home("bin"), "Rscript"),
@@ -29,21 +29,21 @@ for (group in split(tasks, key)) {
   paths <- file.path(study, "tasks", sprintf("%04d", group$task_id))
   experiment <- group$experiment[1]
   if (experiment == "table1") {
-    run("paper/validate-original-table1.R", c(paths, "--require-original"))
+    run_validator("paper/validate-original-table1.R", c(paths, "--require-original"))
     next
   }
   out <- file.path(study, "combined", paste(experiment, group$reference[1],
     ifelse(is.na(group$ridge[1]), "none", group$ridge[1]), sep = "-"))
   collect_tasks(experiment, paths, out)
   if (experiment == "chains") {
-    run("hpc/diagnose-chains.R", out)
-    run("paper/rank-chain-diagnostics.R", c(out, file.path(out, "diagnostics")))
-    run("paper/chain-ranking-stability.R", c(out, file.path(out, "diagnostics")))
-    run("hpc/check-halves.R", c(out, file.path(out, "half-drift")))
+    run_validator("hpc/diagnose-chains.R", out)
+    run_validator("paper/rank-chain-diagnostics.R", c(out, file.path(out, "diagnostics")))
+    run_validator("paper/chain-ranking-stability.R", c(out, file.path(out, "diagnostics")))
+    run_validator("hpc/check-halves.R", c(out, file.path(out, "half-drift")))
   } else {
-    run("paper/validate-original-simulation.R", c(out, "--require-complete-study"))
-    run("paper/validate-simulation-baselines.R", out)
-    run("paper/summarize-original-simulation.R", out)
+    run_validator("paper/validate-original-simulation.R", c(out, "--require-complete-study"))
+    run_validator("paper/validate-simulation-baselines.R", out)
+    run_validator("paper/summarize-original-simulation.R", out)
   }
 }
 writeLines("Program checks complete; convergence, warnings and interpretation require scientific review.",

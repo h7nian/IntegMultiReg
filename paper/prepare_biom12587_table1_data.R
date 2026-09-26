@@ -9,20 +9,20 @@
 
 args <- commandArgs(trailingOnly = TRUE)
 
-arg_value <- function(flag, default = NULL) {
+option_value <- function(flag, default = NULL) {
   hit <- which(args == flag)
   if (!length(hit) || hit == length(args)) default else args[hit + 1L]
 }
 
-data_dir <- arg_value(
+data_dir <- option_value(
   "--data-dir",
   "paper/data/biom12587_supplement/CcodeBiometrics/Data"
 )
-zip_path <- arg_value(
+zip_path <- option_value(
   "--zip",
   "Ref/biom12587-sup-0002-suppdata_code.zip"
 )
-out_path <- arg_value(
+out_path <- option_value(
   "--out",
   "paper/data/kirc_table1_full.rda"
 )

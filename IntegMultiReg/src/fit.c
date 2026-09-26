@@ -341,9 +341,6 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
                 ymean[i][j] = ylatent[i][j] =yobs[i][j] = newYY_arr[i][j][0];
             else //binary
                 ylatent[i][j] = yobsb[i][j] = (_Bool)newYY_arr[i][j][0];
-            // To check for binary
-           // ymean[i][j] = ylatent[i][j] = yobs[i][j];
-            // ylatent[i][j] = gsl_ran_exponential(r, ylatent[i]);
 
             if ((Delta[j] == 0) && (outcome_type == IMR_OUTCOME_SURVIVAL))
             {
@@ -441,8 +438,6 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         }
     }
 
-    // int model;
-    //srand(seed);
     GetRNGstate();
     double log_likelihood[n_subgroups], logdet[n_subgroups], scal[n_subgroups];
     Rprintf("\n");
@@ -546,7 +541,6 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
                 {
                     for (int i = 0; i < sample_size_ptr[m]; i++)
                     { 
-                        // printf(" yyy= %lf",ylatent[m][i]);
                         ymean[m][i] += ylatent[m][i] / n_draws;
                     }   
                 }
@@ -793,7 +787,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     {
         free(censored_index[m]);
         free(ylatent[m]);
-       // free(yobs[m]);
+        /* yobs is allocated only for non-binary outcomes and is freed with them. */
     }
     free(censored_index);
     free(ylatent);

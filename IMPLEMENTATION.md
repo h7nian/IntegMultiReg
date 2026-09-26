@@ -1,5 +1,86 @@
 # Anvil implementation, 2026-09-23
 
+## Research script consistency: September 26, evening
+
+`paper/` and `hpc/` had drifted from the convention `IntegMultiReg/R` follows
+without exception across 4,568 lines. The variable-shadowing fault repaired on
+September 25 lived in the densest of those files, where one statement's end and
+the next one's start are not visible to a reader.
+
+Formatting was applied in two passes, each rebuilding a line from its parse
+tokens rather than rewriting text, so no separator decision could be confused by
+a string literal, a comment, or an expression such as `x < -1`. Every file was
+accepted only when `deparse(parse())` was identical before and after, proving the
+change purely lexical: 25 files for spacing and semicolon splitting, 13 more for
+binary arithmetic. Indentation was widened only where the existing indent matched
+the brace depth, and column-aligned continuations were restored where an earlier
+attempt had flattened them.
+
+Naming then changed in a separate pass, which is not lexical and is recorded as
+such. `key()` had four definitions over three key schemas and `run()` four
+incompatible signatures; both are now named for what they key or run. Identifiers
+that shadowed `base::all`, `outer`, `rep`, `table` and `summary` — each of which
+is genuinely called in sibling scripts — were renamed. `ridge` in
+`hpc/test-plan.R` held an argument list rather than the penalty the package
+argument names, and `model` in the Table 1 validator held a logical flag.
+
+Three duplications were resolved differently by kind. `read_result()` and one
+inlined copy simply repeated `read_experiment_result()` from the helpers that the
+same files had already sourced; they are deleted. `auc_pairwise()` and `auc()` are
+*deliberate* independent re-derivations of `selection_auc()`, as is the hand-written
+aggregation in the Table 1 validator; those are kept, given one name,
+`independent_pairwise_auc()`, and commented so they no longer read as accidents.
+
+`first_folds` is now reset for each replicate and asserted before use in both
+validators. It was safe only because the method order happened to put IMR first,
+which is the same class of fragility as the September 25 fault.
+
+`hpc/fetch-validation-sources.R` had no caller anywhere and is superseded by
+`dependencies/` with `hpc/finalize-dependencies.sh`; it is deleted. Two other
+apparent orphans are not: `paper/appendix-marker-rankings.R` is invoked by hand
+per `paper/REPLICATION-README.md`, and `paper/validate-manuscript-run.R` is hashed
+in the frozen manuscript provenance. Both are kept.
+
+Twelve commented-out debug statements were removed from `src/`, including two
+calls to a `SAMPLER_DEBUG` macro that no longer exists. The commented
+`free(yobs[m])` in `fit.c` was *correct* and stays disabled: `yobs` is allocated
+only for non-binary outcomes and is freed with them a few lines below. It now
+says so instead of reading as an oversight. All 21 C files still pass a syntax
+check.
+
+Nothing prevented the original drift: there is no linter in the tree, the eight
+CI workflows cover only correctness and memory safety, and `.Rbuildignore`
+excludes `paper/` from `R CMD check`. `hpc/check-script-style.R` now runs first in
+`hpc/validate-package.sh`. It was calibrated against `IntegMultiReg/R`, which must
+pass by definition; that identified two rules that would have been wrong, and both
+are encoded — `x[i, , drop = FALSE]` keeps its space, and a semicolon separating a
+short paired assignment is allowed. Binary arithmetic is deliberately *not*
+gated: the package sources space it in 142 of 151 uses, which is a convention but
+not a rule. `tools/test-study-overlap.py`, whose fifteen tests cover the
+controller's lost-submission, throttle and acceptance-forgery paths, had no runner
+and now runs in the same script.
+
+Behaviour was checked by the eight installed test scripts, the fifteen controller
+tests and `hpc/test-splitting.R`, which executes real short experiments through
+the rewritten validators. `paper/expected-results-0.2.0-paper/provenance.json`
+records the previous and current hashes of the two pinned scripts that changed,
+states that only spacing and local identifier names differ, and states explicitly
+that the frozen results were **not** regenerated.
+
+The live `research-source-hashes.rds` under `runtime/candidate-b/evidence/` no
+longer matches `paper/` and `hpc/`. That file gates `hpc/prepare-study.R`, so it
+must be recaptured with `hpc/check-research-source.R` before a new study starts.
+The running study is unaffected: it executes the frozen copies under
+`runs/study-20260923/source/`.
+
+The work tree also gained its first off-machine copy, pushed to branch
+`anvil/implementation-20260923`. The `.gitignore` allowlist had excluded the
+manuscript itself, so `paper/*.tex`, the bibliography, the class files, the frozen
+expected-results record, the historical audit snapshots and the pre-Anvil runner
+copies are now tracked. `paper/data` stays untracked: the Biometrics/Wiley
+supplement has a different license and distribution boundary from the reduced
+public `kircIMR` example, and that repository is public.
+
 ## Controller watchdog: September 26, 18:51 local time
 
 The detached controller on login01 is the only component that submits the final

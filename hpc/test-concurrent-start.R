@@ -19,17 +19,17 @@ for (name in c("UNIT-VALIDATED", "SANITIZER-VALIDATED"))
 environment <- c(paste0("IMR_ROOT=", shQuote(root)),
   paste0("IMR_DEPENDENCIES=", shQuote(dependencies)), "IMR_MEMORY_PER_CPU_MIB=1896",
   "IMR_MAX_TASK_CPUS=128", "IMR_MAX_WALL_HOURS=96")
-run <- function(name, arguments, success) {
+run_fixture_script <- function(name, arguments, success) {
   log <- tempfile(tmpdir = fixture)
   status <- system2(file.path(R.home("bin"), "Rscript"),
     c("--vanilla", shQuote(file.path(directory, name)), vapply(arguments, shQuote, "")),
     env = environment, stdout = log, stderr = log)
   if (!identical(status == 0L, success)) stop(paste(readLines(log), collapse = "\n"))
 }
-run("check-research-source.R", c("capture", file.path(candidate, "evidence/research-source-hashes.rds")), TRUE)
+run_fixture_script("check-research-source.R", c("capture", file.path(candidate, "evidence/research-source-hashes.rds")), TRUE)
 prepare <- function(success, options = character()) {
   out <- tempfile("study-", tmpdir = fixture)
-  run("prepare-study.R", c(candidate, out, options), success)
+  run_fixture_script("prepare-study.R", c(candidate, out, options), success)
   if (success) readRDS(file.path(out, "study.rds")) else stopifnot(!dir.exists(out))
 }
 prepare(FALSE)
