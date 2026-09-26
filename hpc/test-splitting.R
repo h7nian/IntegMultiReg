@@ -41,7 +41,7 @@ flags <- c('--quick', '--experiment', 'simulation', '--reference', 'code2017', '
 run('paper/original-experiments.R', c(flags, '--out-dir', sim_serial))
 id <- 0L
 for (config in 1:3) for (rep in 1:2) {
-  id <- id+1L
+  id <- id + 1L
   task <- file.path(sim_tasks, sprintf('%03d', id))
   run('paper/original-experiments.R', c(flags, '--configuration', config, '--replicate', rep, '--out-dir', task))
   job <- sprintf('configuration-%02d-replicate-%03d', config, rep)

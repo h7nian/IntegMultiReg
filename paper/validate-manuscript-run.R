@@ -27,11 +27,11 @@ validate_run <- function(root) {
     calculate <- function(p) {
       obs <- y[match(p$id, y$id), ]
       v <- p$prediction
-      if (type == 'continuous') return(mean((obs$y-v)^2))
+      if (type == 'continuous') return(mean((obs$y - v)^2))
       if (type == 'binary') {
         n1 <- sum(obs$y == 1)
         n0 <- sum(obs$y == 0)
-        return((sum(rank(v)[obs$y == 1])-n1*(n1+1)/2)/(n1*n0))
+        return((sum(rank(v)[obs$y == 1]) - n1 * (n1 + 1) / 2) / (n1 * n0))
       }
       survival::concordance(survival::Surv(obs$time, obs$status)~v)$concordance
     }
@@ -47,9 +47,9 @@ validate_run <- function(root) {
     index <- which(table$outcome == type & table$method == toupper(method))
     stopifnot(length(index) == 1L, isTRUE(all.equal(unname(colMeans(computed)),
      unname(as.numeric(table[index, colnames(computed)])), tolerance = 1e-12)))
-    rows[[length(rows)+1L]] <- data.frame(outcome = type, method = method,
+    rows[[length(rows) + 1L]] <- data.frame(outcome = type, method = method,
      rounds = 10L, folds = 5L, predictions = nrow(predictions),
-     max_score_difference = max(abs(computed-x$cv$pooled)))
+     max_score_difference = max(abs(computed - x$cv$pooled)))
   }
   kirc <- readRDS(file.path(root, 'kirc_reduced_fit.rds'))
   stopifnot(kirc$control$mcmc$draws == 4000L, kirc$control$mcmc$burnin == 1000L,
@@ -61,7 +61,7 @@ validate_run <- function(root) {
   outer <- comparison$outer_predictions
   stopifnot(nrow(outer) == 300L, !anyDuplicated(outer$id), setequal(outer$id, simIMR$outcome.continuous$id),
    all(is.finite(outer$prediction)),
-   isTRUE(all.equal(mean((outer$observed-outer$prediction)^2),
+   isTRUE(all.equal(mean((outer$observed - outer$prediction)^2),
     comparison$nested_summary$pooled_outer_mse, tolerance = 1e-12)))
   for (fold in 1:3) {
     test <- outer[outer$outer_fold == fold, ]
@@ -72,7 +72,7 @@ validate_run <- function(root) {
     selected <- comparison$selected_by_fold[comparison$selected_by_fold$outer_fold == fold, ]
     chosen <- c('age_only', 'age_sex_stage')[which.min(c(selected$inner_mse_age_only, selected$inner_mse_age_sex_stage))]
     stopifnot(selected$selected == chosen, selected$n_train == nrow(inner),
-     selected$n_test == nrow(test), isTRUE(all.equal(mean((test$observed-test$prediction)^2),
+     selected$n_test == nrow(test), isTRUE(all.equal(mean((test$observed - test$prediction)^2),
       selected$outer_mse, tolerance = 1e-12)))
   }
   for (candidate in c('age_only', 'age_sex_stage')) {

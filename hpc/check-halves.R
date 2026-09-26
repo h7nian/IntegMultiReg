@@ -13,21 +13,21 @@ for (ch in 1:8) {
   for (p in seq_along(f$posterior$interaction_draws)) {
     groups <- f$model$subgroup_names[f$model$platform_subgroups[[p]]]
     if (length(groups) < 2L) next
-    pairs <- do.call(cbind, lapply(2:length(groups), function(j) rbind(seq_len(j-1), j)))
+    pairs <- do.call(cbind, lapply(2:length(groups), function(j) rbind(seq_len(j - 1), j)))
     mat <- f$posterior$interaction_draws[[p]]
     stopifnot(ncol(mat) == ncol(pairs), nrow(mat) == f$control$mcmc$draws,
               all(is.finite(mat)), nrow(mat) >= 4L)
-    cut <- floor(nrow(mat)/2)
+    cut <- floor(nrow(mat) / 2)
     for (j in seq_len(ncol(mat))) {
       first <- mat[seq_len(cut), j]
-      last <- mat[seq.int(cut+1L, nrow(mat)), j]
+      last <- mat[seq.int(cut + 1L, nrow(mat)), j]
       q1 <- quantile(first, c(.05, .5, .95), names = FALSE)
       q2 <- quantile(last, c(.05, .5, .95), names = FALSE)
-      rows[[length(rows)+1L]] <- data.frame(chain = ch,
+      rows[[length(rows) + 1L]] <- data.frame(chain = ch,
         platform = f$model$platform_names[p], subgroup1 = groups[pairs[1, j]],
         subgroup2 = groups[pairs[2, j]], first_n = length(first), last_n = length(last),
         first_mean = mean(first), last_mean = mean(last),
-        mean_difference = mean(last)-mean(first),
+        mean_difference = mean(last) - mean(first),
         first_q05 = q1[1], last_q05 = q2[1], first_median = q1[2], last_median = q2[2],
         first_q95 = q1[3], last_q95 = q2[3])
     }

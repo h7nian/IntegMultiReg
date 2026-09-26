@@ -46,7 +46,7 @@ for (j in seq_along(labels)) {
     stopifnot(result$fit$control$seed == s$seed,
      identical(result$fit$control$priors$nu, c(-4, -3, -4)),
      isTRUE(result$fit$control$standardize),
-     length(result$fit$model$covariate_names) == if (j <= 2L) ncol(data$covariates)-1L else 0L)
+     length(result$fit$model$covariate_names) == if (j <= 2L) ncol(data$covariates) - 1L else 0L)
     stopifnot(result$cv$control$k == s$k, result$cv$control$rounds == s$rounds)
     for (name in setdiff(names(s$reference_arguments$cv), 'cv_method'))
    stopifnot(identical(result$cv$control[[name]], s$reference_arguments$cv[[name]]))
@@ -64,7 +64,7 @@ for (j in seq_along(labels)) {
   stopifnot(!anyDuplicated(fold_key(folds)))
   indices <- match(fold_key(pred), fold_key(folds))
   stopifnot(!anyNA(indices), identical(pred$fold, folds$fold[indices]))
-  stopifnot(nrow(pred) == nrow(cohort)*s$rounds, all(is.finite(pred$prediction)),
+  stopifnot(nrow(pred) == nrow(cohort) * s$rounds, all(is.finite(pred$prediction)),
    identical(sort(unique(pred$round)), seq_len(s$rounds)),
    identical(sort(unique(pred$fold)), seq_len(s$k)))
   for (round in seq_len(s$rounds)) {
@@ -83,10 +83,10 @@ for (j in seq_along(labels)) {
   summary <- do.call(rbind, lapply(split(rescored, rescored$subgroup), function(x){
    values <- x$value[is.finite(x$value)]
     n <- length(values)
-   data.frame(subgroup = x$subgroup[1], mean = if (n) sum(values)/n else NA_real_,
-    sd = if (n > 1) sqrt(sum((values-mean(values))^2)/(n-1)) else NA_real_,
-    se = if (n > 1) sqrt(sum((values-mean(values))^2)/(n-1)/n) else NA_real_,
-    n_valid = n, n_expected = s$k*s$rounds)
+   data.frame(subgroup = x$subgroup[1], mean = if (n) sum(values) / n else NA_real_,
+    sd = if (n > 1) sqrt(sum((values - mean(values))^2) / (n - 1)) else NA_real_,
+    se = if (n > 1) sqrt(sum((values - mean(values))^2) / (n - 1) / n) else NA_real_,
+    n_valid = n, n_expected = s$k * s$rounds)
   }))
   rownames(summary) <- NULL
   recorded <- result$summary[match(summary$subgroup, result$summary$subgroup), ]

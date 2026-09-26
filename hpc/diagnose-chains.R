@@ -10,7 +10,7 @@ root <- normalizePath(args[1])
 fits <- lapply(file.path(root, sprintf('chain-%02d-diagnostic.rds', 1:8)), readRDS)
 settings <- readRDS(file.path(root, 'settings.rds'))
 for (f in fits) {
-  stopifnot(length(f$posterior$log_posterior) == settings$draws+settings$burnin)
+  stopifnot(length(f$posterior$log_posterior) == settings$draws + settings$burnin)
   for (m in f$posterior$interaction_draws) stopifnot(nrow(m) == settings$draws, all(is.finite(m)))
   for (m in f$posterior$inclusion_probabilities) stopifnot(all(is.finite(m)), all(m >= 0 & m <= 1))
 }

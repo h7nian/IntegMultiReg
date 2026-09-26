@@ -25,7 +25,7 @@ auc_pairwise <- function(score, truth) {
   b <- score[truth == 0]
   if (!length(a) || !length(b)) return(NA_real_)
   cmp <- outer(a, b, '-')
-  mean((cmp > 0)+.5*(cmp == 0))
+  mean((cmp > 0) + .5 * (cmp == 0))
 }
 reports <- list()
 configs <- if (s$experiment == 'simulation') 3L else 6L
@@ -50,7 +50,7 @@ for (config in task_selection$configurations) for (rep in task_selection$replica
       stopifnot(identical(cv$validation, s$reference_arguments$cv$cv_method))
       stopifnot(fit$control$mcmc$draws == s$draws, fit$control$mcmc$burnin == s$burnin,
         length(fit$posterior$selection_draws) == s$draws,
-        fit$control$seed == s$seed+rep-1L, cv$control$k == s$k, cv$control$rounds == s$rounds,
+        fit$control$seed == s$seed + rep - 1L, cv$control$k == s$k, cv$control$rounds == s$rounds,
         identical(cv$control$folds, experiment_result_folds(path)))
       for (name in names(s$reference_arguments$fit)) {
         actual <- if (name == 'sampler_method') fit$control[[name]] else fit$control$numerical[[name]]
@@ -79,7 +79,7 @@ for (config in task_selection$configurations) for (rep in task_selection$replica
     } else {pred <- result$predictions
   folds <- first_folds
     score_method <- 'standard'}
-    stopifnot(all(is.finite(pred$prediction)), nrow(pred) == nrow(data$outcome)*s$rounds)
+    stopifnot(all(is.finite(pred$prediction)), nrow(pred) == nrow(data$outcome) * s$rounds)
     key <- function(x)paste(x$id, x$round, sep = ':')
     stopifnot(!anyDuplicated(key(pred)), setequal(key(pred), key(folds)),
       identical(pred$fold, folds$fold[match(key(pred), key(folds))]))
@@ -87,7 +87,7 @@ for (config in task_selection$configurations) for (rep in task_selection$replica
     calculated <- fold_scores(pred, data$outcome, score_method, weighted_overall = method == 'l1-cph')
     stopifnot(isTRUE(all.equal(result$scores, calculated, tolerance = 1e-12)),
       isTRUE(all.equal(result$summary, summarize_scores(calculated), tolerance = 1e-12)))
-    reports[[length(reports)+1L]] <- data.frame(config, rep, method, draws = s$draws,
+    reports[[length(reports) + 1L]] <- data.frame(config, rep, method, draws = s$draws,
       rounds = s$rounds, k = s$k, predictions = nrow(pred), warnings = length(status$warnings))
     cat('PASS:', config, rep, method, '\n')
     rm(result)

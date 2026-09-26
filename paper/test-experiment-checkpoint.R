@@ -3,7 +3,7 @@ source(file.path(dirname(normalizePath(script)), 'original-experiment-helpers.R'
 library(IntegMultiReg)
 id <- 1:30
 fit <- imr(list(a = data.frame(id, x = sin(id)), b = data.frame(id, x = cos(id))),
- data.frame(id, y = sin(id/3)), outcome_type = 'continuous', draws = 30, burnin = 5,
+ data.frame(id, y = sin(id / 3)), outcome_type = 'continuous', draws = 30, burnin = 5,
  min_subgroup_size = 0, seed = 71)
 path <- tempfile(fileext = '.rds')
 set.seed(42)
@@ -26,7 +26,7 @@ if (capabilities('profmem')) {
   stopifnot(identical(a, b))
 }
 old <- states[[i]][1L]
-states[[j]][1L] <- 1L-old
+states[[j]][1L] <- 1L - old
 stopifnot(identical(states[[i]][1L], old))
 saveRDS(fit, path) # legacy checkpoint remains readable
 stopifnot(identical(experiment_fit_checkpoint(path, stop('must reuse')), fit))

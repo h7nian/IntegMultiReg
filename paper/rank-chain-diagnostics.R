@@ -16,12 +16,12 @@ rows <- list()
 for (p in seq_along(ref$posterior$interaction_draws)) {
   groups <- ref$model$subgroup_names[ref$model$platform_subgroups[[p]]]
   if (length(groups) < 2L) next
-  pairs <- do.call(cbind, lapply(2:length(groups), function(j)rbind(seq_len(j-1), j)))
+  pairs <- do.call(cbind, lapply(2:length(groups), function(j)rbind(seq_len(j - 1), j)))
   for (j in seq_len(ncol(pairs))) {
     draws <- vapply(fits, function(f)f$posterior$interaction_draws[[p]][, j],
      numeric(ref$control$mcmc$draws))
     stopifnot(is.matrix(draws), ncol(draws) == nchains, all(is.finite(draws)))
-    rows[[length(rows)+1L]] <- data.frame(platform = ref$model$platform_names[p],
+    rows[[length(rows) + 1L]] <- data.frame(platform = ref$model$platform_names[p],
      subgroup1 = groups[pairs[1, j]], subgroup2 = groups[pairs[2, j]],
      chains = nchains, retained_per_chain = nrow(draws),
      rank_normalized_split_rhat = posterior::rhat(draws),

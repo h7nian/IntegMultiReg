@@ -11,7 +11,7 @@ blocks <- regmatches(text, list(matches))[[1]]
 code <- gsub("(?m)^(R> |\\+ +)", "", sub("\\\\end\\{CodeInput\\}$", "",
   sub("^\\\\begin\\{CodeInput\\}", "", blocks)), perl = TRUE)
 hit <- match("--out-dir", args)
-out <- if (!is.na(hit)) args[hit+1L] else file.path(materials, "command-audit")
+out <- if (!is.na(hit)) args[hit + 1L] else file.path(materials, "command-audit")
 dir.create(out, recursive = TRUE, showWarnings = FALSE)
 out <- normalizePath(out)
 # Execute unchanged displayed commands in a fresh workspace: the companion

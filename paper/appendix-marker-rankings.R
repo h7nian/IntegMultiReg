@@ -18,7 +18,7 @@ appendix_marker_rankings <- function(fit, original, out_dir) {
       idx <- order(-prob[s, ], seq_along(feature))
       n <- min(counts[[platform]], length(feature))
       cutoff <- prob[s, idx[n]]
-      all[[length(all)+1L]] <- data.frame(platform, subgroup = subgroup[s],
+      all[[length(all) + 1L]] <- data.frame(platform, subgroup = subgroup[s],
         equation = unname(equations[subgroup[s]]), rank = seq_along(idx),
         feature_index = idx, feature = feature[idx], original_name = raw[idx],
         mpip = prob[s, idx], in_top_list = seq_along(idx) <= n,

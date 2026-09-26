@@ -39,8 +39,8 @@ for (id in seq_len(n)) {
     files <- list.files(task, pattern = sprintf('^chain-%02d', id), full.names = TRUE)
     add(files, basename(files))
     } else {
-    config <- as.integer((id-1L)%/%settings$replicates+1L)
-    rep <- as.integer((id-1L)%%settings$replicates+1L)
+    config <- as.integer((id - 1L) %/% settings$replicates + 1L)
+    rep <- as.integer((id - 1L) %% settings$replicates + 1L)
     stopifnot(identical(selection, list(kind = kind, configurations = config, replicates = rep)))
     job <- sprintf('configuration-%02d-replicate-%03d', config, rep)
     required <- file.path(task, job, c('imr-molecular.rds', 'bms-molecular.rds',

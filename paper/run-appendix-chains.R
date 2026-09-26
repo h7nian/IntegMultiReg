@@ -9,7 +9,7 @@ if (any(!names(args) %in% allowed)) stop('Unsupported chain-runner argument')
 value <- function(flag, fallback) if (is.null(args[[flag]])) fallback else args[[flag]]
 int <- function(flag, fallback, minimum) {
   x <- suppressWarnings(as.numeric(value(flag, fallback)))
-  if (length(x) != 1L || !is.finite(x) || x != floor(x) || x < minimum || x > .Machine$integer.max-8L)
+  if (length(x) != 1L || !is.finite(x) || x != floor(x) || x < minimum || x > .Machine$integer.max - 8L)
     stop('Invalid ', flag)
   as.integer(x)
 }
@@ -22,7 +22,7 @@ dir.create(out, recursive = TRUE, showWarnings = FALSE)
 out <- normalizePath(out)
 settings <- list(draws = int('--draws', if (quick) 100L else 350000L, 4L),
   burnin = int('--burnin', if (quick) 20L else 50000L, 0L),
-  seeds = int('--seed', 100L, 0L)+0:7, sampler_method = 'paper', nu = c(-4, -3, -4),
+  seeds = int('--seed', 100L, 0L) + 0:7, sampler_method = 'paper', nu = c(-4, -3, -4),
   quick = quick, data_hash = tools::md5sum(data_path),
   source_hashes = tools::md5sum(c(script,
     file.path(materials, c('original-experiment-helpers.R', 'appendix-chain-diagnostics.R')),
@@ -60,8 +60,8 @@ for (chain in chains) {
     matrix(0, nrow(m), nrow(m), dimnames = list(rownames(m), rownames(m)))))
   for (p in seq_along(selection)) {
     initial$selection[[p]][] <- 0L
-    if (chain > 1L) initial$selection[[p]][, seq_len(min(chain-1L, ncol(selection[[p]])))] <- 1L
-    initial$interaction[[p]][] <- .025*chain
+    if (chain > 1L) initial$selection[[p]][, seq_len(min(chain - 1L, ncol(selection[[p]])))] <- 1L
+    initial$interaction[[p]][] <- .025 * chain
     diag(initial$interaction[[p]]) <- 0
   }
   initial_path <- file.path(out, sprintf('chain-%02d-initial.rds', chain))
