@@ -5,7 +5,8 @@ plot_appendix_chains <- function(run_dir, out_dir = file.path(run_dir, 'figures'
   stopifnot(length(settings$seeds) == 8L)
   correlations <- read.csv(file.path(run_dir, 'diagnostics/mpip_correlations.csv'), colClasses = c(subgroup = 'character'))
   acfs <- read.csv(file.path(run_dir, 'diagnostics/theta_acf.csv'), colClasses = c(subgroup1 = 'character', subgroup2 = 'character'))
-  n <- settings$draws; burn <- settings$burnin
+  n <- settings$draws
+   burn <- settings$burnin
   stopifnot(all(vapply(fits, function(f) length(f$posterior$log_posterior) == n + burn, logical(1))))
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
   colours <- c('#0072B2', '#D55E00', '#009E73', '#CC79A7', '#E69F00', '#56B4E9', '#555555', '#000000')
@@ -105,7 +106,9 @@ plot_appendix_chains <- function(run_dir, out_dir = file.path(run_dir, 'figures'
       image(1:8, 1:8, mat, zlim = c(-1, 1), col = gray.colors(101, start = 1, end = .15),
             xlab = 'Chain', ylab = 'Chain', axes = FALSE,
             main = sprintf('%s: subgroup %s', groups$platform[k], groups$subgroup[k]))
-      axis(1, at = 1:8); axis(2, at = 1:8, cex.axis = .65, gap.axis = 0); box()
+      axis(1, at = 1:8)
+       axis(2, at = 1:8, cex.axis = .65, gap.axis = 0)
+       box()
       for (i in 1:8) for (j in 1:8) text(i, j,
         if (is.na(mat[i, j])) 'NA' else sprintf('%.2f', mat[i, j]),
         col = if (!is.na(mat[i, j]) && mat[i, j] > .2) 'white' else 'black', cex = .68)

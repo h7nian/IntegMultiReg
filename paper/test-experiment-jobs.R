@@ -5,7 +5,8 @@ dir.create(directory)
 path <- file.path(directory, "result.rds")
 checkpoint <- paste0(path, ".fit.rds")
 calls <- 0L
-saved_fit <- experiment_fit_checkpoint(checkpoint, {calls <- calls + 1L; list(value = 42L)})
+saved_fit <- experiment_fit_checkpoint(checkpoint, {calls <- calls + 1L
+ list(value = 42L)})
 tryCatch(record_experiment_job(path, stop("CV failed after fitting")), error = identity)
 restored_fit <- experiment_fit_checkpoint(checkpoint, stop("Fit must not rerun"))
 stopifnot(identical(saved_fit, restored_fit), calls == 1L)

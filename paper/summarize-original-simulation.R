@@ -1,7 +1,8 @@
 # Summarize independent simulation replicates, never individual CV folds.
 args <- commandArgs(TRUE)
 stopifnot(length(args) == 1L)
-root <- normalizePath(args[1]); s <- readRDS(file.path(root, 'settings.rds'))
+root <- normalizePath(args[1])
+ s <- readRDS(file.path(root, 'settings.rds'))
 stopifnot(s$experiment %in% c('simulation', 'correlated'))
 for (name in c('simulation-acceptance.rds', 'baseline-selection-acceptance.rds')) {
   audit <- readRDS(file.path(root, name))
@@ -11,7 +12,8 @@ stopifnot(identical(tools::md5sum(names(s$source_hashes)), s$source_hashes),
   identical(tools::md5sum(names(s$data_hash)), s$data_hash))
 configs <- if (s$experiment == 'simulation') data.frame(scenario = 1:3, rho = 0, half = FALSE) else
   expand.grid(scenario = 1, rho = c(.2, .5, .8), half = c(FALSE, TRUE))
-rows <- list(); hashes <- character()
+rows <- list()
+ hashes <- character()
 read_csv <- function(path) {
   hashes <<- c(hashes, tools::md5sum(path))
   read.csv(path, colClasses = c(subgroup = 'character'))
@@ -48,13 +50,15 @@ for (configuration in seq_len(nrow(configs))) for (replicate in seq_len(s$replic
       folds_valid = prediction$n_valid, folds_expected = prediction$n_expected)
   }
 }
-values <- do.call(rbind, rows); rownames(values) <- NULL
+values <- do.call(rbind, rows)
+ rownames(values) <- NULL
 keys <- c('configuration', 'method', 'metric', 'platform', 'subgroup')
 key <- do.call(paste, c(values[keys], sep = ':'))
 stopifnot(!anyDuplicated(paste(key, values$replicate, sep = ':')))
 summary <- do.call(rbind, lapply(split(values, key), function(x) {
   stopifnot(nrow(x) == s$replicates, setequal(x$replicate, seq_len(s$replicates)))
-  n <- nrow(x); deviation <- if (n > 1L) stats::sd(x$value) else NA_real_
+  n <- nrow(x)
+   deviation <- if (n > 1L) stats::sd(x$value) else NA_real_
   data.frame(x[1, c('configuration', 'scenario', 'rho', 'half', 'method', 'metric', 'platform', 'subgroup')],
     mean = mean(x$value), sd = deviation, se = deviation / sqrt(n),
     n_valid = n, n_requested = s$replicates,

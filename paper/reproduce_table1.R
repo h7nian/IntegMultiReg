@@ -2,7 +2,8 @@
 # New usage: Rscript paper/original-experiments.R --experiment table1 --reference paper
 args <- commandArgs(TRUE)
 value <- function(flag, default = NULL) {
-  at <- match(flag, args); if (is.na(at)) default else args[at + 1L]
+  at <- match(flag, args)
+   if (is.na(at)) default else args[at + 1L]
 }
 mode <- value("--mode", "paper")
 if (mode != "paper") stop("Use the manuscript replication script for reduced KIRC examples; this entry point uses original Table 1 data.")

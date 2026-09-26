@@ -25,10 +25,10 @@ parse_experiment_args <- function(args) {
 
 # MSI task identity is separate from global scientific settings.
 record_task_selection <- function(out, selection) {
-  path <- file.path(out,'task.rds')
-  if(file.exists(path) && !identical(readRDS(path),selection))
+  path <- file.path(out, 'task.rds')
+  if (file.exists(path) && !identical(readRDS(path), selection))
     stop('Task selector changed; choose a new output directory')
-  saveRDS(selection,path)
+  saveRDS(selection, path)
 }
 
 # Lossless research-only checkpoint container. Public fitted objects stay in
@@ -57,7 +57,8 @@ pack_experiment_fit <- function(fit) {
     indices[[p]] <- index
   }
   layout <- lapply(history, function(draw) {
-    draw[] <- rep(list(NULL), length(draw)); draw
+    draw[] <- rep(list(NULL), length(draw))
+     draw
   })
   attributes(layout) <- attributes(history)
   fit$posterior["selection_draws"] <- list(NULL)
@@ -184,7 +185,9 @@ resolve_experiment_arguments <- function(reference, options) {
 }
 
 selection_auc <- function(score, truth) {
-  positive <- truth == 1; n1 <- sum(positive); n0 <- sum(!positive)
+  positive <- truth == 1
+   n1 <- sum(positive)
+   n0 <- sum(!positive)
   if (!n1 || !n0) return(NA_real_)
   (sum(rank(score, ties.method = "average")[positive]) - n1 * (n1 + 1) / 2) / (n1 * n0)
 }
@@ -194,7 +197,8 @@ survival_score <- function(time, event, prediction, method = "standard") {
     survival::Surv(time, event) ~ prediction)$concordance))
   # Independent pairwise transcription of the archived historical metric.
   pair <- which(upper.tri(matrix(FALSE, length(time), length(time))), arr.ind = TRUE)
-  i <- pair[, 1]; j <- pair[, 2]
+  i <- pair[, 1]
+   j <- pair[, 2]
   denominator <- (time[j] > time[i]) * event[i] + (time[j] < time[i]) * event[j] +
     (time[j] == time[i]) * (event[i] != event[j])
   numerator <- (prediction[j] > prediction[i]) * (time[j] > time[i]) * event[i] +
@@ -221,7 +225,8 @@ fold_scores <- function(predictions, outcome, score_method, weighted_overall = F
 
 summarize_scores <- function(scores) {
   do.call(rbind, lapply(split(scores, scores$subgroup), function(x) {
-    finite <- is.finite(x$value); n <- sum(finite)
+    finite <- is.finite(x$value)
+     n <- sum(finite)
     data.frame(subgroup = x$subgroup[1], mean = if (n) mean(x$value[finite]) else NA_real_,
       sd = if (n > 1) sd(x$value[finite]) else NA_real_,
       se = if (n > 1) sd(x$value[finite]) / sqrt(n) else NA_real_,
@@ -288,7 +293,8 @@ benchmark_cox <- function(data, folds, lasso, seed, inner_k = 10L) {
     } else design <- as.matrix(data$covariates[match(ids, data$covariates$id), -1])
     for (round in sort(unique(record$round))) for (fold in sort(unique(record$fold))) {
       target <- which(record$subgroup == group & record$round == round & record$fold == fold)
-      test <- match(record$id[target], ids); train <- setdiff(seq_along(ids), test)
+      test <- match(record$id[target], ids)
+       train <- setdiff(seq_along(ids), test)
       y <- outcome[train, ]
       fit_warnings <- character()
       withCallingHandlers({

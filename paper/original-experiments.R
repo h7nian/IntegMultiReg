@@ -1,11 +1,12 @@
 # Original-scale experiment runner. Run from any directory; outputs are separate
 # for quick/full, experiment, reference, configuration, replicate and method.
 script <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1])
-materials <- dirname(normalizePath(script)); root <- dirname(materials)
+materials <- dirname(normalizePath(script))
+ root <- dirname(materials)
 source(file.path(materials, "original-reference.R"))
 source(file.path(materials, "original-experiment-helpers.R"))
 options <- parse_experiment_args(commandArgs(TRUE))
-if(!is.null(options[["--chain"]])) stop("--chain applies only to the chain runner")
+if (!is.null(options[["--chain"]])) stop("--chain applies only to the chain runner")
 value <- function(flag, default) if (is.null(options[[flag]])) default else options[[flag]]
 experiment <- match.arg(value("--experiment", "table1"), c("table1", "simulation", "correlated"))
 reference <- match.arg(value("--reference", "paper"), c("paper", "code2017", "package"))
@@ -38,7 +39,8 @@ if (!requireNamespace("digest", quietly = TRUE))
   stop("The research checkpoint writer requires the digest package")
 if (settings$audit) source(file.path(materials, "audit-unpenalized-cv.R"))
 stopifnot(packageVersion("IntegMultiReg") == "0.2.0")
-dir.create(out, recursive = TRUE, showWarnings = FALSE); out <- normalizePath(out)
+dir.create(out, recursive = TRUE, showWarnings = FALSE)
+ out <- normalizePath(out)
 data_path <- value("--data", file.path(materials, "data", "kirc_table1_full.rda"))
 settings$data_hash <- tools::md5sum(data_path)
 settings$source_hashes <- tools::md5sum(c(script,
@@ -52,7 +54,9 @@ if (file.exists(manifest) && !identical(readRDS(manifest), settings))
 saveRDS(settings, manifest)
 writeLines(capture.output(dput(settings)), file.path(out, "settings.txt"))
 writeLines(capture.output(sessionInfo()), file.path(out, "sessionInfo.txt"))
-e <- new.env(); load(data_path, e); original <- e$kirc_full
+e <- new.env()
+ load(data_path, e)
+ original <- e$kirc_full
 # Old prepared objects retained log time in outcome.survival; always choose raw.
 original$outcome <- original$outcome.raw
 original$standardize <- TRUE
@@ -73,10 +77,10 @@ configurations <- if (experiment == "table1") data.frame(scenario = 0, rho = 0, 
 if (experiment != "table1") generator <- load_original_generator(
   file.path(root, "Ref", "biom12587-sup-0002-suppdata_code.zip"),
   file.path(out, "reference-generator"), file.path(materials, "reference", "original-generator.c"))
-selected_configurations <- if(is.null(options[['--configuration']])) seq_len(nrow(configurations)) else integer_value('--configuration',1L,1L)
-selected_replicates <- if(is.null(options[['--replicate']])) seq_len(settings$replicates) else integer_value('--replicate',1L,1L)
-stopifnot(all(selected_configurations <= nrow(configurations)),all(selected_replicates <= settings$replicates))
-record_task_selection(out,list(kind=experiment,configurations=selected_configurations,replicates=selected_replicates))
+selected_configurations <- if (is.null(options[['--configuration']])) seq_len(nrow(configurations)) else integer_value('--configuration', 1L, 1L)
+selected_replicates <- if (is.null(options[['--replicate']])) seq_len(settings$replicates) else integer_value('--replicate', 1L, 1L)
+stopifnot(all(selected_configurations <= nrow(configurations)), all(selected_replicates <= settings$replicates))
+record_task_selection(out, list(kind = experiment, configurations = selected_configurations, replicates = selected_replicates))
 for (configuration in selected_configurations) for (replicate in selected_replicates) {
   config <- configurations[configuration, ]
   seed <- settings$seed + replicate - 1L
@@ -89,7 +93,8 @@ for (configuration in selected_configurations) for (replicate in selected_replic
     data.frame(method = c("imr", "bms"), clinical = FALSE)
   shared_folds <- NULL
   for (run in seq_len(nrow(runs))) {
-    method <- as.character(runs$method[run]); clinical <- runs$clinical[run]
+    method <- as.character(runs$method[run])
+     clinical <- runs$clinical[run]
     label <- paste0(method, if (clinical) "-clinical-molecular" else "-molecular")
     path <- file.path(job_dir, paste0(label, ".rds"))
     if (experiment_job_complete(path)) {
@@ -109,7 +114,8 @@ for (configuration in selected_configurations) for (replicate in selected_replic
         # Code reproduction keeps each fitted chain's continued stream. Other
         # comparisons use paired partitions after the first model.
         if (!is.null(shared_folds) && !identical(cv_args$fold_rng, "continue")) {
-          cv_args$folds <- shared_folds; cv_args$fold_rng <- NULL
+          cv_args$folds <- shared_folds
+           cv_args$fold_rng <- NULL
         }
         cv <- do.call(cv_imr, c(list(object = fit, k = settings$k, rounds = settings$rounds,
           workers = settings$workers), cv_args))

@@ -9,7 +9,8 @@ stopifnot(s$experiment %in% c('simulation', 'correlated'),
   identical(tools::md5sum(names(s$data_hash)), s$data_hash))
 auc <- function(score, truth) {
   stopifnot(length(score) == length(truth), all(is.finite(score)))
-  positive <- score[truth == 1]; negative <- score[truth == 0]
+  positive <- score[truth == 1]
+   negative <- score[truth == 0]
   if (!length(positive) || !length(negative)) return(NA_real_)
   difference <- outer(positive, negative, '-')
   mean((difference > 0) + .5 * (difference == 0))
@@ -21,35 +22,36 @@ compare_rows <- function(actual, expected) {
     isTRUE(all.equal(actual$auc[match(key(expected), key(actual))],
       expected$auc, tolerance = 1e-12, check.attributes = FALSE)))
 }
-reports <- list(); warning_records <- list()
+reports <- list()
+ warning_records <- list()
 configurations <- seq_len(if (s$experiment == 'simulation') 3L else 6L)
 replicates <- seq_len(s$replicates)
 if (file.exists(file.path(root, 'task.rds'))) {
- selection <- readRDS(file.path(root, 'task.rds'))
- stopifnot(identical(selection$kind, s$experiment),
-   all(selection$configurations %in% configurations), all(selection$replicates %in% replicates))
- configurations <- selection$configurations
- replicates <- selection$replicates
+  selection <- readRDS(file.path(root, 'task.rds'))
+  stopifnot(identical(selection$kind, s$experiment),
+    all(selection$configurations %in% configurations), all(selection$replicates %in% replicates))
+  configurations <- selection$configurations
+  replicates <- selection$replicates
 }
 for (configuration in configurations) {
- for (replicate in replicates) {
-  job <- file.path(root, sprintf('configuration-%02d-replicate-%03d', configuration, replicate))
-  data <- readRDS(file.path(job, 'data.rds'))$data
-  l1 <- readRDS(file.path(job, 'l1-cph.rds'))
-  diagnostics <- Filter(function(x) x$stage == 'selection', l1$diagnostics)
-  stopifnot(length(diagnostics) > 0L,
-    !anyDuplicated(vapply(diagnostics, `[[`, '', 'subgroup')))
-  warning_start <- length(warning_records)
-  capture <- function(expr, method, platform = '', subgroup = '', feature = '') {
+  for (replicate in replicates) {
+    job <- file.path(root, sprintf('configuration-%02d-replicate-%03d', configuration, replicate))
+    data <- readRDS(file.path(job, 'data.rds'))$data
+    l1 <- readRDS(file.path(job, 'l1-cph.rds'))
+    diagnostics <- Filter(function(x) x$stage == 'selection', l1$diagnostics)
+    stopifnot(length(diagnostics) > 0L,
+      !anyDuplicated(vapply(diagnostics, `[[`, '', 'subgroup')))
+    warning_start <- length(warning_records)
+    capture <- function(expr, method, platform = '', subgroup = '', feature = '') {
     withCallingHandlers(expr, warning = function(w) {
       warning_records[[length(warning_records) + 1L]] <<- data.frame(
         configuration, replicate, method, platform, subgroup, feature,
         warning = conditionMessage(w))
       invokeRestart('muffleWarning')
     })
-  }
-  rows <- list()
-  for (d in diagnostics) {
+    }
+    rows <- list()
+    for (d in diagnostics) {
     ids <- d$inner_folds$id
     stopifnot(!anyDuplicated(ids), all(ids %in% data$outcome$id))
     outcome <- data$outcome[match(ids, data$outcome$id), ]
@@ -74,10 +76,10 @@ for (configuration in configurations) {
       offset <- offset + n
     }
     stopifnot(offset == length(coefficients))
-  }
-  compare_rows(do.call(rbind, rows), l1$selection)
-  rows <- list()
-  for (p in seq_along(data$platforms)) {
+    }
+    compare_rows(do.call(rbind, rows), l1$selection)
+    rows <- list()
+    for (p in seq_along(data$platforms)) {
     platform <- data$platforms[[p]]
     outcome <- data$outcome[match(platform$id, data$outcome$id), ]
     values <- vapply(seq.int(2L, ncol(platform)), function(j) {
@@ -91,19 +93,19 @@ for (configuration in configurations) {
     groups <- rownames(data$truth[[p]])
     rows[[p]] <- data.frame(platform = names(data$platforms)[p], subgroup = groups,
       auc = vapply(groups, function(g) auc(score, data$truth[[p]][g, ]), numeric(1)))
+    }
+    compare_rows(do.call(rbind, rows), read.csv(file.path(job, 'uni-cph-selection.csv'),
+      colClasses = c(subgroup = 'character')))
+    reports[[length(reports) + 1L]] <- data.frame(configuration, replicate,
+      l1_groups = length(diagnostics), uni_features = sum(vapply(data$platforms, ncol, 1L) - 1L),
+      warnings = length(warning_records) - warning_start)
+    cat('PASS baseline selection:', configuration, replicate, '\n')
   }
-  compare_rows(do.call(rbind, rows), read.csv(file.path(job, 'uni-cph-selection.csv'),
-    colClasses = c(subgroup = 'character')))
-  reports[[length(reports) + 1L]] <- data.frame(configuration, replicate,
-    l1_groups = length(diagnostics), uni_features = sum(vapply(data$platforms, ncol, 1L) - 1L),
-    warnings = length(warning_records) - warning_start)
-  cat('PASS baseline selection:', configuration, replicate, '\n')
- }
 }
 report <- do.call(rbind, reports)
 warnings <- if (length(warning_records)) do.call(rbind, warning_records) else data.frame(
- configuration=integer(), replicate=integer(), method=character(), platform=character(),
- subgroup=character(), feature=character(), warning=character())
+ configuration = integer(), replicate = integer(), method = character(), platform = character(),
+ subgroup = character(), feature = character(), warning = character())
 write.csv(report, file.path(root, 'baseline-selection-acceptance.csv'), row.names = FALSE)
 write.csv(warnings, file.path(root, 'baseline-selection-warnings.csv'), row.names = FALSE)
 saveRDS(list(report = report, warnings = warnings, settings = s, verified_at = Sys.time(),

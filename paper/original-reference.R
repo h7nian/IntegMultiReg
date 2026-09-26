@@ -17,7 +17,8 @@ load_original_generator <- function(archive, out_dir, adapter) {
   lines <- append(lines, "gsl_rng_free(r1);", after = at - 1L)
   writeLines(lines, path)
   file.copy(adapter, file.path(work, "generator.c"), overwrite = TRUE)
-  old <- setwd(work); on.exit(setwd(old))
+  old <- setwd(work)
+   on.exit(setwd(old))
   status <- system2(file.path(R.home("bin"), "R"), c("CMD", "SHLIB", "-o",
     paste0("generator", .Platform$dynlib.ext), "generator.c", "ReadData.c", "utils.c"),
     env = c(paste0("PKG_CPPFLAGS=", shQuote(system2("gsl-config", "--cflags", stdout = TRUE))),
@@ -60,7 +61,8 @@ original_simulation <- function(data, dll, scenario, seed, rho = 0, half = FALSE
   matrices <- lapply(1:3, function(p) lapply(groups[[p]], function(g) {
     value <- as.matrix(data$platforms[[p]][match(ids[[g]], data$platforms[[p]]$id), -1])
     value <- value[, permutation[[p]], drop = FALSE]
-    storage.mode(value) <- "double"; value
+    storage.mode(value) <- "double"
+     value
   }))
   output <- .Call("original_generate", matrices, as.integer(scenario), as.double(seed),
                    as.double(rho), as.integer(half), PACKAGE = dll)
@@ -73,7 +75,8 @@ original_simulation <- function(data, dll, scenario, seed, rho = 0, half = FALSE
   names(platforms) <- names(data$platforms)
   y <- do.call(rbind, output[[1]])
   outcome <- data.frame(id = unlist(ids, use.names = FALSE), time = exp(y[, 1]), status = as.integer(y[, 2]))
-  truth <- output[[3]]; names(truth) <- names(platforms)
+  truth <- output[[3]]
+   names(truth) <- names(platforms)
   for (p in 1:3) truth[[p]] <- truth[[p]][, order(permutation[[p]]), drop = FALSE]
   for (p in 1:3) dimnames(truth[[p]]) <- list(bits[groups[[p]]], names(platforms[[p]])[-1])
   list(platforms = platforms, outcome = outcome, covariates = NULL, truth = truth,

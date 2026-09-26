@@ -3,8 +3,10 @@
 check_chain_prefix <- function(old, new) {
   stopifnot(inherits(old, 'imr_experiment_fit_checkpoint_v1'),
             inherits(new, 'imr_experiment_fit_checkpoint_v1'))
-  a <- old$fit; b <- new$fit
-  n <- a$control$mcmc$draws; m <- b$control$mcmc$draws
+  a <- old$fit
+   b <- new$fit
+  n <- a$control$mcmc$draws
+   m <- b$control$mcmc$draws
   burn <- a$control$mcmc$burnin
   stopifnot(m > n, identical(burn, b$control$mcmc$burnin),
             identical(a$model, b$model))
@@ -31,7 +33,8 @@ check_chain_prefix <- function(old, new) {
               identical(x, y[seq_len(n), , drop = FALSE]))
   }
   for (p in seq_along(old$pools)) {
-    i <- old$indices[[p]]; j <- new$indices[[p]]
+    i <- old$indices[[p]]
+     j <- new$indices[[p]]
     stopifnot(length(i) == n, length(j) == m, !anyNA(i), !anyNA(j),
               all(i >= 1L & i <= length(old$pools[[p]])),
               all(j >= 1L & j <= length(new$pools[[p]])))
@@ -50,8 +53,10 @@ if (sys.nframe() == 0L) {
   if (length(args) != 4L) stop('Usage: Rscript check-chain-prefix.R OLD_ROOT NEW_ROOT OUT_DIR CHAIN')
   chain <- suppressWarnings(as.integer(args[4L]))
   stopifnot(!is.na(chain), chain %in% 1:8, as.character(chain) == args[4L])
-  roots <- args[1:2]; settings <- lapply(file.path(roots, 'settings.rds'), readRDS)
-  a <- settings[[1]]; b <- settings[[2]]
+  roots <- args[1:2]
+   settings <- lapply(file.path(roots, 'settings.rds'), readRDS)
+  a <- settings[[1]]
+   b <- settings[[2]]
   stopifnot(b$draws > a$draws,
     identical(a[c('burnin', 'seeds', 'sampler_method', 'nu', 'quick')],
               b[c('burnin', 'seeds', 'sampler_method', 'nu', 'quick')]),

@@ -32,7 +32,8 @@ for (i in seq_len(nrow(tasks))) {
       saved$fit$control$seed == task$seed,
       identical(saved$fit$control$sampler_method, "paper"),
       all(is.finite(saved$fit$posterior$log_posterior)))
-    rm(saved); gc()
+    rm(saved)
+     gc()
   } else {
     stopifnot(settings$replicates == task$replicates,
       identical(settings$reference, task$reference),
@@ -60,7 +61,8 @@ for (i in seq_len(nrow(tasks))) {
           result$cv$control$ridge == task$ridge,
           all(is.finite(result$cv$predictions$prediction)),
           all(result$summary$n_valid == result$summary$n_expected))
-        rm(result, fit); gc()
+        rm(result, fit)
+         gc()
       }
       audit[[length(audit) + 1L]] <- data.frame(task_id = task$task_id, method = label,
         status = status$status, warnings = length(status$warnings))
