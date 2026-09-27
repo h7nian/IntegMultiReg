@@ -1,5 +1,46 @@
 # Anvil implementation, 2026-09-23
 
+## All tasks complete; final collection blocked: September 27, 02:52 local time
+
+All 679 tasks hold `TASK-COMPLETED` and all 649 production array elements ended
+`COMPLETED`. No task failed, timed out, was preempted or needed a resource
+retry, and `state["retried"]` is still empty. The computation is finished.
+
+The controller submitted the full-phase validation as job `20926884` at 02:51:08
+and saw it `FAILED` one minute later, so it called `block()` and exited. The job
+ran three seconds, exited 1, and wrote nothing but the module-purge notice.
+
+The cause is in `execution/validate-study-stage.sh` line 7:
+
+    validation_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+Slurm executes a spool copy of a batch script, so inside the job that resolves
+to `/var/spool/slurm/job<ID>`, not to `execution/`. A probe job confirmed it
+directly: `BASH_SOURCE[0] = /var/spool/slurm/job20926954/slurm_script`. The
+`full` branch then fails its two `[[ -f "$validation_root/..." ]]` guards, and
+`set -e` exits 1 without a message. The `pilot` branch names
+`$study/source/hpc/accept-phase.R` absolutely, which is why validator `20906255`
+completed in 13m15s and this fault stayed latent until the only full-phase run.
+
+Nothing scientific is affected. No result was read, written or discarded; the
+failure is entirely before `collect-study.R` starts.
+
+`runtime/collect-recovery/run-collection.sh` performs the call that branch
+intended, with absolute paths, and modifies no hashed file — it invokes the same
+sha256-pinned `execution/collect-study.R` and
+`execution/validate-original-simulation.R`, with the resources
+`Controller.validate()` requests for the full phase. It is written and checked
+but **not submitted**: submitting it needs an approval this session does not
+have.
+
+The hashed execution snapshot, `overlap-policy.json` and `overlap-state.json`
+were deliberately left untouched. Repairing line 7 properly means editing a
+pinned file and re-recording its sha256 with the prior policy archived under
+`execution/policy-history/`, then clearing `blocked`, resetting
+`full["validator"]` to null so a restarted controller resubmits, and relaunching
+the controller. That is a change to a validated artifact and is left as an
+explicit decision rather than made unattended.
+
 ## Research script consistency: September 26, evening
 
 `paper/` and `hpc/` had drifted from the convention `IntegMultiReg/R` follows
