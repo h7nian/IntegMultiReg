@@ -1,5 +1,43 @@
 # Anvil implementation, 2026-09-23
 
+## Study complete: September 28, 16:30 local time
+
+The recovery collection ran 7h12m and wrote `VALIDATION-COMPLETED`. All five
+groups collected and all their validators passed, including the original-scale
+Table 1 audit. No task failed anywhere in the study. The temporary watchdog
+crontab, which had fired 48 times and no-opped every time, has been removed.
+
+The four experiment families now have results:
+
+* **Original-scale KIRC Table 1.** All twenty-five cells within 0.044 of the
+  published values, median absolute difference 0.011, each inside the article's
+  own standard error, at the article's own budget.
+* **Eight chains at 10^6 retained draws.** mRNA and miRNA reach rank-Rhat below
+  1.01 with bulk ESS in the thousands; methylation reaches 1.045 with bulk ESS
+  208. Minimum cross-chain mPIP correlation 0.803 (mRNA), 0.813 (methylation),
+  0.958 (miRNA), against the 0.85 the article reports.
+* **Main simulation, 50 replicates per configuration.** IMR exceeds BMS on
+  selection AUC in 8 of 8 platform/subgroup cells under scenario 1 (identical
+  biomarker sets, +0.022 to +0.128) and 8 of 8 under scenario 2 (50 percent
+  overlap, +0.010 to +0.062), with no material difference under scenario 3 (no
+  overlap, -0.027 to +0.005). The advantage decreasing monotonically with
+  overlap is the mechanism the article claims, not only its numbers.
+* **Correlated simulation, 30 replicates per configuration.** Mean selection
+  AUC for IMR is 0.907, 0.917 and 0.898 at rho 0.2, 0.5 and 0.8 against BMS
+  0.760, 0.789 and 0.812, supporting the article's robustness claim.
+
+Warnings are retained rather than discarded: 69 baseline-selection warnings in
+the main simulation and 49 in the correlated simulation, plus the 200 clinical
+Cox separation warnings in the Table 1 audit.
+
+No further scientific run is outstanding. What remains is the pre-submission
+checklist already stated in the JSS response draft: package checks on the final
+distribution, manuscript code execution with numerical references verified in a
+clean directory, PDF inspection, explicit scoping of the remaining limitations,
+and assembly of the source and replication archives. The live
+`research-source-hashes.rds` must be recaptured before any of those, because
+the September 26 style pass changed the tracked `paper/` and `hpc/` sources.
+
 ## All tasks complete; final collection blocked: September 27, 02:52 local time
 
 All 679 tasks hold `TASK-COMPLETED` and all 649 production array elements ended
