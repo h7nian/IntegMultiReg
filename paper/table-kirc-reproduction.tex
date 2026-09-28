@@ -1,0 +1,38 @@
+%% Original-scale KIRC reproduction of Chekouo et al. (2017, Table 1).
+%% Upright rows are the published values; italic rows are this package's rerun.
+%% Generated from runs/study-20260923/tasks/0669/acceptance-audit.csv.
+\begin{table}[!ht]
+\centering
+\begin{tabular}{l c c c c c}
+\toprule
+ & \multicolumn{5}{c}{Availability subgroup} \\
+\cmidrule(lr){2-6}
+Model & $E_1$ (\code{111}) & $E_2$ (\code{011}) & $E_3$ (\code{101}) &
+$E_5$ (\code{001}) & Full \\
+ & $n=128$ & $n=70$ & $n=120$ & $n=130$ & $n=448$ \\
+\midrule
+CPH $+$ C & 0.72 (0.01) & 0.76 (0.01) & 0.79 (0.01) & 0.71 (0.01) & 0.71 (0.01) \\
+ & \textit{0.733} (0.014) & \textit{0.757} (0.018) & \textit{0.784} (0.011) & \textit{0.702} (0.016) & \textit{0.721} (0.007) \\[2pt]
+IMR $+$ C $+$ M & 0.89 (0.02) & 0.82 (0.04) & 0.89 (0.02) & 0.80 (0.04) & 0.86 (0.01) \\
+ & \textit{0.859} (0.009) & \textit{0.829} (0.016) & \textit{0.879} (0.009) & \textit{0.775} (0.013) & \textit{0.840} (0.004) \\[2pt]
+BMS $+$ C $+$ M & 0.87 (0.03) & 0.82 (0.04) & 0.89 (0.02) & 0.79 (0.04) & 0.85 (0.01) \\
+ & \textit{0.885} (0.009) & \textit{0.864} (0.014) & \textit{0.887} (0.006) & \textit{0.798} (0.014) & \textit{0.859} (0.004) \\[2pt]
+IMR $+$ M & 0.88 (0.02) & 0.71 (0.06) & 0.84 (0.02) & 0.72 (0.05) & 0.82 (0.01) \\
+ & \textit{0.910} (0.007) & \textit{0.674} (0.023) & \textit{0.865} (0.008) & \textit{0.688} (0.016) & \textit{0.823} (0.004) \\[2pt]
+BMS $+$ M & 0.88 (0.02) & 0.67 (0.06) & 0.84 (0.02) & 0.72 (0.05) & 0.81 (0.01) \\
+ & \textit{0.849} (0.010) & \textit{0.693} (0.024) & \textit{0.851} (0.009) & \textit{0.719} (0.017) & \textit{0.808} (0.005) \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:kirc-reproduction}Original-scale KIRC predictive
+performance. Upright entries are the published C-indices of
+\citet[Table~1]{chekouo2017}; italic entries are the rerun produced by
+\pkg{IntegMultiReg} under \code{reference = "code2017"} with 350000 retained
+draws after 50000 burn-in, ten rounds of ten-fold cross-validation and the mean
+taken over the 100 validation sets. Parenthetic values are standard errors;
+the published standard errors are reported to two decimals. Subgroup labels
+follow the bitstring convention of Table~\ref{tab:bitstring-key}, where the
+right-most digit denotes mRNA. Every cell agrees to within 0.044, with a median
+absolute difference of 0.011, which is inside the published standard errors.
+Historical replicate seeds are unavailable, so this is agreement within
+sampling variation rather than digit-level reproduction.}
+\end{table}

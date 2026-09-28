@@ -1,0 +1,25 @@
+%% Eight-chain diagnostics for the interaction parameters at 10^6 retained draws.
+%% Generated from runs/study-20260923/combined/chains-paper-none/*/
+%%   theta-rank-diagnostics.csv, theta_psrf.csv, mpip_correlations.csv
+\begin{table}[!ht]
+\centering
+\begin{tabular}{l c c c c c c}
+\toprule
+Platform & Pairs & Rank $\widehat{R}$ & Bulk ESS & Tail ESS & Classical PSRF &
+Min.\ $\rho$ \\
+\midrule
+mRNA        & 6 & 1.001--1.001 & 7,832--15,997 & 26,775--49,970 & 1.000--1.001 & 0.803 \\
+miRNA       & 1 & 1.007        & 1,426         & 1,490          & 1.005        & 0.958 \\
+Methylation & 1 & 1.045        & 208           & 498            & 1.016        & 0.813 \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:chain-diagnostics}Eight-chain diagnostics for the
+subgroup-interaction parameters $\theta$, from eight recorded starting points
+with $10^6$ retained draws per chain after 50000 burn-in under
+\code{sampler\_method = "paper"}. ``Pairs'' counts the subgroup pairs a
+platform contributes; ranges run over those pairs. Rank $\widehat{R}$ is the
+rank-normalized split-folded statistic and PSRF the classical potential scale
+reduction factor. Min.\ $\rho$ is the smallest Pearson correlation between
+marginal posterior inclusion probabilities over all 28 chain pairs and
+availability subgroups of that platform.}
+\end{table}

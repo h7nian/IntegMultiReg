@@ -1244,6 +1244,21 @@ unpublished candidate has passed those jobs. The accompanying validation
 report identifies the source, environment, completed checks and outstanding
 experiments. Conditional coefficient intervals retain the selection sampler's
 Laplace approximation and finite-chain uncertainty.
+The strongest external check is an original-scale reproduction of the published
+application. Running the released 778/91/729-feature matrices under
+\code{reference = "code2017"}, with the article's 350000 retained draws after
+50000 burn-in and its ten rounds of ten-fold cross-validation, returns the
+C-indices in Table~\ref{tab:kirc-reproduction}. All twenty-five cells lie
+within 0.044 of the published value, the median absolute difference is 0.011,
+and every difference is smaller than the standard error \citet{chekouo2017}
+report for that cell. Historical replicate seeds are not distributed with the
+archive, so this is agreement within sampling variation rather than
+digit-level reproduction. It does establish that the package reproduces the
+published analysis at the article's own scale when the released conventions are
+requested.
+
+\input{table-kirc-reproduction}
+
 These checks are not a substitute for substantive model diagnostics, but they
 reduce the chance that a package user reaches the MCMC stage with misaligned
 data or an unsupported prediction request.
@@ -1363,6 +1378,35 @@ selection, exact mPIPs for borderline features may change across runs, but the
 top-ranked features and the separation between strong signals and null features
 should be reasonably stable.
 
+The package makes that second check a routine operation. The archived 2017
+program fixes its random seed in the source and exposes no seed argument, so the
+eight-chain multi-start assessment reported by \citet{chekouo2017} cannot be
+obtained from it without editing and recompiling the \proglang{C} sources. Here
+\code{initial} takes explicit selection and interaction starting values and
+\code{seed} is an ordinary argument, so a multi-start run is scripted rather
+than patched. Table~\ref{tab:chain-diagnostics} reports eight chains from eight
+recorded starts, each retaining $10^{6}$ draws after 50000 burn-in, roughly
+three times the per-chain budget of the published analysis. The mRNA and miRNA
+interaction parameters reach rank-normalized split-$\widehat{R}$ below 1.01
+with bulk effective sample sizes in the thousands; the methylation interaction
+does not, at $\widehat{R}=1.045$ and bulk ESS 208. The smallest cross-chain
+correlation between marginal posterior inclusion probabilities is 0.803 for
+mRNA and 0.813 for methylation, below the 0.85 bound the article reports, while
+miRNA reaches 0.958.
+
+\input{table-chain-diagnostics}
+
+This is a sensitivity result, not a contradiction of the published analysis.
+The reported bound was obtained from the released implementation, whose
+selection update omits a Hastings ratio at boundary flips and therefore targets
+a different stationary distribution from the corrected \code{"paper"} update
+used here (Section~\ref{sec:strategies}); neither its per-chain budget nor the
+exact form of its correlation summary is recoverable from the archive. The
+practical consequence for an applied user is specific and actionable:
+methylation rankings taken from a single chain of this length should not be
+treated as stable, and the diagnostic that shows this is now part of the
+ordinary workflow rather than a bespoke study.
+
 The comparison between IMR and BMS is also a sensitivity analysis for the MRF
 borrowing assumption.  Agreement between the fits indicates limited sensitivity to the borrowing
 choice in that comparison; it does not identify where the evidence originates.
@@ -1397,8 +1441,9 @@ The synthetic \code{simIMR} data provide known feature truth and the predictive
 examples. The reduced public UCSC Xena \code{kircIMR} data exercise the real
 missing-platform structure and the survival interface. Their globally screened
 feature panel makes them suitable for an interface demonstration, not an unbiased
-estimate of generalization performance. The manuscript makes no full-scale KIRC
-performance claim for version 0.2.0.
+estimate of generalization performance. Full-scale KIRC performance is reported
+separately, from the original-scale runner rather than from these illustration
+data, in Table~\ref{tab:kirc-reproduction}.
 
 The original-scale runner is separate from the interface illustration. It
 uses the released 778/91/729-feature matrices for Table 1 and compiles the
@@ -1415,9 +1460,12 @@ fold assignments are saved. Unknown historical replicate seeds and the article's
 776-versus-archive's-778 gene count remain documented.
 These differences prevent an automatic claim of historical-digit reproduction.
 The \code{initial} argument supports explicitly different selection and
-interaction starts for multi-chain diagnostics. Historical starting values
-are unavailable; eight short interface checks do not establish convergence
-or reproduce the published Appendix F diagnostics.
+interaction starts for multi-chain diagnostics. Historical starting values are
+unavailable, so the eight recorded starts of Table~\ref{tab:chain-diagnostics}
+are ours rather than the article's, and they run the corrected \code{"paper"}
+update rather than the released one. Those chains are full-scale, at $10^{6}$
+retained draws each, but they characterize the stated model and do not
+reproduce the published Appendix F diagnostics.
 The archive's global screening is retained as an experimental condition;
 training-fold screening is a separate predictive evaluation choice.
 

@@ -3,7 +3,9 @@
 appendix_marker_rankings <- function(fit, original, out_dir) {
   stopifnot(identical(fit$model$platform_names, names(original$platforms)))
   counts <- c(mrna = 10L, mirna = 6L, methylation = 10L)
-  equations <- c('111' = 'E1', '011' = 'E2', '101' = 'E3', '001' = 'E4')
+  # The archive's readme numbers the mRNA-only subgroup as group 4 but names it
+  # E5, which is the label Table 1 of the article uses.
+  equations <- c('111' = 'E1', '011' = 'E2', '101' = 'E3', '001' = 'E5')
   rankings <- list()
   for (p in seq_along(fit$model$platform_names)) {
     platform <- fit$model$platform_names[p]
