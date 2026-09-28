@@ -1259,6 +1259,21 @@ requested.
 
 \input{table-kirc-reproduction}
 
+The simulation study reproduces as well, and at the level of its mechanism
+rather than only its numbers. Table~\ref{tab:simulation-reproduction} runs the
+archived data generator for the three overlap scenarios at 50 replicates each
+and the six correlation settings at 30 replicates each, the counts the article
+specifies. IMR exceeds BMS on selection AUC in every platform-by-subgroup cell
+when the relevant biomarker sets coincide, in every cell at fifty percent
+overlap by a smaller margin, and in two of eight cells by at most 0.005 when
+the sets do not overlap. That ordering is what the MRF prior predicts and what
+\citet{chekouo2017} report; pooled predictive C-indices differ by at most 0.004
+between the two methods in all three scenarios, matching the article's
+description of IMR as competitive on prediction while better on selection.
+Selection AUC for IMR stays near 0.90 as the marker correlation rises to 0.8.
+
+\input{table-simulation-reproduction}
+
 These checks are not a substitute for substantive model diagnostics, but they
 reduce the chance that a package user reaches the MCMC stage with misaligned
 data or an unsupported prediction request.

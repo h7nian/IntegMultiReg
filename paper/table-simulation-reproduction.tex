@@ -1,0 +1,43 @@
+%% Original-scale simulation reproduction of Chekouo et al. (2017), Section 5.2
+%% and Web Appendix E. Generated from
+%%   runs/study-20260923/combined/simulation-code2017-0/across-replicate-summary.csv
+%%   runs/study-20260923/combined/correlated-code2017-0/across-replicate-summary.csv
+\begin{table}[!ht]
+\centering
+\begin{tabular}{l l c c c c}
+\toprule
+\multicolumn{6}{l}{\textit{(a) Main simulation, 50 replicates per scenario}} \\
+\midrule
+Scenario & Biomarker overlap & Cells favouring & IMR $-$ BMS &
+\multicolumn{2}{c}{Mean selection AUC} \\
+\cmidrule(lr){5-6}
+ & & IMR & range & IMR & BMS \\
+\midrule
+1 & identical sets   & 8/8 & $+0.022$ to $+0.128$ & 0.831 & 0.757 \\
+2 & 50 percent       & 8/8 & $+0.007$ to $+0.062$ & 0.798 & 0.767 \\
+3 & none             & 2/8 & $-0.027$ to $+0.005$ & 0.762 & 0.771 \\
+\midrule
+\multicolumn{6}{l}{\textit{(b) Correlated-marker simulation, 30 replicates per setting}} \\
+\midrule
+\multicolumn{2}{l}{Correlation $\rho$} & \multicolumn{2}{c}{} &
+\multicolumn{2}{c}{Mean selection AUC} \\
+\cmidrule(lr){5-6}
+\multicolumn{2}{l}{} & & & IMR & BMS \\
+\midrule
+\multicolumn{2}{l}{0.2} & & & 0.907 & 0.760 \\
+\multicolumn{2}{l}{0.5} & & & 0.917 & 0.789 \\
+\multicolumn{2}{l}{0.8} & & & 0.898 & 0.812 \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:simulation-reproduction}Original-scale reproduction of the
+simulation study of \citet[Section~5.2 and Web Appendix~E]{chekouo2017}, run
+under \code{reference = "code2017"}. Cells are the eight platform-by-subgroup
+combinations in which a selection AUC is defined. Panel (a) shows that the IMR
+advantage over BMS is large when the relevant biomarker sets coincide, smaller
+at fifty percent overlap, and absent when they do not overlap, which is the
+ordering the article predicts from the MRF prior. Pooled predictive C-indices
+are close throughout (IMR 0.819, 0.822, 0.836 against BMS 0.815, 0.819, 0.835),
+matching the article's description of IMR as competitive on prediction while
+better on selection. Panel (b) shows selection AUC under increasingly
+correlated markers.}
+\end{table}
