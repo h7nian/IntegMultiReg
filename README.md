@@ -36,7 +36,7 @@ install.packages("IntegMultiReg")
 Alternatively, install a local source tarball:
 
 ```r
-install.packages("IntegMultiReg_0.1.3.tar.gz", repos = NULL, type = "source")
+install.packages("IntegMultiReg_0.2.0.tar.gz", repos = NULL, type = "source")
 ```
 
 The CRAN checking tools `checkbashisms` and `qpdf` are not runtime
@@ -47,18 +47,22 @@ dependencies. Package users do not need them. Maintainers running
 
 ## Quick start
 
+The compatibility default is `sampler_method = "legacy"`. Use
+`sampler_method = "paper"` for the stated posterior updates. For training-fold
+preprocessing and fitting, select `cv_method = "refit"` explicitly.
+
 ```r
 library(IntegMultiReg)
 data("simIMR")
 
 fit <- imr(
-  platform_data_list = simIMR$platforms,
+  x = simIMR$platforms,
   outcome            = simIMR$outcome.binary,
-  cov                = simIMR$covariates,
-  type_outcome       = "binary",
+  covariates = simIMR$covariates,
+  outcome_type       = "binary",
   nu                 = c(-4, -3, -4),
-  sample_mcmc        = c(2000, 1000),
-  ssize              = 30,
+  draws = 2000, burnin = 1000,
+  min_subgroup_size              = 30,
   seed               = 1
 )
 
@@ -91,11 +95,11 @@ kircIMR$model_subgroup_sizes
 kirc_fit <- imr(
   kircIMR$platforms,
   kircIMR$outcome.survival,
-  cov = kircIMR$covariates,
-  type_outcome = "right.censored",
+  covariates = kircIMR$covariates,
+  outcome_type = "right.censored",
   nu = c(-4, -3, -4),
-  sample_mcmc = c(4000, 1000),
-  ssize = 30,
+  draws = 4000, burnin = 1000,
+  min_subgroup_size = 30,
   seed = 1
 )
 ```
@@ -148,3 +152,77 @@ The time-scale posterior mean need not exist under the variance mixture; it is
 not estimated by averaging exponentiated draws. With `type = "mean"` the interval
 summarizes conditional mean time, whereas `type = "response"` includes future
 outcome variability. The censoring process for future observations is not modeled.
+
+## Cross-validation algorithms
+
+`cv_imr(fit, cv_method = "legacy")` is the default. It restores the 0.1.0
+post-fit algorithm using ranked distinct selection models and historical
+scoring. Historical numerical reproduction also requires the original fit.
+
+Use `cv_method = "refit"` for the 0.1.4 procedure: preprocessing, selection
+MCMC and prediction weights are recomputed within each training fold. This
+costs approximately `k * rounds` full fits.
+
+Use `cv_method = "importance"` for a paper-derived importance average over
+all retained states, preserving their empirical multiplicities. It conditions
+on full-fit preprocessing and augmented response means, and defaults to ridge
+stabilization (`ridge = 0` requests the unpenalized estimate). Its use of held-out responses in inverse-density weights is
+an importance correction, not by itself evidence of an implementation error.
+The augmented response mean plug-in is explicitly part of the paper's Section
+4.1, whereas the 0.001 ridge penalty differs from its unpenalized coefficient
+estimate. This is not an exact reproduction of the original study.
+
+`ridge`, `model_set`, `df_method`, `score_method`, `folds`, and `fold_rng`
+can override individual CV decisions. Fit-time `sampler_method`,
+`prior_indexing`, `laplace_max_iter`, and `laplace_tolerance` express the
+corresponding sampling and numerical conventions. Existing defaults are
+preserved. See [the coverage guide](inst/METHOD-COVERAGE.md) for paper and
+released-code combinations, known differences, and validation limits.
+
+Use `initial=list(selection=..., interaction=...)` for explicitly different
+chain starts. Matrices are named by platform and subgroup; selection uses
+zero/one entries in the layout returned by `coef(fit)`. Interaction starts are
+IMR-only symmetric matrices with positive off-diagonals and zero diagonals.
+Omitting `initial` preserves the original initialization. Refit CV reuses an
+explicit start. Different starts support convergence assessment, but do not
+recover unknown historical starting values or establish convergence by themselves.
+
+`cv$control` records effective settings and folds for replay.
+Refit CV also records `cv$control$refit_seeds`; replaying its saved folds uses
+the same fitting seeds under the same runtime and RNG kind.
+`cv$validation` identifies the algorithm; `cv$predictions` records actual folds
+and predictions. The post-fit GSL and refit R generators produce different
+partitions, even with the same seed. Data-driven tuning requires outer validation.
+
+All three methods accept `workers = 2L` (or another positive integer) for
+PSOCK process parallelism. The default `workers = 1L` remains serial. Each
+method preserves its own partitions, seeds, prediction order and scoring;
+changing the worker count does not select a different validation algorithm.
+Process startup may outweigh the benefit for short runs, and each worker needs
+its own fit/workspace memory. Avoid nesting CV workers inside parallel experiment
+runs. For custom formula functions, use a serializable local formula environment
+or a package-qualified function name; the global workspace is not exported.
+
+
+### Compare prespecified covariate formulas
+
+`fit$control$laplace_diagnostics` records fitting-stage calls, iteration-limit
+hits and numerical failures by subgroup. Review these with the selection-chain
+diagnostics. The counters neither establish MCMC convergence nor cover later
+prediction-stage optimization.
+
+A runnable example compares two formulas on identical subject/fold assignments,
+then uses nested cross-validation to evaluate formula selection using only
+inner training data. Clinical terms remain forced within each candidate model.
+Required adjustment terms must appear in every candidate; the example is not
+causal confounder selection.
+
+```r
+source(system.file("examples", "compare-covariates.R", package = "IntegMultiReg"))
+comparison <- run_covariate_comparison()
+comparison$paired_summary
+comparison$nested_summary
+```
+
+The full example uses synthetic data, writes fold-level audit records and is
+repeated in CI. Use `quick = TRUE` only for a smoke run.

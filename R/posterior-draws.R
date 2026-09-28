@@ -19,7 +19,8 @@
 #' coefficients are exactly zero. Molecular and clinical slopes are on the
 #' subgroup-standardized predictor scale; responses are not standardized.
 #'
-#' Whole selection draws are resampled uniformly from `object$gam_sample`,
+#' Whole selection draws are resampled uniformly from the fit's retained
+#' selection draws,
 #' preserving their empirical joint distribution across subgroups. For each
 #' distinct subgroup model, a Gibbs sampler draws coefficients and variance
 #' conditional on the observed data. Binary and censored responses are augmented
@@ -51,8 +52,8 @@
 #' \donttest{
 #' x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
 #' y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
-#' fit <- imr(list(assay = x), y, type_outcome = "continuous",
-#'            h0 = 1, sample_mcmc = c(500, 250), seed = 1)
+#' fit <- imr(list(assay = x), y, outcome_type = "continuous",
+#'            forced_prior_scale = 1, draws = 500, burnin = 250, seed = 1)
 #' draws <- posterior_draws(fit, draws = 1000, burnin = 1000,
 #'                          conditional_draws = 1000, seed = 2)
 #' summary(draws)
@@ -66,24 +67,24 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
   conditional_draws <- .imr_check_integer_scalar(
     conditional_draws, "conditional_draws", min = 4L)
   seed <- .imr_check_integer_scalar(seed, "seed", min = 0L)
-  if (object$type_outcome == "right.censored" &&
-      (length(object$response_scale) != 1L ||
-       !object$response_scale %in% c("log", "identity"))) {
+  if (object$control$outcome_type == "right.censored" &&
+      (length(object$control$response_scale) != 1L ||
+       !object$control$response_scale %in% c("log", "identity"))) {
     .imr_abort("Refit this survival model with an explicit `survival_scale`.")
   }
   .imr_check_posterior_data(object)
   rng <- .imr_save_rng()
   on.exit(.imr_restore_rng(rng), add = TRUE)
   set.seed(seed)
-  model_draw <- sample.int(length(object$gam_sample), draws, replace = TRUE)
-  beta <- variance <- diagnostics <- vector("list", length(object$model_bitstrings))
-  hyper <- object$list_hyperpara
+  model_draw <- sample.int(length(object$posterior$selection_draws), draws, replace = TRUE)
+  beta <- variance <- diagnostics <- vector("list", length(object$model$subgroup_names))
+  priors <- object$control$priors
   for (g in seq_along(beta)) {
     design <- .imr_posterior_design(object, g)
     masks <- lapply(model_draw, function(s) {
-      c(rep(TRUE, 1L + length(object$covariate_names)), unlist(lapply(
-        object$model_platforms[[g]], function(p) {
-          object$gam_sample[[s]][[p]][match(g, object$platform_models[[p]]), ] == 1
+      c(rep(TRUE, 1L + length(object$model$covariate_names)), unlist(lapply(
+        object$model$subgroup_platforms[[g]], function(p) {
+          object$posterior$selection_draws[[s]][[p]][match(g, object$model$platform_subgroups[[p]]), ] == 1
         }), use.names = FALSE))
     })
     keys <- vapply(masks, function(x) paste(as.integer(x), collapse = ""), "")
@@ -94,16 +95,17 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
       positions <- which(keys == key)
       active <- masks[[positions[1L]]]
       X <- design[, active, drop = FALSE]
-      h <- c(rep(hyper[1L], 1L + length(object$covariate_names)),
-             rep(hyper[2L], ncol(design) - 1L - length(object$covariate_names)))[active]
+      h <- c(rep(priors$forced_scale, 1L + length(object$model$covariate_names)),
+             rep(priors$molecular_scale, ncol(design) - 1L - length(object$model$covariate_names)))[active]
       n <- max(conditional_draws, ceiling(length(positions) / chains))
-      y <- object$data2$yy[[g]][, 1L]
-      status <- if (object$type_outcome == "right.censored") object$data2$yy[[g]][, 2L] else NULL
+      y <- object$preprocessing$response[[g]][, 1L]
+      status <- if (object$control$outcome_type == "right.censored") object$preprocessing$response[[g]][, 2L] else NULL
       samples <- lapply(seq_len(chains), function(chain) {
-        .imr_conditional_chain(X, y, h, rep(1, ncol(X)), hyper[3L], hyper[4L],
+        .imr_conditional_chain(X, y, h, rep(1, ncol(X)),
+          priors$residual[["shape"]], priors$residual[["rate"]],
           draws = n, burnin = burnin,
           initial_beta = rep(if (chain %% 2L) -.5 else .5, ncol(X)),
-          initial_variance = 1, outcome_type = object$type_outcome, status = status)
+          initial_variance = 1, outcome_type = object$control$outcome_type, status = status)
       })
       rhat <- .imr_split_rhat(samples)
       pool <- do.call(rbind, samples)
@@ -111,13 +113,13 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
       beta[[g]][positions, active] <- pool[chosen, seq_len(ncol(X)), drop = FALSE]
       variance[[g]][positions] <- pool[chosen, ncol(X) + 1L]
       records[[length(records) + 1L]] <- data.frame(
-        subgroup = object$model_bitstrings[g], model = key,
+        subgroup = object$model$subgroup_names[g], model = key,
         returned_draws = length(positions), conditional_draws = n,
         max_split_rhat = max(rhat), row.names = NULL)
     }
     diagnostics[[g]] <- do.call(rbind, records)
   }
-  names(beta) <- names(variance) <- object$model_bitstrings
+  names(beta) <- names(variance) <- object$model$subgroup_names
   diagnostics <- do.call(rbind, diagnostics)
   if (any(!is.finite(diagnostics$max_split_rhat) | diagnostics$max_split_rhat > 1.05)) {
     .imr_warn("Conditional split R-hat exceeds 1.05 or is undefined; inspect `diagnostics` and increase burn-in/draws before using intervals.")
@@ -130,28 +132,30 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
     class = "imr_posterior")
 }
 
-.imr_posterior_design <- function(fit, g, xx = fit$data2$xx, cc = fit$data2$cc) {
+.imr_posterior_design <- function(fit, g, xx = fit$preprocessing$features,
+                                  cc = fit$preprocessing$covariates) {
   n <- nrow(cc[[g]])
   X <- cbind(rep(1, n), cc[[g]])
-  nm <- c("(Intercept)", paste0("clinical:", fit$covariate_names))
-  if (!length(fit$covariate_names)) nm <- "(Intercept)"
-  for (p in fit$model_platforms[[g]]) {
+  nm <- c("(Intercept)", paste0("clinical:", fit$model$covariate_names))
+  if (!length(fit$model$covariate_names)) nm <- "(Intercept)"
+  for (p in fit$model$subgroup_platforms[[g]]) {
     X <- cbind(X, xx[[g]][[p]])
-    nm <- c(nm, paste0(fit$platform_names[p], ":", fit$feature_names[[p]]))
+    nm <- c(nm, paste0(fit$model$platform_names[p], ":", fit$model$feature_names[[p]]))
   }
   colnames(X) <- make.unique(nm)
   X
 }
 
 .imr_check_posterior_data <- function(fit) {
-  if (length(fit$list_hyperpara) < 4L || any(!is.finite(fit$list_hyperpara[1:4])) ||
-      any(fit$list_hyperpara[1:4] <= 0) ||
-      !all(c("xx", "yy", "cc") %in% names(fit$data2))) {
+  priors <- fit$control$priors
+  if (any(!is.finite(c(priors$forced_scale, priors$molecular_scale,
+                       priors$residual))) ||
+      any(c(priors$forced_scale, priors$molecular_scale, priors$residual) <= 0)) {
     .imr_abort("The fit is missing valid posterior data or hyperparameters.")
   }
-  for (g in seq_along(fit$model_bitstrings)) {
+  for (g in seq_along(fit$model$subgroup_names)) {
     X <- .imr_posterior_design(fit, g)
-    y <- fit$data2$yy[[g]]
+    y <- fit$preprocessing$response[[g]]
     if (!is.matrix(y) || nrow(X) != nrow(y) || nrow(y) < 1L ||
         any(!is.finite(X)) || any(!is.finite(y))) {
       .imr_abort("The fit contains inconsistent or non-finite posterior data.")
@@ -242,7 +246,7 @@ print.imr_posterior <- function(x, ...) {
 #'   For log-time fits, point predictions are medians of the simulated
 #'   quantities. A time-scale posterior mean need not exist under an
 #'   inverse-gamma variance mixture, so a sample mean is not reported.
-#' @return A list of data frames by subgroup, with `id`, `predict`, `lower`
+#' @return A list of data frames by subgroup, with `id`, `prediction`, `lower`
 #'   and `upper`. The point prediction is the Monte Carlo mean except for
 #'   log-time survival fits, where it is the median.
 #' @export
@@ -266,28 +270,28 @@ predict.imr_posterior <- function(object, newdata, platform_names = NULL,
   set.seed(seed)
   out <- lapply(seq_along(object$beta), function(g) {
     ids <- inputs$sample_ids[[g]]
-    if (!length(ids)) return(data.frame(id = ids, predict = numeric(), lower = numeric(), upper = numeric()))
+    if (!length(ids)) return(data.frame(id = ids, prediction = numeric(), lower = numeric(), upper = numeric()))
     X <- .imr_posterior_design(fit, g, inputs$x_test, inputs$cova_test)
     eta <- object$beta[[g]] %*% t(X)
     v <- object$variance[[g]]
-    if (fit$type_outcome == "binary") {
+    if (fit$control$outcome_type == "binary") {
       values <- stats::pnorm(eta / sqrt(v))
       if (type == "response") values[] <- stats::rbinom(length(values), 1, values)
     } else {
       values <- eta
       if (type == "response") values <- eta + matrix(stats::rnorm(length(eta)), nrow(eta)) * sqrt(v)
-      if (fit$type_outcome == "right.censored" && identical(fit$response_scale, "log")) {
+      if (fit$control$outcome_type == "right.censored" && identical(fit$control$response_scale, "log")) {
         if (type == "mean") values <- values + v / 2
         values <- exp(values)
       }
     }
     if (any(!is.finite(values))) .imr_abort("Non-finite posterior predictions; inspect tail behavior and variance draws.")
     q <- apply(values, 2L, stats::quantile, probs = c((1-level)/2, (1+level)/2), names = FALSE)
-    point <- if (fit$type_outcome == "right.censored" && identical(fit$response_scale, "log")) {
+    point <- if (fit$control$outcome_type == "right.censored" && identical(fit$control$response_scale, "log")) {
       apply(values, 2L, stats::median)
     } else colMeans(values)
-    data.frame(id = ids, predict = point, lower = q[1L, ], upper = q[2L, ], row.names = NULL)
+    data.frame(id = ids, prediction = point, lower = q[1L, ], upper = q[2L, ], row.names = NULL)
   })
-  names(out) <- paste0("model:", fit$model_bitstrings)
+  names(out) <- paste0("model:", fit$model$subgroup_names)
   out
 }

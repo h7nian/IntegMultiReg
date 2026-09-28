@@ -7,18 +7,18 @@
 \method{confint}{imr}(object, parm = c("all", "selection", "theta"), level = 0.95, ...)
 }
 \arguments{
-\item{object}{A fitted `"imr"` object.}
+\item{object}{A fitted \code{"imr"} object.}
 
-\item{parm}{Either `"all"`, `"selection"` or `"theta"`.}
+\item{parm}{Either \code{"all"}, \code{"selection"} or \code{"theta"}.}
 
 \item{level}{Credible interval level.}
 
-\item{...}{Additional arguments passed to [posterior_summary()].}
+\item{...}{Additional arguments passed to \code{\link[=posterior_summary]{posterior_summary()}}.}
 }
 \value{
 A list of per-platform credible-interval tables, or a list with both
-  selection and theta results when `parm = "all"`.
+selection and theta results when \code{parm = "all"}.
 }
 \description{
-Standard `confint()` interface to [posterior_summary()].
+Standard \code{confint()} interface to \code{\link[=posterior_summary]{posterior_summary()}}.
 }

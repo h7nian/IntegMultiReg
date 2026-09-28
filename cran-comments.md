@@ -1,72 +1,58 @@
-## Resubmission
+## Submission
 
-IntegMultiReg was archived on CRAN on 2026-09-05 because the memory-access
-problems reported by the supplementary Valgrind checks had not been corrected
-before the deadline. This version corrects them.
+This is a feature release. The archived 0.1.1 memory-access problems were
+corrected in 0.1.3, which is the version currently on CRAN and passing on all
+flavors; nothing in this submission relates to that archival.
 
-### Fixes for the reported problems
+## What changed
 
-* `main_function_prediction()`: the cross-validation status buffer is now
-  initialized before it is copied in the binary and continuous outcome
-  branches, removing the reported uninitialized read.
-* Binary cross-validation prediction now frees the otherwise unused `yhat`
-  allocation before returning, removing the reported 7,200-byte leak.
-* The fitting and prediction entry points keep returned R objects protected
-  across `PutRNGstate()` and diagnostic output.
-* Candidate prediction arrays are initialized, and large input-dependent
-  buffers were moved off the C stack to heap allocations that are freed after
-  use.
+0.2.0 reorganizes the user-facing interface and adds the analysis options the
+package previously lacked. The changes that reviewers are most likely to look
+at are:
+
+* `imr()` is now an S3 generic with list, formula and `imr_data` methods, and
+  the duplicated `predict_imr()`, `summary_imr()`, `coef_imr()` and
+  `plot_imr()` wrappers are removed in favour of the standard generics.
+  Legacy argument aliases are deliberately not accepted. `inst/MIGRATION.md`
+  gives the complete old-to-new table.
+* `cv_imr()` gains `cv_method`, and independent `ridge`, `model_set`,
+  `df_method`, `score_method`, `folds` and `fold_rng` arguments. The previous
+  behaviour is the default.
+* `sampler_method = "paper"` adds the symmetric MRF conditional, the boundary
+  Hastings correction and the corrected Gamma log-density rate sign. The
+  default `"legacy"` retains the historical updates.
+* Fits use a named four-section schema; `upgrade_imr_fit()` converts a
+  structurally complete 0.1.x fit explicitly rather than automatically.
+
+These are breaking changes. There are no reverse dependencies on CRAN.
 
 ## Test environments
 
-* local: macOS 26.5.2, aarch64, R 4.5.2, gcc-15
-* GitHub Actions: Ubuntu R-devel, Windows R-release, macOS R-release
-* Ubuntu, R-devel (2026-09-04 r90492), Valgrind 3.22.0
-* Ubuntu, R-devel, GCC UBSAN / Clang UBSAN / Clang ASAN+UBSAN
-* macOS ARM, R-devel, ASAN+UBSAN (tests and vignette rebuild)
+* GitHub Actions, `--as-cran` with `error-on = "warning"`:
+  Ubuntu R-release, Ubuntu R-devel, Windows R-release, macOS R-release
+* GitHub Actions sanitizers: Linux GCC UBSAN, Clang UBSAN, Clang ASAN+UBSAN,
+  and macOS ARM ASAN+UBSAN, each running the installed tests and rebuilding
+  the vignette
+* GitHub Actions Valgrind on R-devel with level-2 instrumentation
+* Linux, R 4.4.1, GSL 2.4: installed test suite, frozen default-regression
+  comparison against the previous release, and independent sampler and
+  original-C prediction checks
 
 ## R CMD check results
 
-0 errors | 0 warnings | 2 notes
-
-* New submission / Package was archived on CRAN. Expected for this
-  resubmission.
-* HTML version of manual: HTML Tidy is not recent enough and V8 is
-  unavailable on the local machine. This note does not arise on Windows,
-  which reported Status: OK.
-
-Every platform ran the 338 test expectations with no failures, warnings or
-skips.
+<!-- Filled from the release CI run before submission. -->
 
 ## Memory checks
 
-Installed tests under Valgrind (`--leak-check=full`, `--track-origins=yes`,
-no package suppressions):
-
-    [ FAIL 0 | WARN 0 | SKIP 0 | PASS 338 ]
-    definitely lost: 0 bytes in 0 blocks
-    indirectly lost: 0 bytes in 0 blocks
-      possibly lost: 0 bytes in 0 blocks
-    ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
-
-Examples and tests were additionally checked against a level-2 instrumented
-R-devel build (r90498) with Valgrind 3.27.1, again reporting zero errors and
-zero definitely, indirectly or possibly lost bytes.
+Installed tests run under Valgrind with `--leak-check=full` and
+`--track-origins=yes` and no package suppressions, and under ASAN+UBSAN on
+Linux and macOS ARM.
 
 As a control, the archived 0.1.1 tarball still reproduces its exact
-7,200-byte / 60-block leak under these same settings, confirming that this
-configuration does detect the defect that was reported.
+7,200-byte / 60-block leak under these same settings, so the configuration is
+known to detect the defect that led to that archival.
 
-Sanitizer checks passed on Linux and macOS ARM. The test suite includes a
-regression test that exercises fitting, prediction and cross-validation under
-frequent garbage collection.
-
-## Other changes in this version
-
-This version also adds a validated multi-platform data class, a formula/data
-interface that preserves training transformations and factor coding at
-prediction time, fitted-model diagnostics, and optional conditional
-coefficient and posterior predictive intervals. Survival preprocessing now
-logs positive event and censoring times once, matching the original
-supplementary code of the reference paper; `survival_scale = "identity"`
-reproduces the previous behaviour. See NEWS.md for the full list.
+The test suite includes a regression test that exercises fitting, prediction
+and cross-validation under frequent garbage collection, and post-fit
+cross-validation now releases native resources and reports round, fold and
+subgroup context when a Cholesky decomposition or solve fails.

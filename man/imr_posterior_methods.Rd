@@ -17,19 +17,19 @@
 \method{print}{imr_posterior}(x, ...)
 }
 \arguments{
-\item{object, x}{An `imr_posterior` object returned by [posterior_draws()].}
+\item{object, x}{An \code{imr_posterior} object returned by \code{\link[=posterior_draws]{posterior_draws()}}.}
 
 \item{level}{Equal-tail credible level, between zero and one.}
 
 \item{...}{Unused.}
 
-\item{parm}{Currently only `"coefficients"`.}
+\item{parm}{Currently only \code{"coefficients"}.}
 }
 \value{
-`summary()` and `confint()` return coefficient tables by subgroup.
-  `coef()` returns posterior mean coefficient vectors. `print()` returns
-  its argument invisibly. Effects are on subgroup-standardized predictor
-  scales. Intervals include zero-mass from inactive selection models.
+\code{summary()} and \code{confint()} return coefficient tables by subgroup.
+\code{coef()} returns posterior mean coefficient vectors. \code{print()} returns
+its argument invisibly. Effects are on subgroup-standardized predictor
+scales. Intervals include zero-mass from inactive selection models.
 }
 \description{
 Summarize Regression Posterior Draws

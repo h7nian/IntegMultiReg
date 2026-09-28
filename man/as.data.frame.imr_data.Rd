@@ -7,11 +7,11 @@
 \method{as.data.frame}{imr_data}(x, row.names = NULL, optional = FALSE, ...)
 }
 \arguments{
-\item{x}{An `"imr_data"` object.}
+\item{x}{An \code{"imr_data"} object.}
 
-\item{row.names}{Unused; present for compatibility with [as.data.frame()].}
+\item{row.names}{Unused; present for compatibility with \code{\link[=as.data.frame]{as.data.frame()}}.}
 
-\item{optional}{Unused; present for compatibility with [as.data.frame()].}
+\item{optional}{Unused; present for compatibility with \code{\link[=as.data.frame]{as.data.frame()}}.}
 
 \item{...}{Unused.}
 }

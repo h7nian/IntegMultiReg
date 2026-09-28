@@ -13,8 +13,8 @@ formula_fixture <- function(formula, clinical = NULL, id = "id") {
     })
   }
   imr(formula, data = clinical, platforms = platforms, id = id,
-      type_outcome = "continuous", sample_mcmc = c(30, 10),
-      ssize = 30, seed = 73)
+      outcome_type = "continuous", draws = 30, burnin = 10,
+      min_subgroup_size = 30, seed = 73)
 }
 
 test_that("unsupported formula semantics fail before sampling", {
@@ -29,17 +29,17 @@ test_that("formula predictions preserve training transformations and contrasts",
   clinical$group <- factor(ifelse(clinical$age > 0, "older", "younger"))
   contrasts(clinical$group) <- stats::contr.sum(2)
   fit <- formula_fixture(y ~ poly(age, 2) + group * sex, clinical)
-  expect_equal(fit$contrasts$group, contrasts(clinical$group))
-  expect_identical(fit$xlevels$group, levels(clinical$group))
+  expect_equal(fit$preprocessing$contrasts$group, contrasts(clinical$group))
+  expect_identical(fit$preprocessing$xlevels$group, levels(clinical$group))
 
   # A subset with reversed rows and a single observed factor level must still
   # use the original polynomial basis and the original factor coding.
   test <- clinical[clinical$group == "older", , drop = FALSE]
   test <- test[rev(seq_len(nrow(test))), , drop = FALSE]
   test$group <- droplevels(test$group)
-  tt <- stats::delete.response(fit$terms)
-  mf <- stats::model.frame(tt, test, xlev = fit$xlevels)
-  mm <- stats::model.matrix(tt, mf, contrasts.arg = fit$contrasts)[, -1, drop = FALSE]
+  tt <- stats::delete.response(fit$preprocessing$terms)
+  mf <- stats::model.frame(tt, test, xlev = fit$preprocessing$xlevels)
+  mm <- stats::model.matrix(tt, mf, contrasts.arg = fit$preprocessing$contrasts)[, -1, drop = FALSE]
   encoded <- data.frame(id = test$id, mm, check.names = FALSE)
   expect_equal(
     predict(fit, simIMR$platforms, covariates = test),
@@ -59,11 +59,11 @@ test_that("dot expansion excludes identifiers and custom IDs work for prediction
                     by = "id", sort = FALSE)
   explicit <- formula_fixture(y ~ age + sex + stage, clinical)
   dotted <- formula_fixture(y ~ ., clinical)
-  expect_identical(dotted$covariate_names, explicit$covariate_names)
-  expect_identical(dotted$log_posterior, explicit$log_posterior)
+  expect_identical(dotted$model$covariate_names, explicit$model$covariate_names)
+  expect_identical(dotted$posterior$log_posterior, explicit$posterior$log_posterior)
   custom <- formula_fixture(y ~ I(age^2) + sex, clinical, id = "subject")
   names(clinical)[1L] <- "subject"
   out <- predict(custom, simIMR$platforms, covariates = clinical)
   expect_equal(sum(vapply(out, nrow, integer(1L))), nrow(clinical))
-  expect_true(all(is.finite(unlist(lapply(out, `[[`, "predict")))))
+  expect_true(all(is.finite(unlist(lapply(out, `[[`, "prediction")))))
 })

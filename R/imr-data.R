@@ -6,6 +6,8 @@
 #' before the MCMC sampler is called.
 #'
 #' @param platforms A non-empty named list of data frames, one per platform.
+#'   Platform names must be unique and cannot be `id` or `subgroup`, which are
+#'   reserved for availability metadata.
 #'   Every data frame must contain the subject identifier and at least one
 #'   finite numeric feature.
 #' @param outcome Optional outcome data frame. It is required when the object is
@@ -14,12 +16,12 @@
 #'   right-censored outcomes it contains the identifier, time and status.
 #' @param covariates Optional data frame containing the identifier followed by
 #'   clinical covariates.
-#' @param type_outcome Optional outcome type: `"binary"`, `"continuous"` or
+#' @param outcome_type Optional outcome type: `"binary"`, `"continuous"` or
 #'   `"right.censored"`. It is required when `outcome` is supplied.
 #' @param id Name of the subject-identifier column in every supplied data frame.
 #'
 #' @return An object of class `"imr_data"` with components `platforms`,
-#'   `outcome`, `covariates`, `type_outcome`, `id`, `availability` and
+#'   `outcome`, `covariates`, `outcome_type`, `id`, `availability` and
 #'   `subgroup_sizes`, `n_platform_subjects` and `excluded_ids`. Availability
 #'   summaries include only subjects with all required outcome/covariate rows.
 #' @export
@@ -30,11 +32,11 @@
 #'   platforms = simIMR$platforms,
 #'   outcome = simIMR$outcome.binary,
 #'   covariates = simIMR$covariates,
-#'   type_outcome = "binary"
+#'   outcome_type = "binary"
 #' )
 #' dat
 imr_data <- function(platforms, outcome = NULL, covariates = NULL,
-                     type_outcome = NULL, id = "id") {
+                     outcome_type = NULL, id = "id") {
   if (!is.character(id) || length(id) != 1L || is.na(id) || !nzchar(id)) {
     .imr_abort("`id` must be one non-empty column name.")
   }
@@ -51,6 +53,7 @@ imr_data <- function(platforms, outcome = NULL, covariates = NULL,
       .imr_abort("Platform names must be unique after unnamed elements are labelled.")
     }
   }
+  .imr_check_reserved_platform_names(platform_names)
   platforms <- lapply(seq_along(platforms), function(i) {
     .imr_standardize_id_frame(
       platforms[[i]], id, sprintf("platforms[[%d]]", i),
@@ -60,19 +63,19 @@ imr_data <- function(platforms, outcome = NULL, covariates = NULL,
   names(platforms) <- platform_names
 
   if (!is.null(outcome)) {
-    if (is.null(type_outcome)) {
-      .imr_abort("`type_outcome` is required when `outcome` is supplied.")
+    if (is.null(outcome_type)) {
+      .imr_abort("`outcome_type` is required when `outcome` is supplied.")
     }
-    type_outcome <- match.arg(
-      type_outcome, c("right.censored", "binary", "continuous")
+    outcome_type <- match.arg(
+      outcome_type, c("right.censored", "binary", "continuous")
     )
     outcome <- .imr_standardize_id_frame(
       outcome, id, "outcome", require_features = TRUE
     )
-    .imr_validate_outcome(outcome, type_outcome)
-  } else if (!is.null(type_outcome)) {
-    type_outcome <- match.arg(
-      type_outcome, c("right.censored", "binary", "continuous")
+    .imr_validate_outcome(outcome, outcome_type)
+  } else if (!is.null(outcome_type)) {
+    outcome_type <- match.arg(
+      outcome_type, c("right.censored", "binary", "continuous")
     )
   }
 
@@ -107,7 +110,7 @@ imr_data <- function(platforms, outcome = NULL, covariates = NULL,
     platforms = platforms,
     outcome = outcome,
     covariates = covariates,
-    type_outcome = type_outcome,
+    outcome_type = outcome_type,
     id = id,
     availability = availability,
     subgroup_sizes = subgroup_sizes,
@@ -132,7 +135,7 @@ validate_imr_data <- function(x) {
     .imr_abort("`x` must be an `imr_data` object.")
   }
   required <- c(
-    "platforms", "outcome", "covariates", "type_outcome", "id",
+    "platforms", "outcome", "covariates", "outcome_type", "id",
     "availability", "subgroup_sizes", "n_platform_subjects", "excluded_ids"
   )
   if (!all(required %in% names(x))) {
@@ -141,10 +144,12 @@ validate_imr_data <- function(x) {
   if (!is.list(x$platforms) || length(x$platforms) == 0L) {
     .imr_abort("`x$platforms` must be a non-empty list.")
   }
-  if (is.null(names(x$platforms)) || any(!nzchar(names(x$platforms))) ||
+  if (is.null(names(x$platforms)) || anyNA(names(x$platforms)) ||
+      any(!nzchar(names(x$platforms))) ||
       anyDuplicated(names(x$platforms))) {
     .imr_abort("`x$platforms` must have complete, unique names.")
   }
+  .imr_check_reserved_platform_names(names(x$platforms))
   for (i in seq_along(x$platforms)) {
     arg <- sprintf("x$platforms[[%d]]", i)
     .imr_check_id_frame(x$platforms[[i]], arg)
@@ -152,7 +157,7 @@ validate_imr_data <- function(x) {
   }
   if (!is.null(x$outcome)) {
     .imr_check_id_frame(x$outcome, "x$outcome")
-    .imr_validate_outcome(x$outcome, x$type_outcome)
+    .imr_validate_outcome(x$outcome, x$outcome_type)
   }
   if (!is.null(x$covariates)) {
     .imr_check_id_frame(x$covariates, "x$covariates")
@@ -180,6 +185,17 @@ validate_imr_data <- function(x) {
       !identical(x$n_platform_subjects, length(platform_ids)) ||
       !identical(x$excluded_ids, setdiff(platform_ids, all_ids))) {
     .imr_abort("Availability metadata does not match the platform data.")
+  }
+  invisible(TRUE)
+}
+
+.imr_check_reserved_platform_names <- function(platform_names) {
+  reserved <- intersect(platform_names, c("id", "subgroup"))
+  if (length(reserved)) {
+    .imr_abort(sprintf(
+      "Platform names cannot use reserved availability metadata names: %s.",
+      paste(sprintf("`%s`", reserved), collapse = ", ")
+    ))
   }
   invisible(TRUE)
 }
@@ -218,7 +234,7 @@ print.imr_data <- function(x, ...) {
   cat(sprintf("Outcome   : %s\n", if (is.null(x$outcome)) {
     "not supplied (prediction data)"
   } else {
-    x$type_outcome
+    x$outcome_type
   }))
   cat("Availability subgroups:\n")
   for (nm in names(x$subgroup_sizes)) {
@@ -242,7 +258,7 @@ summary.imr_data <- function(object, ...) {
     subgroup_sizes = object$subgroup_sizes,
     has_outcome = !is.null(object$outcome),
     has_covariates = !is.null(object$covariates),
-    type_outcome = object$type_outcome
+    outcome_type = object$outcome_type
   )
   class(out) <- "summary.imr_data"
   out
@@ -265,6 +281,10 @@ print.summary.imr_data <- function(x, ...) {
   if (!is.data.frame(x)) {
     .imr_abort(sprintf("`%s` must be a data frame.", arg))
   }
+  .imr_check_column_names(x, arg)
+  if (!identical(id, "id") && "id" %in% names(x)) {
+    .imr_abort("A non-identifier column named `id` conflicts with the standardized identifier.")
+  }
   if (!id %in% names(x)) {
     if (identical(id, "id")) {
       .imr_abort(sprintf("`%s` must have `id` as its first column.", arg))
@@ -280,19 +300,19 @@ print.summary.imr_data <- function(x, ...) {
 
 #' @keywords internal
 #' @noRd
-.imr_validate_outcome <- function(outcome, type_outcome) {
-  if (is.null(type_outcome) || length(type_outcome) != 1L) {
-    .imr_abort("A valid `type_outcome` is required for outcome validation.")
+.imr_validate_outcome <- function(outcome, outcome_type) {
+  if (is.null(outcome_type) || length(outcome_type) != 1L) {
+    .imr_abort("A valid `outcome_type` is required for outcome validation.")
   }
-  if (type_outcome %in% c("binary", "continuous")) {
+  if (outcome_type %in% c("binary", "continuous")) {
     if (ncol(outcome) != 2L) {
       .imr_abort("`outcome` must have exactly two columns: `id` and the response.")
     }
     .imr_check_numeric_columns(outcome, "outcome", names(outcome)[2L])
-    if (type_outcome == "binary" && !all(outcome[[2L]] %in% c(0, 1))) {
-      .imr_abort("For `type_outcome = \"binary\"`, the response must be coded 0/1.")
+    if (outcome_type == "binary" && !all(outcome[[2L]] %in% c(0, 1))) {
+      .imr_abort("For `outcome_type = \"binary\"`, the response must be coded 0/1.")
     }
-  } else if (type_outcome == "right.censored") {
+  } else if (outcome_type == "right.censored") {
     if (ncol(outcome) != 3L) {
       .imr_abort(paste0(
         "`outcome` must have exactly three columns for right-censored data: ",
@@ -307,7 +327,7 @@ print.summary.imr_data <- function(x, ...) {
       .imr_abort("Right-censored status values in `outcome` must be coded 0/1.")
     }
   } else {
-    .imr_abort("Unknown `type_outcome`.")
+    .imr_abort("Unknown `outcome_type`.")
   }
   invisible(outcome)
 }

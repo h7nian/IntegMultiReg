@@ -1,4 +1,6 @@
 #include <stdbool.h>
+#include <stdint.h>
+#include <limits.h>
 #include <gsl/gsl_sf.h>
 #include <stdio.h>
 #include <time.h>
@@ -15,12 +17,67 @@
 #include <Rmath.h>
 #include <Rinternals.h>
 
-int *sample_size_ptr = NULL;
-static char sampler_method[256];
-
 static double ****X1 = NULL;
 static double ***newYY = NULL;
 static double ***newCC = NULL;
+
+/* Export every draw in its original position, sharing only exactly equal
+ * platform matrices. Hash collisions are resolved by full comparison; neither
+ * sampler state nor draw multiplicity changes. R owns the temporary hash table
+ * so it is reclaimed even if a subsequent R allocation raises an error. */
+static SEXP export_selection_history(_Bool ****samples, int draws, int platforms,
+                                     const int *rows, const int *columns)
+{
+    SEXP result = PROTECT(allocVector(VECSXP, draws));
+    for (int s = 0; s < draws; ++s) {
+        SEXP state = PROTECT(allocVector(VECSXP, platforms));
+        SET_VECTOR_ELT(result, s, state);
+        UNPROTECT(1);
+    }
+    size_t capacity = 1;
+    while (capacity < (size_t)draws * 2 && capacity <= SIZE_MAX / 2)
+        capacity *= 2;
+    int *table = (int *)R_alloc(capacity, sizeof(int));
+    for (int p = 0; p < platforms; ++p) {
+        memset(table, 0, capacity * sizeof(int));
+        for (int s = 0; s < draws; ++s) {
+            size_t slot = 0;
+            int previous = -1;
+            if (table) {
+                uint64_t hash = UINT64_C(14695981039346656037);
+                for (int r = 0; r < rows[p]; ++r)
+                    for (int c = 0; c < columns[p]; ++c) {
+                        hash ^= (uint64_t)samples[s][p][r][c];
+                        hash *= UINT64_C(1099511628211);
+                    }
+                slot = (size_t)hash & (capacity - 1);
+                while (table[slot]) {
+                    int candidate = table[slot] - 1, equal = 1;
+                    for (int r = 0; r < rows[p] && equal; ++r)
+                        for (int c = 0; c < columns[p]; ++c)
+                            if (samples[s][p][r][c] != samples[candidate][p][r][c]) {
+                                equal = 0;
+                                break;
+                            }
+                    if (equal) { previous = candidate; break; }
+                    slot = (slot + 1) & (capacity - 1);
+                }
+            }
+            if (previous >= 0) {
+                SEXP matrix = VECTOR_ELT(VECTOR_ELT(result, previous), p);
+                MARK_NOT_MUTABLE(matrix); /* preserve R copy-on-modify semantics */
+                SET_VECTOR_ELT(VECTOR_ELT(result, s), p, matrix);
+            } else {
+                SEXP matrix = PROTECT(c_array_to_r_matrix_int(samples[s][p], rows[p], columns[p]));
+                SET_VECTOR_ELT(VECTOR_ELT(result, s), p, matrix);
+                UNPROTECT(1);
+                if (table) table[slot] = s + 1;
+            }
+        }
+    }
+    UNPROTECT(1);
+    return result;
+}
 
 /*
  * Main training entry point called from R.
@@ -29,17 +86,67 @@ static double ***newCC = NULL;
  * the latent responses and selection state, runs the MCMC updates, and returns
  * posterior samples/summaries in the historical R list layout.
  */
-SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP beta0_R,
+SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP beta0_R,
                   SEXP seed_R, SEXP nu_R,
                   SEXP method1_R, SEXP n_platforms_R,
                   SEXP platform_models_R, SEXP model_platforms_R, SEXP n_subgroups_R,
-                  SEXP sample_size, SEXP nbr_features, SEXP nbr_cov,
+                  SEXP sample_size, SEXP n_features_R, SEXP n_covariates_R,
                   SEXP X1_filtered, SEXP newYY_list, SEXP type_outcome,
                   SEXP newCC_list,
-                  SEXP sample, SEXP burnin)
+                  SEXP draws_R, SEXP burnin_R, SEXP sampler_method_R, SEXP numerical_R, SEXP initial_R)
 {
+    imr_numerical_control numerical = imr_read_numerical_control(numerical_R);
+    if (!isInteger(sampler_method_R) || XLENGTH(sampler_method_R) != 1 ||
+        INTEGER(sampler_method_R)[0] < IMR_SAMPLER_LEGACY ||
+        INTEGER(sampler_method_R)[0] > IMR_SAMPLER_PAPER)
+        Rf_error("Invalid sampler method");
+    int sampler_method = INTEGER(sampler_method_R)[0];
+    /* Reject malformed explicit starts before allocating native workspaces. */
+    if (initial_R != R_NilValue) {
+        int np = asInteger(n_platforms_R);
+        if (TYPEOF(initial_R) != VECSXP || XLENGTH(initial_R) != 2)
+            Rf_error("Invalid initial state");
+        for (int component = 0; component < 2; ++component) {
+            SEXP values = VECTOR_ELT(initial_R, component);
+            if (values == R_NilValue) continue;
+            if (component == 1 && strcmp(CHAR(STRING_ELT(method1_R, 0)), "BMS") == 0)
+                Rf_error("Initial interactions are not applicable to BMS");
+            if (TYPEOF(values) != VECSXP || XLENGTH(values) != np)
+                Rf_error("Invalid initial platform list");
+            for (int p = 0; p < np; ++p) {
+                int nr = LENGTH(VECTOR_ELT(platform_models_R, p));
+                int nc = component ? nr : INTEGER(n_features_R)[p];
+                SEXP x = VECTOR_ELT(values, p), dim = getAttrib(x, R_DimSymbol);
+                if (TYPEOF(x) != (component ? REALSXP : INTSXP) ||
+                    TYPEOF(dim) != INTSXP || XLENGTH(dim) != 2 ||
+                    INTEGER(dim)[0] != nr || INTEGER(dim)[1] != nc)
+                    Rf_error("Invalid initial matrix dimensions or type");
+                for (int j = 0; j < nc; ++j) for (int i = 0; i < nr; ++i) {
+                    R_xlen_t index = i + (R_xlen_t)nr * j;
+                    if (!component) {
+                        if (INTEGER(x)[index] != 0 && INTEGER(x)[index] != 1)
+                            Rf_error("Invalid initial selection value");
+                    } else {
+                        double v = REAL(x)[index];
+                        if (!R_FINITE(v) || (i == j ? v != 0 : v <= 0) ||
+                            v != REAL(x)[j + (R_xlen_t)nr * i])
+                            Rf_error("Invalid initial interaction value");
+                    }
+                }
+            }
+        }
+    }
     clock_t t = clock();
     int protect_count = 0;
+    int diagnostic_groups = asInteger(n_subgroups_R);
+    if (diagnostic_groups < 1 || diagnostic_groups > INT_MAX / 3)
+        Rf_error("Invalid number of diagnostic subgroups");
+    SEXP laplace_diagnostics_R = PROTECT(allocMatrix(REALSXP, 3 * diagnostic_groups, 4));
+    protect_count++;
+    memset(REAL(laplace_diagnostics_R), 0, (size_t)diagnostic_groups * 12 * sizeof(double));
+    imr_laplace_diagnostics laplace_diagnostics = {
+        diagnostic_groups, 0, REAL(laplace_diagnostics_R)};
+    numerical.diagnostics = &laplace_diagnostics;
     /* platform_models_R maps each platform to the subgroups using it;
      * model_platforms_R is the inverse mapping from subgroup to platforms. */
 
@@ -54,8 +161,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
 
     PROTECT(method1_R);
     protect_count++;
-    strncpy(sampler_method, CHAR(STRING_ELT(method1_R, 0)), sizeof(sampler_method) - 1);
-    sampler_method[sizeof(sampler_method) - 1] = '\0';
+    const char *model_method = CHAR(STRING_ELT(method1_R, 0));
 
     PROTECT(n_platforms_R);
     protect_count++;
@@ -67,9 +173,9 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     protect_count++;
     PROTECT(sample_size);
     protect_count++;
-    PROTECT(nbr_features);
+    PROTECT(n_features_R);
     protect_count++;
-    PROTECT(nbr_cov);
+    PROTECT(n_covariates_R);
     protect_count++;
     PROTECT(X1_filtered);
     protect_count++;
@@ -79,10 +185,10 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     protect_count++;
 
 
-    int K = asInteger(nbr_cov);
-    int type_out = asInteger(type_outcome);
-    int sample_c = asInteger(sample);
-    int burnin_c = asInteger(burnin);
+    int K = asInteger(n_covariates_R);
+    int outcome_type = asInteger(type_outcome);
+    int n_draws = asInteger(draws_R);
+    int n_burnin = asInteger(burnin_R);
 
     int n_platforms = asInteger(n_platforms_R);
     Rprintf("We have %d platforms  in total \n", n_platforms);
@@ -137,7 +243,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
         Rprintf("\n");
     }
 
-    sample_size_ptr = INTEGER(sample_size);
+    int *sample_size_ptr = INTEGER(sample_size);
 
     Rprintf("\nSample sizes for each selected subgroup:\n");
     for (int i = 0; i < n_subgroups; i++)
@@ -146,7 +252,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     }
     Rprintf("\n");
 
-    int *G = INTEGER(nbr_features);
+    int *G = INTEGER(n_features_R);
     Rprintf("Number of features for each platform:\n");
     for (int i = 0; i < n_platforms; i++)
     {
@@ -204,7 +310,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     double **ymean = malloc(n_subgroups * sizeof(double *));
     double **yobs = NULL;
     _Bool **yobsb = NULL;
-    if (type_out == 2) // binary
+    if (outcome_type == IMR_OUTCOME_BINARY)
     {
         yobsb = malloc(n_subgroups * sizeof(_Bool *));
     }
@@ -217,7 +323,8 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     {
         n_censored[i] = 0;
         ymean[i] = dvector(0, sample_size_ptr[i] - 1);
-        if ((type_out == 1) || (type_out == 3)) // right censored or continuous
+        if ((outcome_type == IMR_OUTCOME_SURVIVAL) ||
+            (outcome_type == IMR_OUTCOME_CONTINUOUS))
             yobs[i] = dvector(0, sample_size_ptr[i] - 1);
         else // binary
             yobsb[i] = (_Bool *)malloc(sample_size_ptr[i] * sizeof(_Bool));
@@ -225,35 +332,34 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
         _Bool Delta[sample_size_ptr[i]];
         for (int j = 0; j < sample_size_ptr[i]; j++)
         {
-            if (type_out == 1)
+            if (outcome_type == IMR_OUTCOME_SURVIVAL)
                 Delta[j] = (_Bool)newYY_arr[i][j][1];
             else
                 Delta[j] = 1;
-            if ((type_out == 1) || (type_out == 3)) // right censored or continuous
+            if ((outcome_type == IMR_OUTCOME_SURVIVAL) ||
+                (outcome_type == IMR_OUTCOME_CONTINUOUS))
                 ymean[i][j] = ylatent[i][j] =yobs[i][j] = newYY_arr[i][j][0];
             else //binary
                 ylatent[i][j] = yobsb[i][j] = (_Bool)newYY_arr[i][j][0];
-            // To check for binary
-           // ymean[i][j] = ylatent[i][j] = yobs[i][j];
-            // ylatent[i][j] = gsl_ran_exponential(r, ylatent[i]);
 
-            if ((Delta[j] == 0)&& (type_out == 1))
+            if ((Delta[j] == 0) && (outcome_type == IMR_OUTCOME_SURVIVAL))
             {
                 ylatent[i][j] += 0.01;
                 ymean[i][j] = 0;
             }
-             if (type_out == 2)
+             if (outcome_type == IMR_OUTCOME_BINARY)
                 ymean[i][j] = 0;
             
         }
         find_indices_not_equal(sample_size_ptr[i], Delta, 1, censored_index[i], &n_censored[i]);
-        if (type_out == 1)
+        if (outcome_type == IMR_OUTCOME_SURVIVAL)
             Rprintf("\nNumber of censored values for subgroup %d is %d\n", i + 1, n_censored[i]);
     }
     // Memory for MCMC acceptance (only needed for censored or binary latent
     // updates; for continuous outcomes accept_y is left NULL).
     double **accept_y = NULL;
-    if ((type_out == 1) || (type_out == 2))
+    if ((outcome_type == IMR_OUTCOME_SURVIVAL) ||
+        (outcome_type == IMR_OUTCOME_BINARY))
     {
         accept_y = malloc(n_subgroups * sizeof(double *));
         for (int m = 0; m < n_subgroups; m++)
@@ -295,19 +401,34 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     double *nu = REAL(nu_R);
     for (int l = 0; l < n_platforms; l++)
     {
-        int initg = exp(nu[l]) * G[l] / (1 + exp(nu[l]));
+        /* Evaluate the logistic inclusion probability without forming
+         * exp(nu) / (1 + exp(nu)), which becomes Inf / Inf for a large
+         * positive prior and is undefined when converted to an integer. */
+        double exp_term = exp(nu[l] < 0.0 ? nu[l] : -nu[l]);
+        double inclusion_probability = nu[l] < 0.0
+            ? exp_term / (1.0 + exp_term)
+            : 1.0 / (1.0 + exp_term);
+        int initial_inclusions = (int)(inclusion_probability * G[l]);
         for (int m = 0; m < n_platform_models_c[l]; m++)
         {
-            for (int i = 0; i < initg; i++)
+            SEXP selection = initial_R == R_NilValue ? R_NilValue : VECTOR_ELT(initial_R, 0);
+            if (selection != R_NilValue) {
+                SEXP values = VECTOR_ELT(selection, l);
+                for (int j = 0; j < G[l]; ++j)
+                    gamma[l][m][j] = INTEGER(values)[m + (R_xlen_t)n_platform_models_c[l] * j];
+            }
+            for (int i = 0; selection == R_NilValue && i < initial_inclusions; i++)
             {
                 int ii = gsl_rng_uniform_int(r, G[l]);
                 gamma[l][m][ii] = 1;
             }
             for (int m1 = 0; m1 < n_platform_models_c[l]; m1++)
             {
-                if (strcmp(sampler_method, "BMS") != 0)
+                if (strcmp(model_method, "BMS") != 0)
                 {
-                    theta[l][m][m1] = 0.1 * (m != m1);
+                    SEXP interaction = initial_R == R_NilValue ? R_NilValue : VECTOR_ELT(initial_R, 1);
+                    theta[l][m][m1] = interaction == R_NilValue ? 0.1 * (m != m1) :
+                        REAL(VECTOR_ELT(interaction, l))[m + (R_xlen_t)n_platform_models_c[l] * m1];
                 }
                 else
                 {
@@ -317,32 +438,30 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
         }
     }
 
-    // int model;
-    //srand(seed);
     GetRNGstate();
     double log_likelihood[n_subgroups], logdet[n_subgroups], scal[n_subgroups];
     Rprintf("\n");
 
-    initialize_sampler_state(type_out, ylatent, newCC, X1,
+    initialize_sampler_state(outcome_type, ylatent, newCC, X1,
                 gamma, n_platforms, G, n_subgroups,
                 platform_models_c, n_platform_models_c,
                 model_platforms_c,
                 n_model_platforms_c, sample_size_ptr,
-                log_likelihood, logdet, scal, h, h1, h0, hg, alpha, psi, K);
+                log_likelihood, logdet, scal, h, h1, h0, hg, alpha, psi, K, &numerical);
 
     double *mrf = calloc(n_platforms, sizeof(double));
     for (int l = 0; l < n_platforms; l++)
     {
-        compute_mrf_normalizer(n_platform_models_c[l], theta[l], nu[l], &mrf[l]);
+        compute_mrf_log_normalizer(n_platform_models_c[l], theta[l], nu[l], &mrf[l]);
         Rprintf("%.3lf ", mrf[l]);
     }
 
     // int s, su, su1;
 
-    double *log_posterior_sample = dvector(0, burnin_c + sample_c - 1);
-    _Bool ****gamma_sample = malloc(sample_c * sizeof(_Bool ***));
+    double *log_posterior_sample = dvector(0, n_burnin + n_draws - 1);
+    _Bool ****gamma_sample = malloc(n_draws * sizeof(_Bool ***));
 
-    for (int s = 0; s < sample_c; s++)
+    for (int s = 0; s < n_draws; s++)
     {
         gamma_sample[s] = malloc(n_platforms * sizeof(_Bool **)); // n_platforms
         for (int l = 0; l < n_platforms; l++)
@@ -362,18 +481,18 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
         int n_theta_pairs = n_platform_models_c[l] *
                             (n_platform_models_c[l] - 1) / 2;
         theta_sample[l] = n_theta_pairs > 0
-            ? dmatrix(0, sample_c - 1, 0, n_theta_pairs - 1)
+            ? dmatrix(0, n_draws - 1, 0, n_theta_pairs - 1)
             : NULL;
     }
     _Bool thetaFreed = false;
-    if (strcmp(sampler_method, "BMS") == 0)
+    if (strcmp(model_method, "BMS") == 0)
     {
         for (int l = 0; l < n_platforms; l++)
         {
             int n_theta_pairs = n_platform_models_c[l] *
                                 (n_platform_models_c[l] - 1) / 2;
             if (n_theta_pairs > 0)
-                free_dmatrix(theta_sample[l], 0, sample_c - 1,
+                free_dmatrix(theta_sample[l], 0, n_draws - 1,
                              0, n_theta_pairs - 1);
         }
         free(theta_sample);
@@ -384,58 +503,58 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
 
     /* Report progress ~10 times; guard against a zero interval (and the
        resulting division by zero) when the chain is shorter than 10. */
-    int report_every = (burnin_c + sample_c) / 10;
+    int report_every = (n_burnin + n_draws) / 10;
     if (report_every < 1)
         report_every = 1;
 
-    for (int s = 0; s < burnin_c + sample_c; s++)
+    for (int s = 0; s < n_burnin + n_draws; s++)
     {
         for (int m = 0; m < n_subgroups; m++)
         {
+            laplace_diagnostics.subgroup = m;
              sample_gamma_indicators(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
                         ylatent[m], newCC[m], X1[m], gamma, &log_likelihood[m], &logdet[m], &scal[m], nu, theta,
-                        n_platform_models_c, platform_models_c, accept_gamma, r, likelihood_type, h[m], h1, h0, hg, K, alpha, psi);
-            if ((type_out == 1) && (n_censored[m] > 0)) // right censored outcome and we have censored subjects    
+                        n_platform_models_c, platform_models_c, accept_gamma, r, likelihood_type, h[m], h1, h0, hg, K, alpha, psi, sampler_method, &numerical);
+            if ((outcome_type == IMR_OUTCOME_SURVIVAL) && (n_censored[m] > 0))
             {
                 sample_censored_latent_response(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
                              ylatent[m], yobs[m], newCC[m], X1[m], gamma, &scal[m], &log_likelihood[m],
                              n_censored[m], censored_index[m], logdet[m], r, n_platform_models_c, platform_models_c,
-                             accept_y[m], h[m], h1, h0, hg, K, alpha, psi);
-                if (s >= burnin_c)
+                             accept_y[m], h[m], h1, h0, hg, K, alpha, psi, &numerical);
+                if (s >= n_burnin)
                 {
                     for (int i = 0; i < n_censored[m]; i++)
                     {
                         int jj = censored_index[m][i];
-                        ymean[m][jj] += ylatent[m][jj] / sample_c;
+                        ymean[m][jj] += ylatent[m][jj] / n_draws;
                     }
                 }
             }
 
-            if (type_out == 2)  // binary outcome
+            if (outcome_type == IMR_OUTCOME_BINARY)
             {
                  sample_binary_latent_response(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
                                   ylatent[m], yobsb[m], newCC[m], X1[m], gamma, &log_likelihood[m],
                                 r, n_platform_models_c, platform_models_c,
-                               accept_y[m], h[m], h1, h0, hg, K, alpha, psi);
-                if (s >= burnin_c)
+                               accept_y[m], h[m], h1, h0, hg, K, alpha, psi, &numerical);
+                if (s >= n_burnin)
                 {
                     for (int i = 0; i < sample_size_ptr[m]; i++)
                     { 
-                        // printf(" yyy= %lf",ylatent[m][i]);
-                        ymean[m][i] += ylatent[m][i] / sample_c;
+                        ymean[m][i] += ylatent[m][i] / n_draws;
                     }   
                 }
             }
         } // end of loop with m
 
-        if (strcmp(sampler_method, "BMS") != 0)
+        if (strcmp(model_method, "BMS") != 0)
         {
             for (int l = 0; l < n_platforms; l++)
             {
                  sample_mrf_theta(G[l], n_platform_models_c[l], theta[l], accept_theta[l], &mrf[l],
                           gamma[l], nu[l], alpha0, betaTh[l], r);
             }
-            if (s >= burnin_c)
+            if (s >= n_burnin)
             {
                 for (int l = 0; l < n_platforms; l++)
                 {
@@ -444,14 +563,14 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
                     {
                         for (int j = 0; j < i; j++)
                         {
-                            theta_sample[l][s - burnin_c][m1] = theta[l][i][j];
+                            theta_sample[l][s - n_burnin][m1] = theta[l][i][j];
                             m1++;
                         }
                     }
                 }
             }
         }
-        if (s >= burnin_c)
+        if (s >= n_burnin)
         {
             for (int l = 0; l < n_platforms; l++)
             {
@@ -459,15 +578,15 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
                 {
                     for (int j = 0; j < G[l]; j++)
                     {
-                        gamma_mean[l][m][j] += gamma[l][m][j] / (double)sample_c;
-                        gamma_sample[s - burnin_c][l][m][j] = gamma[l][m][j];
+                        gamma_mean[l][m][j] += gamma[l][m][j] / (double)n_draws;
+                        gamma_sample[s - n_burnin][l][m][j] = gamma[l][m][j];
                     }
                 }
             }
         }
 
         log_posterior_sample[s] = log_posterior(log_likelihood, gamma, nu, theta, mrf, alpha0, betaTh, n_subgroups,
-                              n_platforms, G, n_platform_models_c);
+                              n_platforms, G, n_platform_models_c, sampler_method);
 
         // Print status every 10% of the MCMC samples
         if (s % report_every == 1)
@@ -505,7 +624,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     {
         for (int m = 0; m < n_platform_models_c[l]; m++)
         {
-            Rprintf("%.4f ", accept_gamma[l][m] / (sample_c + burnin_c));
+            Rprintf("%.4f ", accept_gamma[l][m] / (n_draws + n_burnin));
         }
         Rprintf("\n");
     }
@@ -516,29 +635,16 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
         for (int m = 0; m < n_subgroups; m++)
         {
             for (int i = 0; i < sample_size_ptr[m]; i++)
-                Rprintf("%.4f ", accept_y[m][i] / (sample_c + burnin_c));
+                Rprintf("%.4f ", accept_y[m][i] / (n_draws + n_burnin));
             Rprintf("\n\n");
         }
     }
     int i0, j0;
 
-    // export gamma_sample to R
-    SEXP gamma_sample_R;
-    PROTECT(gamma_sample_R = allocVector(VECSXP, sample_c));
+    // Preserve the historical nested integer-matrix layout and every draw.
+    SEXP gamma_sample_R = PROTECT(export_selection_history(gamma_sample,
+        n_draws, n_platforms, n_platform_models_c, G));
     protect_count++;
-    for (int s = 0; s < sample_c; s++)
-    {
-        SEXP GamS_R;
-        PROTECT(GamS_R = allocVector(VECSXP, n_platforms));
-        for (int l = 0; l < n_platforms; l++)
-        {
-            SEXP gamSMatrix = PROTECT(c_array_to_r_matrix_int(gamma_sample[s][l], n_platform_models_c[l], G[l]));
-            SET_VECTOR_ELT(GamS_R, l, gamSMatrix);
-            UNPROTECT(1);
-        }
-        SET_VECTOR_ELT(gamma_sample_R, s, GamS_R);
-        UNPROTECT(1);
-    }
 
     // export gamma_mean
     SEXP GamMean_R;
@@ -552,7 +658,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
         UNPROTECT(1);
     }
 
-    if (strcmp(sampler_method, "BMS") != 0)
+    if (strcmp(model_method, "BMS") != 0)
     {
         for (int l = 0; l < n_platforms; l++)
         {
@@ -565,7 +671,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
             if (!ThetaXSM)
                 nrerror("allocation failure for theta posterior means");
 
-            mean_array_columns(sample_c, n_theta_pairs,
+            mean_array_columns(n_draws, n_theta_pairs,
                                theta_sample[l], ThetaXSM);
             int m1 = 0;
             for (int i = 1; i < n_platform_models_c[l]; i++)
@@ -602,7 +708,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     for (int l = 0; (l < n_platforms) && (!thetaFreed); l++)
     {
         SEXP thetaSampleMatrix;
-        int nrowThetaSample = sample_c;                                            // Rows for ThetaXSample
+        int nrowThetaSample = n_draws;                                             // Rows for ThetaXSample
         int ncolThetaSample = n_platform_models_c[l] * (n_platform_models_c[l] - 1) / 2; // Columns for ThetaXSample
         PROTECT(thetaSampleMatrix = allocVector(REALSXP, nrowThetaSample * ncolThetaSample));
         double *thetaSamplePtr = REAL(thetaSampleMatrix);
@@ -629,13 +735,16 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     protect_count++;
 
     SEXP logposterior_R;
-    PROTECT(logposterior_R = allocVector(REALSXP, burnin_c + sample_c));
+    PROTECT(logposterior_R = allocVector(REALSXP, n_burnin + n_draws));
     protect_count++;
-    for (int s = 0; s < burnin_c + sample_c; s++)
+    for (int s = 0; s < n_burnin + n_draws; s++)
         REAL(logposterior_R)
     [s] = log_posterior_sample[s];
 
-    int listSize = 6;
+    SEXP rng_state_R = PROTECT(allocVector(RAWSXP, gsl_rng_size(r)));
+    protect_count++;
+    memcpy(RAW(rng_state_R), gsl_rng_state(r), gsl_rng_size(r));
+    int listSize = 8;
     SEXP list;
     SEXP listNames;
     PROTECT(list = allocVector(VECSXP, listSize));
@@ -648,6 +757,8 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     SET_VECTOR_ELT(list, 3, logposterior_R);
     SET_VECTOR_ELT(list, 4, gamma_sample_R);
     SET_VECTOR_ELT(list, 5, thetaSampleMatrix_R);
+    SET_VECTOR_ELT(list, 6, rng_state_R);
+    SET_VECTOR_ELT(list, 7, laplace_diagnostics_R);
 
     PROTECT(listNames = allocVector(STRSXP, listSize));
     protect_count++;
@@ -657,10 +768,12 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     SET_STRING_ELT(listNames, 3, mkChar("log_posterior"));
     SET_STRING_ELT(listNames, 4, mkChar("gam_sample"));
     SET_STRING_ELT(listNames, 5, mkChar("theta_sample"));
+    SET_STRING_ELT(listNames, 6, mkChar("rng_state"));
+    SET_STRING_ELT(listNames, 7, mkChar("laplace_diagnostics"));
     setAttrib(list, R_NamesSymbol, listNames);
 
     /// We free memories ...
-    for (int s = 0; s < sample_c; s++)
+    for (int s = 0; s < n_draws; s++)
     {
         for (int l = 0; l < n_platforms; l++)
         {
@@ -674,11 +787,11 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     {
         free(censored_index[m]);
         free(ylatent[m]);
-       // free(yobs[m]);
+        /* yobs is allocated only for non-binary outcomes and is freed with them. */
     }
     free(censored_index);
     free(ylatent);
-    if (type_out == 2)//binary
+    if (outcome_type == IMR_OUTCOME_BINARY)
     {
         for (int m = 0; m < n_subgroups; m++)
         {
@@ -693,7 +806,8 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
         free(yobs);
     }
     
-    if ((type_out == 1) || (type_out == 2))
+    if ((outcome_type == IMR_OUTCOME_SURVIVAL) ||
+        (outcome_type == IMR_OUTCOME_BINARY))
     {
         for (int m = 0; m < n_subgroups; m++)
         {
@@ -709,7 +823,7 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
             int n_theta_pairs = n_platform_models_c[l] *
                                 (n_platform_models_c[l] - 1) / 2;
             if (n_theta_pairs > 0)
-                free_dmatrix(theta_sample[l], 0, sample_c - 1,
+                free_dmatrix(theta_sample[l], 0, n_draws - 1,
                              0, n_theta_pairs - 1);
         }
         free(theta_sample);
