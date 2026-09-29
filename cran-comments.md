@@ -40,13 +40,26 @@ These are breaking changes. There are no reverse dependencies on CRAN.
 
 ## R CMD check results
 
-<!-- Filled from the release CI run before submission. -->
+0 errors | 0 warnings | 0 notes
+
+`Status: OK` on all four `--as-cran` platforms: Ubuntu R-release, Ubuntu
+R-devel, Windows R-release and macOS R-release. Those runs use
+`error-on = "warning"`, so a warning on any platform would have failed them.
+The test suite reports `[ FAIL 0 | WARN 0 | SKIP 0 | PASS 2851 ]`.
 
 ## Memory checks
 
 Installed tests run under Valgrind with `--leak-check=full` and
 `--track-origins=yes` and no package suppressions, and under ASAN+UBSAN on
 Linux and macOS ARM.
+
+Valgrind on R-devel reports:
+
+    definitely lost: 0 bytes in 0 blocks
+    ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+
+GCC UBSAN, GCC ASAN+UBSAN, Clang UBSAN and Clang ASAN+UBSAN on Linux, and
+ASAN+UBSAN on macOS ARM, all pass with no sanitizer diagnostic.
 
 As a control, the archived 0.1.1 tarball still reproduces its exact
 7,200-byte / 60-block leak under these same settings, so the configuration is
