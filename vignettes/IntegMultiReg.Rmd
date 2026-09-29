@@ -78,13 +78,13 @@ structure.  A short survival fit follows the same call pattern:
 
 ```{r kirc-fit, eval = FALSE}
 kirc_fit <- imr(
-  platform_data_list = kircIMR$platforms,
+  x = kircIMR$platforms,
   outcome            = kircIMR$outcome.survival,
-  cov                = kircIMR$covariates,
-  type_outcome       = "right.censored",
+  covariates = kircIMR$covariates,
+  outcome_type       = "right.censored",
   nu                 = c(-4, -3, -4),
-  sample_mcmc        = c(4000, 1000),
-  ssize              = 30,
+  draws = 4000, burnin = 1000,
+  min_subgroup_size              = 30,
   seed               = 1
 )
 summary(kirc_fit)
@@ -98,13 +98,13 @@ MCMC run for illustration; in practice use longer chains.
 
 ```{r fit}
 fit <- imr(
-  platform_data_list = simIMR$platforms,
+  x = simIMR$platforms,
   outcome            = simIMR$outcome.binary,
-  cov                = simIMR$covariates,
-  type_outcome       = "binary",
+  covariates = simIMR$covariates,
+  outcome_type       = "binary",
   nu                 = c(-4, -3, -4),
-  sample_mcmc        = c(1500, 500),
-  ssize              = 30,
+  draws = 1500, burnin = 500,
+  min_subgroup_size              = 30,
   seed               = 1
 )
 fit
@@ -168,35 +168,43 @@ head(pred[["model:011"]])
 
 # Assessing predictive performance
 
-`cv_imr()` runs repeated $K$-fold splits using the fitted MCMC samples and
-reports the accuracy measure appropriate to the outcome type (AUC for binary,
-the concordance index for survival, mean squared error for continuous), overall
-and within each availability subgroup.  The MCMC sampler is not re-run inside
-each fold; to compare IMR with BMS, fit a separate `method = "BMS"` object.
+`cv_imr()` defaults to `cv_method = "legacy"`, the historical post-fit
+algorithm. `cv_method = "importance"` uses all retained draws in a paper-derived
+importance average; both post-fit modes reuse full-fit preprocessing and latent
+response summaries. Neither promises reproduction of the original study's numbers.
+
+This example explicitly uses `cv_method = "refit"` to refit each training fold, including
+standardization, selection MCMC and model weights. It reports AUC for binary
+outcomes, concordance for survival and MSE for continuous outcomes, overall
+and within each retained availability subgroup. Formula transformations are
+also rebuilt on training rows. Runtime scales with folds times rounds; use
+short chains for a code-path check and increase them for final analysis.
+To compare IMR with BMS, fit a separate `method = "bms"` object. The original
+hyperparameters are treated as fixed; tuning requires another validation layer.
 
 ```{r cv}
-cv <- cv_imr(fit, k = 5, rounds = 3)
-attr(cv, "metric")
-round(colMeans(cv$total_cindex), 3)
+cv <- cv_imr(fit, k = 5, rounds = 3, cv_method = "refit")
+cv$metric
+round(colMeans(cv$pooled), 3)
 ```
 
 # Other outcome types
 
 The same interface handles continuous and right-censored outcomes; only
-`type_outcome` and the `outcome` data frame change.
+`outcome_type` and the `outcome` data frame change.
 
 ```{r other-types, eval = FALSE}
 # continuous (Gaussian) outcome
 fit_c <- imr(
-  simIMR$platforms, simIMR$outcome.continuous, cov = simIMR$covariates,
-  type_outcome = "continuous", nu = c(-4, -3, -4),
-  sample_mcmc = c(1500, 500), ssize = 30, seed = 1)
+  simIMR$platforms, simIMR$outcome.continuous, covariates = simIMR$covariates,
+  outcome_type = "continuous", nu = c(-4, -3, -4),
+  draws = 1500, burnin = 500, min_subgroup_size = 30, seed = 1)
 
 # right-censored survival outcome
 fit_s <- imr(
-  simIMR$platforms, simIMR$outcome.survival, cov = simIMR$covariates,
-  type_outcome = "right.censored", nu = c(-4, -3, -4),
-  sample_mcmc = c(1500, 500), ssize = 30, seed = 1)
+  simIMR$platforms, simIMR$outcome.survival, covariates = simIMR$covariates,
+  outcome_type = "right.censored", nu = c(-4, -3, -4),
+  draws = 1500, burnin = 500, min_subgroup_size = 30, seed = 1)
 ```
 
 # References
@@ -204,3 +212,20 @@ fit_s <- imr(
 Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). "A Bayesian Integrative
 Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
 *Biometrics*, **73**(2), 615--624. <doi:10.1111/biom.12587>
+
+## Choosing computational conventions
+
+The three CV modes provide defaults. Optional `ridge`, `model_set`,
+`df_method`, and `score_method` let users choose unpenalized estimation,
+empirical or ranked selection states, predictive degrees of freedom, and
+scoring independently. `folds = result$control$folds` replays actual partitions
+and summation order; identical seeds across different generators are not enough.
+`fold_rng="continue"` resumes a new fit's saved GSL stream for post-fit CV.
+
+`sampler_method="paper"` uses the symmetric MRF conditional and corrects
+boundary proposal probabilities. The default `"legacy"` preserves historical
+updates, whose target differs from the stated MRF posterior. Numerical options
+`prior_indexing`, `laplace_max_iter`, and `laplace_tolerance` are recorded and
+reused by prediction and CV. See `system.file("METHOD-COVERAGE.md",
+package="IntegMultiReg")` for reference combinations and their validation scope.
+No mode name alone guarantees reproduction of historical experiment tables.

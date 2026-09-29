@@ -12,13 +12,13 @@ fit_demo <- function(type = c("binary", "continuous", "right.censored"),
     right.censored = simIMR$outcome.survival
   )
   imr(
-    platform_data_list = simIMR$platforms,
+    x = simIMR$platforms,
     outcome = outcome,
-    cov = simIMR$covariates,
-    type_outcome = type,
+    covariates = simIMR$covariates,
+    outcome_type = type,
     nu = c(-4, -3, -4),
-    sample_mcmc = c(total, burn),
-    ssize = 30,
+    draws = total, burnin = burn,
+    min_subgroup_size = 30,
     seed = seed
   )
 }

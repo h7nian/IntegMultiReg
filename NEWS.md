@@ -1,3 +1,123 @@
+# IntegMultiReg 0.2.0
+
+* Reject nonpositive or nonfinite theta proposals and undefined acceptance
+  ratios. Gamma proposal log densities use a stable fallback when the ordinary
+  density underflows or overflows; the representable-density path is unchanged.
+* Replaying saved folds in refit CV now uses the original fitting seed plan.
+  `control$refit_seeds` records the rounds-by-fold seeds. Ordinary generated-fold
+  results retain their previous numerical behavior.
+* Record fitting-stage Laplace calls, iteration-limit hits, nonfinite likelihoods
+  and factorization failures by subgroup in `control$laplace_diagnostics`.
+  These counters describe initial, selection and latent updates, not prediction
+  or MCMC convergence. Existing fitted objects without counters remain readable.
+
+* Share exactly equal selection matrices when exporting fitted draws to R.
+  Every draw and its order remain in the existing nested-list interface; R
+  copy-on-modify preserves independent user edits. This reduces live allocation
+  for repeated states, but ordinary RDS reload does not retain matrix sharing.
+
+* Add optional `initial` selection/interaction matrices for explicit chain
+  starting points. NULL preserves the existing initialization and random stream;
+  supplied starts are validated, recorded and reused by refit CV.
+
+* Add independent `ridge`, `model_set`, `df_method`, `score_method`, `folds`
+  and `fold_rng` arguments to `cv_imr()`. Existing mode defaults and numerical
+  fields are preserved. A new `control` field records effective options and
+  fold membership/order for replay; the continued GSL stream is available for
+  new fits. Explicit inapplicable arguments are rejected.
+* Add `sampler_method = "paper"` for the symmetric MRF conditional, boundary
+  Hastings correction and Gamma log-density rate sign. The default `"legacy"`
+  retains historical updates, whose invariant distribution differs from the
+  paper's target. New independent transition and native-density checks cover
+  the correction; default regression references are unchanged.
+* Add `prior_indexing`, `laplace_max_iter` and `laplace_tolerance` to express
+  released-code numerical conventions. Prediction and CV inherit them from
+  fitting. These options do not imply historical tables have been reproduced.
+
+* Post-fit CV now stops with round, fold and subgroup context if Cholesky
+  decomposition or solving fails, releasing native resources before reporting
+  the error. Previously failed models could leave prediction rows uninitialized.
+  Successful calculations, model weights and random-number behavior are unchanged.
+
+* Add `workers = 1L` to `cv_imr()` for optional PSOCK process parallelism in
+  all three CV modes. Serial execution and the legacy default are unchanged.
+  Partitions, refit seeds, draw contributions and metric aggregation order are
+  preserved. Workers use single-threaded math libraries and report failures
+  without returning partial results; process startup and memory costs are
+  documented in `?cv_imr`.
+
+* Importance CV reuses fold-local calculations for identical retained selection
+  states. State identities are indexed once per call with collision verification
+  and a bounded auxiliary cache; every draw still contributes in its original
+  order. This does not change the sampler, legacy default or scoring definitions.
+
+* Add `cv_method = c("legacy", "refit", "importance")`, defaulting to
+  `"legacy"`. The legacy mode preserves historical post-fit computation;
+  `"refit"` retains the 0.1.4 workflow. The paper-derived importance mode
+  retains empirical MCMC state multiplicities and fractional predictive degrees
+  of freedom. Both post-fit modes condition on full-fit latent summaries.
+  `validation` identifies the selected mode; examples that require independent
+  training-fold fitting now request `cv_method = "refit"` explicitly.
+
+## Breaking API cleanup
+
+* `imr()` is now an S3 generic with list, formula, and `imr_data` methods. Its
+  first argument is `x`; fitting arguments now use `covariates`, `outcome_type`,
+  `min_subgroup_size`, `draws`, `burnin`, `molecular_prior_scale`,
+  `forced_prior_scale`, `residual_prior`, and `interaction_prior`.
+* Method values are lowercase (`"imr"`, `"bms"`). Printed output keeps the
+  familiar uppercase labels. Legacy argument aliases are intentionally not
+  accepted.
+* Predictions use the column name `prediction`. `cv_imr()` now returns the
+  named fields `pooled`, `fold_mean`, `predictions`, `metric`, `validation`,
+  and `control`.
+* Removed the duplicate `predict_imr()`, `summary_imr()`, `coef_imr()`, and
+  `plot_imr()` wrappers. Use the standard S3 generics.
+
+## Fit schema and native safety
+
+* New fits use schema version 2 with four named sections: `control`, `model`,
+  `preprocessing`, and `posterior`. `upgrade_imr_fit()` explicitly upgrades a
+  structurally complete 0.1.x fit; public methods do not upgrade automatically.
+* Formula fits retain only the identifier, response, and variables used by the
+  formula. Fit validation now checks native-bound types, dimensions, mappings,
+  indices, and draw counts before compiled code is called.
+* MRF normalization now enumerates states with an unsigned counter and uses
+  log-sum-exp. A platform is limited to 16 modelled subgroups, with an R error
+  before native code for larger models.
+* Native entry points are named `imr_fit`, `imr_predict`, and
+  `imr_concordance`; unreachable legacy numerical helpers were removed.
+
+See `inst/MIGRATION.md` for a complete old-to-new API table.
+
+# IntegMultiReg 0.1.4
+
+* Reject platform names `id` and `subgroup` in data construction and validation
+  to prevent collisions with availability metadata and misleading CV errors.
+
+* Add a runnable paired-CV and nested formula-selection example, with saved
+  subject/fold assignments and repeatability checks in CI.
+
+* Reject overflowing integer controls, ambiguous data-frame column names, and
+  corrupted saved-fit iteration counts or subgroup mappings before computation.
+* Add public API execution auditing and boundary regressions; CI retains coverage
+  and native sanitizer logs as downloadable artifacts.
+
+- Replaced the post-fitting CV approximation with independent training-fold
+  MCMC fits, preprocessing and model weights. The previous inverse-density
+  weights followed an importance-sampling correction; their use of held-out
+  responses alone does not establish an implementation error.
+  Runtime now scales with folds times rounds; old prediction tables must be
+  regenerated. CV preserves the caller's RNG and exposes out-of-fold records.
+- Formula fits retain raw formula data so CV can rebuild transformations using
+  only training subjects. Older formula fits require refitting for CV.
+- Corrected survival concordance for tied predictions and incomparable pairs;
+  undefined fold metrics return NA.
+- Binary point prediction now averages model-specific probit probabilities.
+- Corrected theta interval labels when a platform appears in four or more groups.
+- Added deterministic leakage, probability-averaging and pair-order regressions,
+  with concordance comparisons against survival when available.
+
 # IntegMultiReg 0.1.3
 
 * Explicitly initialize conditional outcome pointers for strict compiler diagnostics.

@@ -20,16 +20,17 @@
  * gamma indicators.  For binary outcomes it also creates a first probit latent
  * response using a ridge fit so the sampler starts in a feasible region.
  */
-void initialize_sampler_state(int type_out, double **Y, double ***newCC, double ****X1,
+void initialize_sampler_state(int outcome_type, double **Y, double ***newCC, double ****X1,
                  _Bool ***gamma, int n_platforms, int *G, int n_subgroups,
                  int **platform_models_c, int *n_platform_models_c,
                  int **model_platforms_c, int *n_model_platforms_c, int *sample_size_ptr,
                  double *log_likelihood, double *logdet, double *scal,
-                 double *h, double h1, double h0, double hg, double alpha, double psi, int K)
+                 double *h, double h1, double h0, double hg, double alpha, double psi, int K, const imr_numerical_control *numerical)
 {
 
   for (int m = 0; m < n_subgroups; m++)
   {
+    if (numerical->diagnostics) numerical->diagnostics->subgroup = m;
     int N = sample_size_ptr[m];
     int **selected_feature_index = calloc(n_model_platforms_c[m], sizeof(int *));
     int *n_selected_features = calloc(n_model_platforms_c[m], sizeof(int));
@@ -61,7 +62,7 @@ void initialize_sampler_state(int type_out, double **Y, double ***newCC, double 
     {
       total_selected_features += n_selected_features[l];
     }
-    if (type_out == 2)
+    if (outcome_type == IMR_OUTCOME_BINARY)
     { // binary outcome
       int tot = 1 + K + total_selected_features;
       double *X_data = calloc(N*tot, sizeof(double));
@@ -95,20 +96,21 @@ void initialize_sampler_state(int type_out, double **Y, double ***newCC, double 
       free(ypred);
     }
 
-    int maxiter = 25;
-    double stop = pow(10, -3);
+    int maxiter = numerical->initial_max_iter;
+    double stop = numerical->tolerance;
     int rr = 1;
     int k = 1 + K + total_selected_features;
-    double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG);
+    double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG, numerical);
     double *precision_copy = malloc((size_t) k * k * sizeof(double));
     if (!precision_copy) Rf_error("malloc failed for precision_copy");
     for (int i = 0; i < k; i++)
       for (int j = 0; j <= i; j++)
         precision_copy[i * k + j] = precision_copy[j * k + i] = precision[i * k + j];
     gsl_matrix_view m11 = gsl_matrix_view_array(precision, k, k);
-    gsl_linalg_cholesky_decomp(&m11.matrix);
+    if (gsl_linalg_cholesky_decomp(&m11.matrix) != 0)
+      imr_record_laplace(numerical, IMR_LAPLACE_INITIAL, IMR_LAPLACE_FACTORIZATION_FAILURE);
     double *beta_mode = malloc(k * sizeof(double));
-    log_likelihood[m] = log_likelihood_nonlocal(k, K, n_selected_features[0], N, alpha, psi, Y[m], PG, precision_copy, &m11.matrix, beta_mode, rr, h[m], h1, h0, hg, maxiter, stop, 0);
+    log_likelihood[m] = log_likelihood_nonlocal(k, K, n_selected_features[0], N, alpha, psi, Y[m], PG, precision_copy, &m11.matrix, beta_mode, rr, h[m], h1, h0, hg, maxiter, stop, 0, numerical, IMR_LAPLACE_INITIAL);
     free(precision);
     free(precision_copy);
     free(beta_mode);

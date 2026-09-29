@@ -51,9 +51,10 @@
 #' \donttest{
 #' data("simIMR", package = "IntegMultiReg")
 #' fit <- imr(
-#'   platform_data_list = simIMR$platforms, outcome = simIMR$outcome,
-#'   cov = simIMR$covariates, type_outcome = "binary",
-#'   nu = c(-4, -3, -4), sample_mcmc = c(200, 100), ssize = 5, seed = 1
+#'   x = simIMR$platforms, outcome = simIMR$outcome,
+#'   covariates = simIMR$covariates, outcome_type = "binary",
+#'   nu = c(-4, -3, -4), draws = 200, burnin = 100,
+#'   min_subgroup_size = 5, seed = 1
 #' )
 #' plot_top_features(fit, top = 8)
 #' }
@@ -94,13 +95,14 @@ plot_top_features <- function(object, top = 10, base_cex = 1,
   }
   ## Collect every feature's best mPIP (and the subgroup achieving it).
   rows <- list()
-  for (l in seq_len(object$n_platform)) {
+  validate_imr(object)
+  for (l in seq_len(object$model$n_platforms)) {
     m <- .imr_mpip(object, l)
     if (nrow(m) == 0 || ncol(m) == 0) next
     maxp <- apply(m, 2, max)
     sg <- rownames(m)[apply(m, 2, which.max)]
     rows[[l]] <- data.frame(
-      platform = object$platform_names[l],
+      platform = object$model$platform_names[l],
       feature = colnames(m),
       mpip = as.numeric(maxp),
       subgroup = sg,
@@ -117,7 +119,7 @@ plot_top_features <- function(object, top = 10, base_cex = 1,
 
   ## One colour per platform, drawn in increasing order so the largest bar is
   ## at the top of the horizontal chart.
-  platforms <- object$platform_names
+  platforms <- object$model$platform_names
   pal <- .imr_plot_palette(length(platforms), col = col, palette = palette)
   ord <- rev(seq_len(top))
   labels <- paste0(tab$feature[ord], " (", tab$platform[ord], ")")
@@ -203,9 +205,10 @@ plot_top_features <- function(object, top = 10, base_cex = 1,
 #' \donttest{
 #' data("simIMR", package = "IntegMultiReg")
 #' fit <- imr(
-#'   platform_data_list = simIMR$platforms, outcome = simIMR$outcome,
-#'   cov = simIMR$covariates, type_outcome = "binary",
-#'   nu = c(-4, -3, -4), sample_mcmc = c(200, 100), ssize = 5, seed = 1
+#'   x = simIMR$platforms, outcome = simIMR$outcome,
+#'   covariates = simIMR$covariates, outcome_type = "binary",
+#'   nu = c(-4, -3, -4), draws = 200, burnin = 100,
+#'   min_subgroup_size = 5, seed = 1
 #' )
 #' plot_subgroup_sizes(fit)
 #' }
@@ -227,8 +230,9 @@ plot_subgroup_sizes <- function(object, base_cex = 1, cex_axis = NULL,
   )
   dots <- sz$dots
   .imr_check_flag(show_values, "show_values")
-  sizes <- as.integer(object$sample_size)
-  names(sizes) <- object$model_bitstrings
+  validate_imr(object)
+  sizes <- as.integer(object$model$sample_sizes)
+  names(sizes) <- object$model$subgroup_names
   if (is.null(ylim)) {
     ylim <- c(0, max(sizes) * 1.15)
   } else {

@@ -23,7 +23,7 @@
 void sample_censored_latent_response(int model, int n_platforms, int *selected_platforms, int n_selected_platforms, int *n_features, int sample_size,
                   double *latent_y, double *observed_y, double **covariates, double ***features, _Bool ***gamma, double *quadratic_form, double *log_likelihood,
                   int n_censored, int *censored_index, double logdet, gsl_rng *rng, int *n_platform_models, int **platform_models,
-                  double *accept_y, double slab_scale, double covariate_scale, double intercept_scale, double first_platform_scale, int n_covariates, double alpha, double psi)
+                  double *accept_y, double slab_scale, double covariate_scale, double intercept_scale, double first_platform_scale, int n_covariates, double alpha, double psi, const imr_numerical_control *numerical)
 {
   (void)n_platforms;
   (void)quadratic_form;
@@ -67,17 +67,18 @@ void sample_censored_latent_response(int model, int n_platforms, int *selected_p
     }
     int k_val = 1 + n_covariates + total_selected_features;
     double ymax = 1000;
-    int max_iter = 25;
-    double tolerance = pow(10, -3);
+    int max_iter = numerical->latent_max_iter;
+    double tolerance = numerical->tolerance;
     int moment_order = 1;
-    double *precision = build_posterior_precision(k_val, n_covariates, n_selected_features[0], n_subjects, slab_scale, covariate_scale, intercept_scale, first_platform_scale, design);
+    double *precision = build_posterior_precision(k_val, n_covariates, n_selected_features[0], n_subjects, slab_scale, covariate_scale, intercept_scale, first_platform_scale, design, numerical);
     double *precision_copy = malloc((size_t) k_val * k_val * sizeof(double));
     if (!precision_copy) Rf_error("malloc failed for precision_copy");
     for (i = 0; i < k_val; i++)
       for (j = 0; j <= i; j++)
         precision_copy[i * k_val + j] = precision_copy[j * k_val + i] = precision[i * k_val + j];
     gsl_matrix_view m = gsl_matrix_view_array(precision, k_val, k_val);
-    gsl_linalg_cholesky_decomp(&m.matrix);
+    if (gsl_linalg_cholesky_decomp(&m.matrix) != 0)
+      imr_record_laplace(numerical, IMR_LAPLACE_LATENT, IMR_LAPLACE_FACTORIZATION_FAILURE);
     double *ynew = malloc((size_t) n_subjects * sizeof(double));
     if (!ynew) Rf_error("malloc failed for ynew");
     for (i = 0; i < n_subjects; i++)
@@ -95,7 +96,7 @@ void sample_censored_latent_response(int model, int n_platforms, int *selected_p
       ynew[subject_index] = proposed_y;
       double *beta_mode = malloc(k_val * sizeof(double));
       double new_log_likelihood = log_likelihood_nonlocal(k_val, n_covariates, n_selected_features[0], n_subjects, alpha, psi, ynew, design, precision_copy,
-                                        &m.matrix, beta_mode, moment_order, slab_scale, covariate_scale, intercept_scale, first_platform_scale, max_iter, tolerance, 0);
+                                        &m.matrix, beta_mode, moment_order, slab_scale, covariate_scale, intercept_scale, first_platform_scale, max_iter, tolerance, 0, numerical, IMR_LAPLACE_LATENT);
       free(beta_mode);
       double accept_u = gsl_ran_flat(rng, 0, 1);
       double log_accept_ratio = new_log_likelihood - *log_likelihood + log(old_tail_scale) +

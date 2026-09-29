@@ -74,7 +74,7 @@
 #'     induced by the reduced data.}
 #'   \item{model_subgroup_sizes}{The availability subgroups that would be
 #'     modelled under the default real-data illustration threshold
-#'     `ssize = 30`.}
+#'     `min_subgroup_size = 30`.}
 #'   \item{paper_alignment}{Metadata describing how the reduced example maps to
 #'     the Biometrics KIRC case study.}
 #'   \item{source}{Source URLs and reference metadata.}

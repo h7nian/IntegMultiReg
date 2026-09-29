@@ -6,6 +6,8 @@
   stop(message, call. = FALSE)
 }
 
+`%||%` <- function(x, y) if (is.null(x)) y else x
+
 #' @keywords internal
 #' @noRd
 .imr_warn <- function(message) {
@@ -15,7 +17,8 @@
 #' @keywords internal
 #' @noRd
 .imr_is_integerish <- function(x) {
-  is.numeric(x) && all(is.finite(x)) && all(x == as.integer(x))
+  is.numeric(x) && all(is.finite(x)) &&
+    all(abs(x) <= .Machine$integer.max) && all(x == trunc(x))
 }
 
 #' @keywords internal
@@ -47,19 +50,6 @@
 
 #' @keywords internal
 #' @noRd
-.imr_check_integer_vector <- function(x, arg, length, min = -Inf) {
-  if (!is.numeric(x) || length(x) != length || !.imr_is_integerish(x) ||
-      any(x < min)) {
-    .imr_abort(sprintf(
-      "`%s` must be a numeric vector of %d whole number(s).",
-      arg, length
-    ))
-  }
-  as.integer(x)
-}
-
-#' @keywords internal
-#' @noRd
 .imr_check_numeric_vector <- function(x, arg, length = NULL,
                                       positive = FALSE,
                                       nonnegative = FALSE) {
@@ -85,6 +75,27 @@
   x
 }
 
+.imr_check_named_pair <- function(x, arg) {
+  x <- .imr_check_numeric_vector(x, arg, length = 2L, positive = TRUE)
+  if (is.null(names(x)) || !identical(names(x), c("shape", "rate"))) {
+    .imr_abort(sprintf("`%s` must be named `c(shape = ..., rate = ...)`.", arg))
+  }
+  x
+}
+
+.imr_check_mrf_capacity <- function(platform_subgroups, max_subgroups = 16L) {
+  if (!is.list(platform_subgroups)) {
+    .imr_abort("Platform-to-subgroup mappings must be a list.")
+  }
+  if (any(lengths(platform_subgroups) > max_subgroups)) {
+    .imr_abort(sprintf(
+      "Each platform may participate in at most %d modelled subgroups for exact MRF normalization.",
+      max_subgroups
+    ))
+  }
+  invisible(TRUE)
+}
+
 #' @keywords internal
 #' @noRd
 .imr_check_id_frame <- function(x, arg, require_rows = TRUE,
@@ -92,6 +103,7 @@
   if (!is.data.frame(x)) {
     .imr_abort(sprintf("`%s` must be a data frame.", arg))
   }
+  .imr_check_column_names(x, arg)
   if (!identical(names(x)[1], "id")) {
     .imr_abort(sprintf("`%s` must have `id` as its first column.", arg))
   }
@@ -123,8 +135,15 @@
       arg, bad_type[1]
     ))
   }
-  vals <- as.matrix(x[columns])
-  if (any(!is.finite(vals))) {
+  values <- x[columns]
+  # Ordinary numeric columns need no combined matrix copy. Retain matrix
+  # conversion for classed columns, whose coercion/finite methods may differ.
+  finite <- if (any(vapply(values, is.object, logical(1)))) {
+    all(is.finite(as.matrix(values)))
+  } else {
+    all(vapply(values, function(column) all(is.finite(column)), logical(1)))
+  }
+  if (!finite) {
     .imr_abort(sprintf("All non-id values in `%s` must be finite.", arg))
   }
   invisible(x)
@@ -144,7 +163,7 @@
 #' @noRd
 .imr_empty_predictions <- function(model_names) {
   out <- lapply(model_names, function(x) {
-    data.frame(id = character(0), predict = numeric(0))
+    data.frame(id = character(0), prediction = numeric(0))
   })
   names(out) <- paste0("model:", model_names)
   out
@@ -163,4 +182,13 @@
   env <- parent.frame()
   utils::capture.output(value <- eval(expr, env))
   value
+}
+
+# Reject ambiguous names before name-based subsetting can silently drop columns.
+.imr_check_column_names <- function(x, arg) {
+  nm <- names(x)
+  if (anyNA(nm) || any(!nzchar(nm)) || anyDuplicated(nm)) {
+    .imr_abort(sprintf("`%s` must have complete, unique column names.", arg))
+  }
+  invisible(x)
 }

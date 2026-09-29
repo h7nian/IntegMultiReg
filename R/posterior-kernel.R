@@ -9,14 +9,8 @@
   a <- mu / scale
   b <- sigma / scale
   mixture <- a^2 / (a^2 + b^2)
-  repeat {
-    z <- if (stats::runif(1L) < mixture) stats::rnorm(1L) else {
-      (if (stats::runif(1L) < 0.5) -1 else 1) * sqrt(stats::rchisq(1L, df = 3))
-    }
-    if (stats::runif(1L) < (a + b * z)^2 / (2 * (a^2 + b^2 * z^2))) {
-      return(mu + sigma * z)
-    }
-  }
+  z <- .Call("imr_pmom_standardized_draw", a, b, mixture, PACKAGE = "IntegMultiReg")
+  mu + sigma * z
 }
 
 # Conditional continuous-outcome model:

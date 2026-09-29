@@ -12,13 +12,13 @@ posterior_fixture <- function(type = "continuous") {
   outcome <- if (type == "binary") data.frame(id = x$id, y = as.integer(y > .5)) else
     if (type == "right.censored") data.frame(id = x$id, time = exp(y), status = rep(c(0, 1), 8)) else
       data.frame(id = x$id, y = y)
-  imr(list(assay = x), outcome, type_outcome = type, ssize = 2,
-      sample_mcmc = c(16, 8), h0 = 1, seed = 12)
+  imr(list(assay = x), outcome, outcome_type = type, min_subgroup_size = 2,
+      draws = 16, burnin = 8, forced_prior_scale = 1, seed = 12)
 }
 
 test_that("coefficient draws preserve zero selection mass and caller RNG", {
   f <- posterior_fixture()
-  f$gam_sample <- lapply(seq_along(f$gam_sample), function(i) list(matrix(i %% 2L, 1, 1)))
+  f$posterior$selection_draws <- lapply(seq_along(f$posterior$selection_draws), function(i) list(matrix(i %% 2L, 1, 1)))
   set.seed(926)
   before <- .Random.seed
   d <- small_posterior(f, draws = 100, burnin = 50,
@@ -54,10 +54,10 @@ test_that("posterior prediction includes residual variance and preserves routing
   expect_true(all(mean[[1]]$lower < mean[[1]]$upper))
   expect_true(all(response[[1]]$upper - response[[1]]$lower > mean[[1]]$upper - mean[[1]]$lower))
   reversed <- predict(d, list(assay = new$assay[2:1, ]))
-  expect_equal(reversed[[1]]$predict, rev(mean[[1]]$predict))
+  expect_equal(reversed[[1]]$prediction, rev(mean[[1]]$prediction))
   expect_warning(empty <- predict(d, list(assay = new$assay[FALSE, ])), "No subjects")
   expect_equal(nrow(empty[[1]]), 0L)
-  expect_named(empty[[1]], c("id", "predict", "lower", "upper"))
+  expect_named(empty[[1]], c("id", "prediction", "lower", "upper"))
 })
 
 test_that("binary and survival posterior predictions use their response scales", {
@@ -65,16 +65,16 @@ test_that("binary and survival posterior predictions use their response scales",
     f <- posterior_fixture(type)
     d <- small_posterior(f, draws = 80, burnin = 80,
                          conditional_draws = 40, seed = 18)
-    new <- f$input_data$platforms
+    new <- f$preprocessing$input_data$platforms
     p <- predict(d, new)
-    expect_true(all(is.finite(p[[1]]$predict)))
-    expect_true(all(p[[1]]$predict > 0))
+    expect_true(all(is.finite(p[[1]]$prediction)))
+    expect_true(all(p[[1]]$prediction > 0))
     if (type == "binary") {
       expect_true(all(p[[1]]$upper <= 1))
       r <- predict(d, new, type = "response")
       expect_true(all(r[[1]]$lower %in% c(0, 1)))
     } else {
-      f$response_scale <- NULL
+      f$control$response_scale <- NA_character_
       expect_error(posterior_draws(f), "Refit")
     }
   }
@@ -82,7 +82,7 @@ test_that("binary and survival posterior predictions use their response scales",
 
 test_that("conditional kernels have independent mathematical oracles", {
   set.seed(923)
-  x <- replicate(5000, .imr_pmom_normal(0, 1))
+  x <- replicate(5000, IntegMultiReg:::.imr_pmom_normal(0, 1))
   expect_lt(abs(mean(x^2) - 3), .2)
   expect_lt(abs(mean(x > 0) - .5), .04)
   y <- c(-.3, .4, .9, 1.4, -.2, .8)
@@ -90,11 +90,11 @@ test_that("conditional kernels have independent mathematical oracles", {
   mu <- sum(y) / A
   shape <- 3 + length(y) / 2
   rate <- 2 + (sum(y^2) - A * mu^2) / 2
-  s <- .imr_conditional_chain(matrix(1, length(y), 1), y, 2, 0, 3, 2,
+  s <- IntegMultiReg:::.imr_conditional_chain(matrix(1, length(y), 1), y, 2, 0, 3, 2,
                               draws = 4000, burnin = 200)
   expected <- mu + qt(c(.05, .95), 2 * shape) * sqrt(rate / shape / A)
   expect_lt(max(abs(quantile(s[, 1], c(.05, .95)) - expected)), .09)
-  tail <- .imr_lower_normal(rep(-40, 200), 1, 0)
+  tail <- IntegMultiReg:::.imr_lower_normal(rep(-40, 200), 1, 0)
   expect_true(all(is.finite(tail) & tail > 0))
 })
 
@@ -105,8 +105,8 @@ test_that("posterior predictions reuse formula encoding across availability grou
   platforms <- list(a = data.frame(id = 1:24, a = cos(1:24)),
                     b = data.frame(id = 13:36, b = sin(13:36)))
   f <- imr(y ~ age + group, data = clinical, platforms = platforms,
-           type_outcome = "continuous", h0 = 1, ssize = 2,
-           sample_mcmc = c(20, 10), seed = 2)
+           outcome_type = "continuous", forced_prior_scale = 1, min_subgroup_size = 2,
+           draws = 20, burnin = 10, seed = 2)
   original <- f
   d <- small_posterior(f, draws = 20, burnin = 50, conditional_draws = 20)
   expect_identical(f, original)
@@ -121,9 +121,9 @@ test_that("posterior predictions reuse formula encoding across availability grou
   # Identical joint model rows must route the same retained mask in every group.
   for (g in seq_along(d$beta)) {
     offset <- 3L
-    for (platform in f$model_platforms[[g]]) {
-      active <- vapply(d$model_draw, function(s) f$gam_sample[[s]][[platform]][
-        match(g, f$platform_models[[platform]]), 1], 0)
+    for (platform in f$model$subgroup_platforms[[g]]) {
+      active <- vapply(d$model_draw, function(s) f$posterior$selection_draws[[s]][[platform]][
+        match(g, f$model$platform_subgroups[[platform]]), 1], 0)
       expect_identical(d$beta[[g]][, offset + 1L] != 0, active == 1)
       offset <- offset + 1L
     }
@@ -137,14 +137,14 @@ test_that("survival point summaries are medians and prediction restores RNG", {
   f <- posterior_fixture("right.censored")
   d <- small_posterior(f, draws = 30, burnin = 40, conditional_draws = 20)
   # Independent oracle at a training row: its standardized marker is known.
-  row <- f$input_data$platforms[[1]][1, , drop = FALSE]
-  x <- (row$x - mean(f$input_data$platforms[[1]]$x)) /
-    sd(f$input_data$platforms[[1]]$x)
+  row <- f$preprocessing$input_data$platforms[[1]][1, , drop = FALSE]
+  x <- (row$x - mean(f$preprocessing$input_data$platforms[[1]]$x)) /
+    sd(f$preprocessing$input_data$platforms[[1]]$x)
   value <- exp(d$beta[[1]][, 1] + d$beta[[1]][, 2] * x + d$variance[[1]] / 2)
   set.seed(393)
   rng <- .Random.seed
   result <- predict(d, list(assay = row))[[1]]
   expect_identical(.Random.seed, rng)
-  expect_equal(result$predict, median(value))
+  expect_equal(result$prediction, median(value))
   expect_equal(c(result$lower, result$upper), unname(quantile(value, c(.025, .975))))
 })

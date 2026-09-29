@@ -7,7 +7,7 @@
 compare_imr(..., threshold = 0.5)
 }
 \arguments{
-\item{...}{Fitted `"imr"` objects, or one list of fitted objects.}
+\item{...}{Fitted \code{"imr"} objects, or one list of fitted objects.}
 
 \item{threshold}{Common mPIP threshold used to count selected features.}
 }
