@@ -1,6 +1,0 @@
-# GSL compiler and linker flags, substituted by ./configure via gsl-config.
-GSL_CFLAGS = -I/opt/homebrew/Cellar/gsl/2.8/include
-GSL_LIBS = -L/opt/homebrew/Cellar/gsl/2.8/lib -lgsl -lgslcblas
-
-PKG_CPPFLAGS = $(GSL_CFLAGS)
-PKG_LIBS = $(GSL_LIBS)
