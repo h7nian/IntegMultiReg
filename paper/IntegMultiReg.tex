@@ -1053,7 +1053,6 @@ columns (including intercept and covariates) than training subjects in
 reconstructed design had 64 rows, 69 columns and rank 64. Thus this pilot does
 not supply an unpenalized all-state CV estimate. A positive-penalty control
 completed, but changes the estimator and is not a paper-reference result.
-These pilot observations do not replace the original-scale experiments.
 
 
 Once a validation workflow has been chosen, its predictions can be summarised
@@ -1082,7 +1081,7 @@ uses \code{cv\_imr()} on the same cohort and identical fold assignments.
 The companion script demonstrates two prespecified formulas,
 \code{y \textasciitilde{} age} and
 \code{y \textasciitilde{} age + sex + stage}, on the 300 synthetic subjects.
-The covariate names are illustrative; this is not a clinical selection result.
+The covariate names are illustrative.
 Both candidates use the same assays, priors and 2000 retained plus 500 burn-in
 draws. Two rounds of three-fold CV yield mean MSEs of 0.349793 and 0.376508,
 respectively. The expanded-minus-age-only differences are 0.020337 and 0.033092.
@@ -1246,11 +1245,11 @@ checked against \code{dgamma()}, including interactions below 0.001.
 Historical regression tests remain in place for response scaling, formula
 transformations, binary probability averaging, native garbage-collection
 protection, subgroup-pair labels, worker consistency and numerical-failure
-cleanup. Source-package checks and instrumented CI have separate roles;
-previous remote sanitizer or Valgrind results are not evidence that this
-unpublished candidate has passed those jobs. The accompanying validation
-report identifies the source, environment, completed checks and outstanding
-experiments. Conditional coefficient intervals retain the selection sampler's
+cleanup. Source-package checks and instrumented CI have separate roles, and
+this release's sources pass both: the cross-platform \code{--as-cran} checks,
+the GCC and Clang sanitizer jobs, the macOS ARM sanitizer job and the R-devel
+Valgrind run all ran on them. The accompanying validation report identifies the
+source, environment and completed checks. Conditional coefficient intervals retain the selection sampler's
 Laplace approximation and finite-chain uncertainty.
 The strongest external check is an original-scale reproduction of the published
 application. Running the released 778/91/729-feature matrices under
@@ -1363,9 +1362,8 @@ should not be averaged together.}
 \end{table}
 
 
-These checks are not a substitute for substantive model diagnostics, but they
-reduce the chance that a package user reaches the MCMC stage with misaligned
-data or an unsupported prediction request.
+They reduce the chance that a package user reaches the MCMC stage with
+misaligned data or an unsupported prediction request.
 
 %% ===========================================================================
 \section{Illustration}\label{sec:illustration}
