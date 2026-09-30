@@ -17,7 +17,7 @@
 \Plainauthor{Sinian Zhang, Jianfeng Wang, Thierry Chekouo}
 
 \title{\pkg{IntegMultiReg}: An \proglang{R} Package for Integrative
-  \proglang{Bayesian} Multi-Regression of Multi-Platform Biomarkers}
+  Bayesian Multi-Regression of Multi-Platform Biomarkers}
 \Plaintitle{IntegMultiReg: An R Package for Integrative Bayesian
   Multi-Regression of Multi-Platform Biomarkers}
 \Shorttitle{\pkg{IntegMultiReg}}
@@ -45,7 +45,7 @@
   selection and the effect of borrowing strength across subgroups on a
   simulated multi-platform data set.
 }
-\Keywords{\proglang{Bayesian} variable selection, data integration, multi-omics,
+\Keywords{Bayesian variable selection, data integration, multi-omics,
   Markov random field, non-local prior, missing platforms, \proglang{R}}
 \Plainkeywords{Bayesian variable selection, data integration, multi-omics,
   Markov random field, non-local prior, missing platforms, R}
@@ -94,14 +94,14 @@ sparsity and the elimination of spurious small effects are enforced by non-local
 failure time (AFT) models for censored survival outcomes; the present package
 extends the same machinery to continuous and binary responses.
 
-A number of \proglang{R} packages address \proglang{Bayesian} variable selection
+A number of \proglang{R} packages address Bayesian variable selection
 for high-dimensional and/or multivariate data. \pkg{spikeSlabGAM}
 \citep{scheipl2011} provides spike-and-slab selection for structured additive
 regression terms. \pkg{BayesSUR} \citep{zhao2021}
 fits seemingly unrelated regressions with a choice of priors for the variable
 selection indicators (including an MRF prior) and for the residual covariance
 \citep{bottolo2021}; \pkg{mBvs} \citep{lee2017} performs multivariate
-\proglang{Bayesian} variable selection exploiting dependence among outcomes.
+Bayesian variable selection exploiting dependence among outcomes.
 \pkg{BayesSUR} and \pkg{mBvs} focus on dependence among multiple responses. Their
 multivariate-response setting differs from the platform-availability problem
 considered here. \pkg{IntegMultiReg} addresses a different and complementary problem:
@@ -167,7 +167,7 @@ One outcome with predictors from several partly observed platforms &
 Subjects are partitioned into observed-platform subgroups and linked by an MRF
 prior &
 Reusable \proglang{R} implementation with survival, binary and continuous
-outcomes, S3 methods, prediction and cross-validation. \\
+outcomes, S3 methods, prediction and cross-validation (CV). \\
 \bottomrule
 \end{tabular}
 \caption{\label{tab:software-scope}Scope of \pkg{IntegMultiReg} relative to
@@ -302,8 +302,8 @@ $\bm{y}^{\star(s)}$ is defined as follows:
 the notation $\bm{y}^{\star(s)}$ is a working response used to keep the
 regression and variable-selection layers common across outcome types, not a new
 observed endpoint shared by all analyses.  Once this working response is
-observed or augmented, the same pMOM prior and MRF borrowing structure can be
-used for feature selection.
+observed or augmented, the same product-moment (pMOM) prior and MRF borrowing
+structure, both defined below, can be used for feature selection.
 %
 \begin{itemize}
 \item \emph{continuous} outcomes set $\bm{y}^{\star(s)}=\bm{y}^{(s)}$ directly;
@@ -336,8 +336,8 @@ Appendices~\ref{sec:appendix-continuous} and~\ref{sec:appendix-binary}.
 Selection is performed by binary indicators $\gamma^{(s)}_{kg}\in\{0,1\}$ that
 flag whether feature $g$ of platform $k$ enters the regression for subgroup $s$.
 Conditional on $\gamma^{(s)}_{kg}=0$ the coefficient is set to zero; conditional
-on $\gamma^{(s)}_{kg}=1$ it follows a first-order non-local product-moment
-(pMOM) prior \citep{johnson2012},
+on $\gamma^{(s)}_{kg}=1$ it follows a first-order non-local pMOM prior
+\citep{johnson2012},
 %
 \begin{equation}\label{eq:pmom}
   p\!\left(\beta^{(s)}_{kg}\mid\gamma^{(s)}_{kg}=1\right)\;\propto\;
@@ -375,7 +375,7 @@ recovered in a smaller one. The off-diagonal entries are assigned independent
 gamma priors with shape $\alpha_0$ and rate $\beta_0$ (distinct from the
 intercept $\beta_0^{(s)}$ of Equation~\ref{eq:linear}). Setting all
 $\theta^{(k)}_{ss'}=0$ removes the dependence and recovers a non-integrative
-\proglang{Bayesian} multi-step (BMS) analysis that fits each subgroup
+Bayesian multi-step (BMS) analysis that fits each subgroup
 separately; this variant is available for comparison through the argument
 \code{method}.
 
@@ -390,7 +390,7 @@ The post-burn-in draws yield, for every platform and subgroup, the marginal
 posterior inclusion probability (mPIP) $\hat\gamma^{(s)}_{kg}$, which is the
 package's primary measure of biomarker importance.
 
-Predictions for new subjects are obtained by \proglang{Bayesian} model
+Predictions for new subjects are obtained by Bayesian model
 averaging over the sampled selection models, weighted by their marginal
 likelihoods. A new subject is first assigned to the subgroup matching its own
 pattern of observed platforms; its features are standardized using the training
@@ -1192,7 +1192,7 @@ Workflow & Subjects & Features & Subgroups & Manuscript configuration \\
 Figures use 8000 retained draws and 2000 burn-in; prediction comparison uses
 4000 retained draws, 1000 burn-in and 10 rounds of 5-fold cross-validation. \\
 \code{kircIMR} reduced example & 521 & 130 & 4 &
-Runnable real-data example with 4000 retained draws and 1000 burn-in in the
+Runnable real-data example with 4000 retained and 1000 burn-in draws in the
 manuscript code. \\
 Covariate comparison and nested selection & 300 & 38 & 4 &
 2000 retained draws and 500 burn-in; paired 2 rounds of 3-fold CV, followed by
@@ -1286,8 +1286,9 @@ BMS $+$ M & 0.88 (0.02) & 0.67 (0.06) & 0.84 (0.02) & 0.72 (0.05) & 0.81 (0.01) 
 \bottomrule
 \end{tabular}
 \caption{\label{tab:kirc-reproduction}Original-scale KIRC predictive
-performance. Upright entries are the published C-indices of
-\citet[Table~1]{chekouo2017}; italic entries are the rerun produced by
+performance, where CPH is the multivariable Cox proportional hazards model,
+C the clinical prognostic factors and M the molecular data. Upright entries are
+the published C-indices of \citet[Table~1]{chekouo2017}; italic entries are the rerun produced by
 \pkg{IntegMultiReg} under \code{reference = "code2017"} with 350000 retained
 draws after 50000 burn-in, ten rounds of ten-fold cross-validation and the mean
 taken over the 100 validation sets. Parenthetic values are standard errors;
@@ -1305,7 +1306,9 @@ The simulation study reproduces the article's mechanism and not only its
 numbers. Table~\ref{tab:simulation-reproduction} reports the archived data
 generator run for the three overlap scenarios at 50 replicates each and the six
 correlated-marker settings at 30 each, the replicate counts the article
-specifies. IMR exceeds BMS on selection AUC in every platform-by-subgroup cell
+specifies. Selection AUC is the area under the receiver operating
+characteristic curve for recovering the true signal features from the ranked
+mPIPs. IMR exceeds BMS on it in every platform-by-subgroup cell
 when the relevant biomarker sets coincide, in every cell by a smaller margin at
 fifty percent overlap, and in two cells of eight by at most 0.005 when the sets
 do not overlap. That ordering is what the MRF prior predicts and what
