@@ -24,6 +24,11 @@ Multi-Regression of Multi-Platform Biomarkers}
 \begin{document}
 \maketitle
 
+\textcolor{red}{add some samples}
+\textcolor{blue}{use blue in the paper when we do some modifications}
+
+
+
 We thank the editor for the constructive assessment. We have revised the
 software interface, fit inspection, uncertainty reporting and replication
 materials. The current submission uses package version 0.2.0. Below we respond
@@ -58,6 +63,9 @@ ambiguous column names and incomplete validation of saved fits.
 \end{response}
 
 \section*{2. Fit inspection, uncertainty and covariates}
+
+\textcolor{red}{give some examples to present what the new functions do}
+
 \begin{editorcomment}
 Also additional methods would seem required to inspect, validate and compare the
 different model fits as well as expand on them and for example select suitable
@@ -68,12 +76,15 @@ posterior uncertainty estimates in addition to the point estimates, etc.
 The package now supplies \code{validate\_imr()}, \code{compare\_imr()},
 selection-indicator and theta-interaction traces, \code{posterior\_summary()}
 and \code{confint()}. These complement the original log-posterior trace and
-point summaries. \code{posterior\_draws()} provides coefficient uncertainty
+point summaries. \code{posterior\_draws()} \textcolor{red}{check this function, posterior.. show how this work, and show it line by line}provides coefficient uncertainty
 and posterior prediction for continuous, binary and right-censored outcomes;
 conditional sampling resamples latent responses. The methods table and the
 fitted-object and diagnostic sections describe their use. Tests exercise
 these methods for all three outcome families, including prediction routing,
 response scales and reproducibility.
+
+\textcolor{red}{trace for other parameters}
+\textcolor{red}{$\beta$ values, summary of the latent values. currently we do not have. how to get confidence interval. Continue One: $\sigma$ based on the $\beta$ values, sample them. }
 
 The scope is explicit: model weights use the original Laplace approximation;
 conditional split R-hat does not diagnose convergence of the selection chain;
