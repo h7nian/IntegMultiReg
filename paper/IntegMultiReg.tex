@@ -1486,53 +1486,13 @@ selection, exact mPIPs for borderline features may change across runs, but the
 top-ranked features and the separation between strong signals and null features
 should be reasonably stable.
 
-The package makes that second check a routine operation. The archived 2017
-program fixes its random seed in the source and exposes no seed argument, so the
-eight-chain multi-start assessment reported by \citet{chekouo2017} cannot be
-obtained from it without editing and recompiling the \proglang{C} sources. Here
-\code{initial} takes explicit selection and interaction starting values and
-\code{seed} is an ordinary argument, so a multi-start run is scripted rather
-than patched. Table~\ref{tab:chain-diagnostics} reports eight chains from eight
-recorded starts, each retaining $10^{6}$ draws after 50000 burn-in, roughly
-three times the per-chain budget of the published analysis. The mRNA and miRNA
-interaction parameters reach rank-normalized split-$\widehat{R}$ below 1.01
-with bulk effective sample sizes (ESS) in the thousands; the methylation
-interaction does not, at $\widehat{R}=1.045$ and a bulk ESS of 208. The smallest cross-chain
-correlation between marginal posterior inclusion probabilities is 0.803 for
-mRNA and 0.813 for methylation, below the 0.85 bound the article reports, while
-miRNA reaches 0.958.
-
-\begin{table}[!ht]
-\centering
-\small
-\begin{tabular}{l c c c c c c}
-\toprule
-Platform & Pairs & Rank $\widehat{R}$ & Bulk ESS & Tail ESS & PSRF &
-Min.\ $\rho$ \\
-\midrule
-mRNA        & 6 & 1.001--1.001 & 7,832--15,997 & 26,775--49,970 & 1.000--1.001 & 0.803 \\
-miRNA       & 1 & 1.007        & 1,426         & 1,490          & 1.005        & 0.958 \\
-Methylation & 1 & 1.045        & 208           & 498            & 1.016        & 0.813 \\
-\bottomrule
-\end{tabular}
-\caption{\label{tab:chain-diagnostics}Eight-chain diagnostics for the
-subgroup-interaction parameters $\theta$, from eight recorded starting points
-with $10^6$ retained draws per chain after 50000 burn-in under
-\code{sampler\_method = "paper"}. ``Pairs'' counts the subgroup pairs a
-platform contributes; ranges run over those pairs. Rank $\widehat{R}$ is the
-rank-normalized split-folded statistic and PSRF the classical potential scale
-reduction factor. Min.\ $\rho$ is the smallest Pearson correlation between
-marginal posterior inclusion probabilities over all 28 chain pairs and
-availability subgroups of that platform.}
-\end{table}
-
-
-The two runs target different stationary distributions: the released selection
-update omits a Hastings ratio at boundary flips, and the corrected
-\code{"paper"} update used here does not (Section~\ref{sec:strategies}). The
-archive records neither the per-chain budget behind the published bound nor the
-form of its correlation summary. For an applied analysis the consequence is
-that methylation rankings from a single chain of this length are not stable.
+The package makes that second check a routine operation: \code{initial} takes
+explicit selection and interaction starting values and \code{seed} is an
+ordinary argument, so a multi-start run is scripted rather than patched.
+Appendix~\ref{sec:appendix-chains} reports eight chains of $10^{6}$ retained
+draws each on the original-scale KIRC data. Their consequence for an applied
+analysis is that neither the methylation interaction nor the mRNA marker
+ranking should be read from a single chain of that length.
 
 The comparison between IMR and BMS is also a sensitivity analysis for the MRF
 borrowing assumption.  Agreement between the fits indicates limited sensitivity to the borrowing
@@ -1580,13 +1540,10 @@ random marker identities described in the article. A common seeded permutation
 per platform maps the archived signal pattern to random identities while
 preserving signal counts and overlap; output columns and truth labels are
 restored to the original feature order. Actual permutations and inner L1-CPH
-fold assignments are saved. Unknown historical replicate seeds and the article's
-776-versus-archive's-778 gene count remain documented.
-These differences prevent an automatic claim of historical-digit reproduction.
-Historical starting values are unavailable, so the eight starts behind
-Table~\ref{tab:chain-diagnostics} are ours rather than the article's; that
-table characterizes the stated model and does not reproduce the published
-Appendix~F diagnostics.
+fold assignments are saved. Unknown historical replicate seeds and starting
+values, and the article's 776-versus-archive's-778 gene count, remain
+documented. These differences prevent an automatic claim of historical-digit
+reproduction.
 The archive's global screening is retained as an experimental condition;
 training-fold screening is a separate predictive evaluation choice.
 
@@ -1923,5 +1880,74 @@ Thus, probabilities are averaged on the response scale. Conditional posterior
 prediction instead evaluates $\Phi(\eta/\sigma)$ for each sampled coefficient
 and variance draw, retaining uncertainty as described in the fitted-object
 section.
+
+\clearpage
+\section{Multi-chain diagnostics at the original scale}
+\label{sec:appendix-chains}
+\setcounter{table}{0}
+\setcounter{figure}{0}
+%% ===========================================================================
+
+The archived 2017 program fixes its random seed in the source and exposes no
+seed argument, so the eight-chain multi-start assessment reported by
+\citet{chekouo2017} cannot be obtained from it without editing and recompiling
+the \proglang{C} sources. Here \code{initial} takes explicit selection and
+interaction starting values and \code{seed} is an ordinary argument, so a
+multi-start run is scripted rather than patched. This appendix reports such a
+run on the original-scale KIRC data: eight chains from eight recorded starting
+points, each retaining $10^{6}$ draws after 50000 burn-in, roughly three times
+the per-chain budget of the published analysis.
+
+Table~\ref{tab:chain-diagnostics} summarises two quantities, and they rank the
+platforms differently. The subgroup-interaction parameters $\theta$ mix well
+for mRNA and miRNA, at rank-normalized split-$\widehat{R}$ below 1.01 with bulk
+effective sample sizes (ESS) in the thousands; the single methylation
+interaction does not, at $\widehat{R}=1.045$ and a bulk ESS of 208. The
+cross-chain correlation between marginal posterior inclusion probabilities is
+instead lowest for mRNA, at 0.803, with methylation at 0.813 and miRNA at
+0.958. Over all 28 chain pairs and the availability subgroups of each platform,
+74 of the 112 mRNA comparisons and 23 of the 56 methylation comparisons fall
+below the 0.85 bound the article reports; no miRNA comparison does.
+
+\begin{table}[!ht]
+\centering
+\small
+\begin{tabular}{l c c c c c c}
+\toprule
+Platform & Pairs & Rank $\widehat{R}$ & Bulk ESS & Tail ESS & PSRF &
+Min.\ $\rho$ \\
+\midrule
+mRNA        & 6 & 1.001--1.001 & 7,832--15,997 & 26,775--49,970 & 1.000--1.001 & 0.803 \\
+miRNA       & 1 & 1.007        & 1,426         & 1,490          & 1.005        & 0.958 \\
+Methylation & 1 & 1.045        & 208           & 498            & 1.016        & 0.813 \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:chain-diagnostics}Eight-chain diagnostics for the
+subgroup-interaction parameters $\theta$, from eight recorded starting points
+with $10^6$ retained draws per chain after 50000 burn-in under
+\code{sampler\_method = "paper"}. ``Pairs'' counts the subgroup pairs a
+platform contributes; ranges run over those pairs. Rank $\widehat{R}$ is the
+rank-normalized split-folded statistic and PSRF the classical potential scale
+reduction factor. Min.\ $\rho$ is the smallest Pearson correlation between
+marginal posterior inclusion probabilities over all 28 chain pairs and
+availability subgroups of that platform.}
+\end{table}
+
+The two findings concern different quantities. At this chain length the
+methylation interaction is not resolved, so a single chain gives an unreliable
+estimate of how strongly that platform borrows between subgroups \code{101} and
+\code{111}. Separately, and although $\theta$ mixes well for mRNA, the mRNA
+inclusion probabilities are the least reproducible of the three platforms
+across chains, so an mRNA marker ranking taken from one chain should not be
+treated as settled either.
+
+The comparison with the published bound is indirect. The two runs target
+different stationary distributions: the released selection update omits a
+Hastings ratio at boundary flips, and the corrected \code{"paper"} update used
+here does not (Section~\ref{sec:strategies}). The archive records neither the
+per-chain budget behind the published bound nor the form of its correlation
+summary. Historical starting values are also unavailable, so the eight starts
+used here are ours rather than the article's, and this table characterizes the
+stated model rather than reproducing the published Appendix~F diagnostics.
 
 \end{document}
