@@ -192,41 +192,4 @@ covariates, polynomial terms, missing variables and unseen factor levels.
 The package-interface section includes the new syntax.
 \end{response}
 
-\clearpage
-\section*{Validation evidence and remaining scope}
-The suite passes 2851 expectations with no failure, warning or skip.
-\code{R CMD check --as-cran} reports \code{Status: OK} on
-\href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516101}{Ubuntu
-R-release, Ubuntu R-devel, Windows R-release and macOS R-release}, and on a
-\href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516112}{separate
-Linux check}: zero errors, zero warnings and zero notes. Those jobs set
-\code{error-on = "warning"}, so a warning on any platform would have failed
-them.
-
-The \href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516050}{R-devel
-Valgrind run} reports zero definitely lost bytes and zero errors from zero
-contexts, with no suppressions. The
-\href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516113}{Linux
-GCC and Clang} UBSAN and ASAN+UBSAN jobs and the
-\href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516172}{macOS ARM
-ASAN+UBSAN job} are clean. As a control, the archived 0.1.1 tarball still
-reproduces its exact 7,200-byte leak under these settings, so the configuration
-is known to detect the defect that caused that archival.
-
-Beyond the package checks, an original-scale study of 679 tasks completed with
-no task failure: the rerun of Table~1 of the original article, the
-three-scenario and correlated-marker simulations at the article's replicate
-counts, and eight chains of $10^{6}$ retained draws. Its collection stage
-re-verified every task's source and data hashes before summarising. The
-full-scale KIRC analysis that the previous revision withdrew belongs to that
-study, and the manuscript now reports all three results in its software
-validation and diagnostics sections, with the design differences that prevent
-digit-level historical reproduction: unavailable replicate seeds and starting
-values, the article's 776 genes against the archive's 778, and the corrected
-sampler whose target differs from the released implementation's. The
-diagnostics section also states where convergence is not satisfactory. The
-methylation interaction reaches a rank-normalized split-$\widehat{R}$ of 1.045
-with a bulk effective sample size of 208, and methylation rankings from a
-single chain of this length are not stable.
-
 \end{document}
