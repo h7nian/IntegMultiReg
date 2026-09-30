@@ -1,0 +1,247 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\pkg}[1]{\textsf{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newenvironment{editorcomment}
+  {\par\smallskip\sloppy\noindent\textbf{Editor comment.}\itshape}
+  {\par\smallskip\fussy}
+\newenvironment{response}
+  {\noindent\textbf{Response.}}
+  {\par\smallskip}
+
+\title{Response to the Editor\\
+\large IntegMultiReg: An R Package for Integrative Bayesian
+Multi-Regression of Multi-Platform Biomarkers}
+\author{Sinian Zhang, Jianfeng Wang, and Thierry Chekouo}
+\date{Revision draft: September 8, 2026}
+
+\begin{document}
+\maketitle
+
+We thank the editor for the constructive assessment. We have revised the
+software interface, fit inspection, uncertainty reporting and replication
+materials. The current submission uses package version 0.2.0. Below we respond
+point by point; comments are condensed for readability. References to sections
+use their titles so that they remain valid after manuscript pagination changes.
+
+\section*{1. Software design and validated data objects}
+\begin{editorcomment}
+Further software development is needed beyond packaging the original study
+code. The input interface is complicated and potentially error prone; a
+dedicated data type should support validation, printing, summaries, component
+extraction and prediction data.
+\end{editorcomment}
+\begin{response}
+We introduced \code{imr\_data()}, a reusable multi-platform data class shared
+by fitting and prediction. It validates subject identifiers, unique column
+names, finite numerical values, outcome coding and cross-platform alignment,
+and records observed-platform patterns, eligible subjects and subgroup sizes.
+It supports \code{print()}, \code{summary()}, \code{as.data.frame()},
+\code{validate\_imr\_data()} and standard named-component extraction. The
+component-wise fitting interface remains available and passes through the
+same validation path. The revised manuscript's package-interface section
+explains the class and uses it in the main example.
+
+The boundary audit also corrected integer overflow in computational controls,
+ambiguous column names and incomplete validation of saved fits.
+\end{response}
+
+\section*{2. Fit inspection, uncertainty and covariates}
+\begin{editorcomment}
+Additional methods are needed to inspect, validate and compare fits, examine
+other parameter traces, obtain posterior uncertainty and consider suitable
+covariates.
+\end{editorcomment}
+\begin{response}
+The package now supplies \code{validate\_imr()}, \code{compare\_imr()},
+selection-indicator and theta-interaction traces, \code{posterior\_summary()}
+and \code{confint()}. These complement the original log-posterior trace and
+point summaries. \code{posterior\_draws()} provides coefficient uncertainty
+and posterior prediction for continuous, binary and right-censored outcomes;
+conditional sampling resamples latent responses. The methods table and the
+fitted-object and diagnostic sections describe their use. Tests exercise
+these methods for all three outcome families, including prediction routing,
+response scales and reproducibility.
+
+The scope is explicit: model weights use the original Laplace approximation;
+conditional split R-hat does not diagnose convergence of the selection chain;
+and \code{compare\_imr()} itself is a descriptive summary.
+Log-time survival predictions use time-scale medians because the corresponding
+posterior mean need not exist. Clinical covariates remain forced within each fitted specification, while the
+selection prior applies to platform biomarkers. To respond to predictive
+covariate choice without changing that prior, we added a complete worked
+comparison of two prespecified formulas on the same subjects and identical CV
+folds. We also added nested CV: inner folds choose the formula and outer folds
+evaluate that choice. The script saves the actual subject/fold assignments and
+checks that outer test IDs never enter inner validation. It is included in the
+replication bundle and as an installed package example.
+
+On the synthetic example, the two candidates have paired mean MSEs of 0.349793
+and 0.376508; the separately evaluated selection procedure has outer MSE
+0.340617. These are illustrative predictive results, not clinical evidence.
+Necessary adjustment variables must remain in every candidate formula. This
+provides an executable covariate-choice workflow; it does not implement a new
+clinical inclusion prior or automate causal confounder selection. The new
+``Comparing and choosing covariate specifications'' subsection explains the
+settings and interpretation.
+\end{response}
+
+\section*{3. Executable manuscript commands and output}
+\begin{editorcomment}
+The replication script should contain all manuscript commands and print their
+output; for example, \code{print(fit, threshold = 0.5)} was missing.
+\end{editorcomment}
+\begin{response}
+We reorganized the standalone replication script to include the displayed
+R input blocks, including the new comparison commands, both fit-printing calls, summaries, prediction and
+reduced KIRC commands. It prints the corresponding output, regenerates the
+figures and CSV tables, and records the package version and session information.
+The script requires version 0.2.0 and checks the prediction table against a
+separate, versioned reference. Normal mode uses the manuscript simulation and
+cross-validation settings. Quick mode is a smoke test and is explicitly
+separated from full numerical replication. The revised reproducibility section
+and the bundle README give the commands and validation scope.
+\end{response}
+
+\section*{4. Prediction-table discrepancy and numerical correction}
+\begin{editorcomment}
+The binary IMR row in the expected prediction-comparison table differs from
+the newly generated replication output.
+\end{editorcomment}
+\begin{response}
+While auditing the discrepancy, we identified that the historical cross-validation
+calculation used held-out responses in weighting and reused full-data selection
+draws. We replaced it with independent training-fold MCMC fits, including
+training-only preprocessing, formula transformations and posterior model
+weights. Hyperparameters remain fixed; data-driven tuning requires an
+additional validation layer. We also corrected binary model averaging to
+average model-specific probabilities, comparable-pair scoring for concordance,
+and theta-pair labels when a platform occurs in four or more subgroups.
+
+We updated the manuscript's table, interpretation and CV description. At the manuscript settings (4000 retained draws, 1000 burn-in and ten
+rounds of five-fold validation), the binary IMR AUC row is now
+\code{0.668, 0.653, 0.716, 0.556, 0.651}. Two independent full default
+replications produced byte-identical copies of the six main CSV tables and eight covariate-comparison CSV tables and identical
+unrounded prediction-comparison metrics. Regression tests perturb held-out
+responses and features, verify training-only transformation bases, compare
+concordance against \code{survival::concordance()}, and check probability
+averaging and theta labels against explicit reference calculations. The frozen
+0.1.3 archive is retained for provenance, not used as the current numerical
+reference.
+\end{response}
+
+\section*{5. Software availability beyond R}
+\begin{editorcomment}
+The software overview focuses on R and should discuss related functionality in
+other environments.
+\end{editorcomment}
+\begin{response}
+We added a sourced cross-environment comparison table. It covers
+MOFA2/\code{mofapy2} (R and Python), \code{mvlearn} (Python), similarity
+network fusion (MATLAB and R), and \pkg{MultivariateStats.jl} CCA (Julia).
+The discussion distinguishes latent-factor learning, correlated representations
+and network fusion from IMR's availability-subgroup outcome regressions. It
+states relevant input requirements and cites project documentation or the
+original methods paper. This directly addresses related functionality outside
+R, rather than relying on a claim that no direct IMR implementation is known.
+\end{response}
+
+\section*{6. Full-precision predictions}
+\begin{editorcomment}
+Predictions should retain their full values; users should choose display
+precision.
+\end{editorcomment}
+\begin{response}
+We removed internal rounding from \code{predict.imr()}. Returned probabilities
+and continuous or latent-response predictions preserve numerical precision.
+The manuscript example chooses \code{digits} only when printing. A regression
+test verifies that returned predictions retain information beyond three decimal
+places; the binary probability-averaging test separately checks numerical
+correctness.
+\end{response}
+
+\section*{7. Formula/data regression interface}
+\begin{editorcomment}
+The package should use the usual formula/data interface, or accept a response
+vector, model matrix and explicit identifiers.
+\end{editorcomment}
+\begin{response}
+We added \code{imr.formula()}, combining a response/covariate formula and
+clinical \code{data} with explicitly identified platform data. It uses
+\code{model.frame()} and \code{model.matrix()} and creates the same validated
+data object as the component-wise interface. Matrix-valued responses support
+right-censored outcomes. Prediction retains training factor levels, contrasts
+and supported transformation bases; CV learns those bases within each training
+fold. Dot formulas exclude the identifier. Unsupported no-intercept and offset
+formulas fail explicitly. Tests cover reordered identifiers, categorical
+covariates, polynomial terms, missing variables and unseen factor levels.
+The package-interface section includes the new syntax.
+\end{response}
+
+\clearpage
+\section*{Validation evidence and remaining scope}
+The suite passes 2851 expectations with no failure, warning or skip.
+\code{R CMD check --as-cran} reports \code{Status: OK} on
+\href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516101}{Ubuntu
+R-release, Ubuntu R-devel, Windows R-release and macOS R-release}, and on a
+\href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516112}{separate
+Linux check}: zero errors, zero warnings and zero notes. Those jobs set
+\code{error-on = "warning"}, so a warning on any platform would have failed
+them.
+
+The \href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516050}{R-devel
+Valgrind run} reports zero definitely lost bytes and zero errors from zero
+contexts, with no suppressions. The
+\href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516113}{Linux
+GCC and Clang} UBSAN and ASAN+UBSAN jobs and the
+\href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516172}{macOS ARM
+ASAN+UBSAN job} are clean. As a control, the archived 0.1.1 tarball still
+reproduces its exact 7,200-byte leak under these settings, so the configuration
+is known to detect the defect that caused that archival.
+
+Beyond the package checks, an original-scale study of 679 tasks completed with
+no task failure: the KIRC Table~1 rerun, the three-scenario and correlated
+simulations at the article's replicate counts, and eight chains of $10^{6}$
+retained draws. Its collection stage re-verified every task's source and data
+hashes before summarising. The manuscript's diagnostics section reports the
+convergence assessment separately; the methylation interaction does not reach
+the usual thresholds there.
+
+
+The full-scale KIRC analysis that the previous revision withdrew has now been
+run, and the manuscript reports it. Using the released feature matrices under
+the article's own budget of 350000 retained draws after 50000 burn-in and its
+ten rounds of ten-fold cross-validation, the reproduction agrees with the
+published Table~1 to a largest absolute difference of 0.044 and a median of
+0.011; seventeen of the twenty-five cells fall inside the standard error the
+article reports for that cell and twenty-four inside twice it. The archive does not
+distribute the replicate seeds, so the agreement is within sampling variation
+rather than at the level of digits. The
+earlier table's text and script snapshot remain in the checksummed historical
+audit.
+
+The simulation study was rerun at the article's replicate counts, and the
+correlated-marker settings are reported separately rather than pooled, because
+the direction in $\rho$ differs between the all-correlated and half-correlated
+halves of that design.
+
+We also ran the multi-chain assessment the article describes. The archived
+program fixes its seed in the source and exposes no seed argument, so that
+assessment cannot be obtained from it without editing and recompiling; the
+package makes it an ordinary call. Eight chains of $10^{6}$ retained draws,
+about three times the published per-chain budget, leave the mRNA and miRNA
+interaction parameters below rank-normalized split-$\widehat{R}$ of 1.01, but
+the methylation interaction reaches 1.045 with a bulk effective sample size of
+208, and the smallest cross-chain correlation between marginal posterior
+inclusion probabilities is 0.803 for mRNA and 0.813 for methylation against the
+0.85 the article reports. These chains run the corrected sampler, whose target
+differs from the released implementation's. Methylation rankings from a single
+chain of this length are not stable, and the manuscript says so.
+
+\end{document}
