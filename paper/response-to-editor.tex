@@ -117,17 +117,25 @@ the newly generated replication output.
 \begin{response}
 While auditing the discrepancy, we identified that the historical cross-validation
 calculation used held-out responses in weighting and reused full-data selection
-draws. We replaced it with independent training-fold MCMC fits, including
-training-only preprocessing, formula transformations and posterior model
-weights. Hyperparameters remain fixed; data-driven tuning requires an
+draws. The manuscript now evaluates prediction with
+\code{cv\_imr(cv\_method = "refit")}, which fits an independent MCMC model
+within each training fold and recomputes preprocessing, formula transformations
+and posterior model weights from training data alone. The two post-fit modes
+are retained rather than removed, and \code{"legacy"} remains the default,
+because they answer a different question; the manuscript gives their
+interpretation and states that they should not be labelled training-fold
+refits. Hyperparameters remain fixed; data-driven tuning requires an
 additional validation layer. We also corrected binary model averaging to
 average model-specific probabilities, comparable-pair scoring for concordance,
 and theta-pair labels when a platform occurs in four or more subgroups.
 
-We updated the manuscript's table, interpretation and CV description. At the manuscript settings (4000 retained draws, 1000 burn-in and ten
-rounds of five-fold validation), the binary IMR AUC row is now
-\code{0.668, 0.653, 0.716, 0.556, 0.651}. Two independent full default
-replications produced byte-identical copies of the six main CSV tables and eight covariate-comparison CSV tables and identical
+We updated the manuscript's table, interpretation and CV description. At the
+manuscript settings (4000 retained draws, 1000 burn-in and ten rounds of
+five-fold refit validation), the binary IMR AUC row is
+\code{0.660, 0.640, 0.605, 0.605, 0.628}. All thirty entries of that table
+agree with the versioned reference the replication script checks against. Two
+independent full default replications produced byte-identical copies of the six
+main CSV tables and eight covariate-comparison CSV tables, and identical
 unrounded prediction-comparison metrics. Regression tests perturb held-out
 responses and features, verify training-only transformation bases, compare
 concordance against \code{survival::concordance()}, and check probability
@@ -206,41 +214,19 @@ reproduces its exact 7,200-byte leak under these settings, so the configuration
 is known to detect the defect that caused that archival.
 
 Beyond the package checks, an original-scale study of 679 tasks completed with
-no task failure: the KIRC Table~1 rerun, the three-scenario and correlated
-simulations at the article's replicate counts, and eight chains of $10^{6}$
-retained draws. Its collection stage re-verified every task's source and data
-hashes before summarising. The manuscript's diagnostics section reports the
-convergence assessment separately; the methylation interaction does not reach
-the usual thresholds there.
-
-
-The full-scale KIRC analysis that the previous revision withdrew has now been
-run, and the manuscript reports it. Using the released feature matrices under
-the article's own budget of 350000 retained draws after 50000 burn-in, and its
-ten rounds of ten-fold cross-validation, the reproduction differs from the
-published Table~1 by at most 0.044, with a median of 0.011. Seventeen of the
-twenty-five cells fall inside the standard error the article reports for that
-cell and twenty-four inside twice it. The archive does not distribute the
-replicate seeds, so the agreement is within sampling variation rather than
-digit for digit. The earlier table's text and script snapshot remain in the
-checksummed historical audit.
-
-The simulation study was rerun at the article's replicate counts, and the
-correlated-marker settings are reported separately rather than pooled, because
-the direction in $\rho$ differs between the all-correlated and half-correlated
-halves of that design.
-
-We also ran the multi-chain assessment the article describes. The archived
-program fixes its seed in the source and exposes no seed argument, so that
-assessment cannot be obtained from it without editing and recompiling; the
-package makes it an ordinary call. We ran eight chains of $10^{6}$ retained
-draws each, about three times the published per-chain budget. The mRNA and
-miRNA interaction parameters stay below a rank-normalized split-$\widehat{R}$
-of 1.01; the methylation interaction reaches 1.045, with a bulk effective
-sample size of 208. The smallest cross-chain correlation between marginal
-posterior inclusion probabilities is 0.803 for mRNA and 0.813 for methylation,
-against the 0.85 the article reports. These chains run the corrected sampler,
-whose target differs from the released implementation's. Methylation rankings
-from a single chain of this length are not stable, and the manuscript says so.
+no task failure: the rerun of Table~1 of the original article, the
+three-scenario and correlated-marker simulations at the article's replicate
+counts, and eight chains of $10^{6}$ retained draws. Its collection stage
+re-verified every task's source and data hashes before summarising. The
+full-scale KIRC analysis that the previous revision withdrew belongs to that
+study, and the manuscript now reports all three results in its software
+validation and diagnostics sections, with the design differences that prevent
+digit-level historical reproduction: unavailable replicate seeds and starting
+values, the article's 776 genes against the archive's 778, and the corrected
+sampler whose target differs from the released implementation's. The
+diagnostics section also states where convergence is not satisfactory. The
+methylation interaction reaches a rank-normalized split-$\widehat{R}$ of 1.045
+with a bulk effective sample size of 208, and methylation rankings from a
+single chain of this length are not stable.
 
 \end{document}
