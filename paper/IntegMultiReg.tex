@@ -1096,6 +1096,9 @@ the models are at or below 1.05, while the maximum of 1.318 raises the alert.
 The models holding the largest values are those the selection chain visited
 only a few times -- the five highest were returned in between 1 and 139 of the
 4000 draws -- so their split statistic rests on very little information.
+Doubling the run to 8000 draws leaves this unchanged, at a median of 1.041 and
+a maximum of 1.312 over 499 models, so the alert reflects how the statistic is
+formed rather than an inadequate budget.
 Reading \code{post$diagnostics} therefore locates the subgroup and model to
 treat with caution, which the headline maximum alone does not. The statistic
 does not diagnose the selection chain.
