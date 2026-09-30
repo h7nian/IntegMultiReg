@@ -19,7 +19,7 @@
 \large IntegMultiReg: An R Package for Integrative Bayesian
 Multi-Regression of Multi-Platform Biomarkers}
 \author{Sinian Zhang, Jianfeng Wang, and Thierry Chekouo}
-\date{Revision draft: September 8, 2026}
+\date{Revision draft: September 30, 2026}
 
 \begin{document}
 \maketitle
@@ -216,15 +216,14 @@ the usual thresholds there.
 
 The full-scale KIRC analysis that the previous revision withdrew has now been
 run, and the manuscript reports it. Using the released feature matrices under
-the article's own budget of 350000 retained draws after 50000 burn-in and its
-ten rounds of ten-fold cross-validation, the reproduction agrees with the
-published Table~1 to a largest absolute difference of 0.044 and a median of
-0.011; seventeen of the twenty-five cells fall inside the standard error the
-article reports for that cell and twenty-four inside twice it. The archive does not
-distribute the replicate seeds, so the agreement is within sampling variation
-rather than at the level of digits. The
-earlier table's text and script snapshot remain in the checksummed historical
-audit.
+the article's own budget of 350000 retained draws after 50000 burn-in, and its
+ten rounds of ten-fold cross-validation, the reproduction differs from the
+published Table~1 by at most 0.044, with a median of 0.011. Seventeen of the
+twenty-five cells fall inside the standard error the article reports for that
+cell and twenty-four inside twice it. The archive does not distribute the
+replicate seeds, so the agreement is within sampling variation rather than
+digit for digit. The earlier table's text and script snapshot remain in the
+checksummed historical audit.
 
 The simulation study was rerun at the article's replicate counts, and the
 correlated-marker settings are reported separately rather than pooled, because
@@ -234,14 +233,14 @@ halves of that design.
 We also ran the multi-chain assessment the article describes. The archived
 program fixes its seed in the source and exposes no seed argument, so that
 assessment cannot be obtained from it without editing and recompiling; the
-package makes it an ordinary call. Eight chains of $10^{6}$ retained draws,
-about three times the published per-chain budget, leave the mRNA and miRNA
-interaction parameters below rank-normalized split-$\widehat{R}$ of 1.01, but
-the methylation interaction reaches 1.045 with a bulk effective sample size of
-208, and the smallest cross-chain correlation between marginal posterior
-inclusion probabilities is 0.803 for mRNA and 0.813 for methylation against the
-0.85 the article reports. These chains run the corrected sampler, whose target
-differs from the released implementation's. Methylation rankings from a single
-chain of this length are not stable, and the manuscript says so.
+package makes it an ordinary call. We ran eight chains of $10^{6}$ retained
+draws each, about three times the published per-chain budget. The mRNA and
+miRNA interaction parameters stay below a rank-normalized split-$\widehat{R}$
+of 1.01; the methylation interaction reaches 1.045, with a bulk effective
+sample size of 208. The smallest cross-chain correlation between marginal
+posterior inclusion probabilities is 0.803 for mRNA and 0.813 for methylation,
+against the 0.85 the article reports. These chains run the corrected sampler,
+whose target differs from the released implementation's. Methylation rankings
+from a single chain of this length are not stable, and the manuscript says so.
 
 \end{document}

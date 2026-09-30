@@ -211,14 +211,12 @@ modelling target rather than implementation language alone. Sources are the proj
 SNF methods paper; documentation was consulted on September 21, 2026.}
 \end{table}
 
-The package is available through
+The package is on CRAN at
 \url{https://CRAN.R-project.org/package=IntegMultiReg}. This article describes
-version 0.2.0; until that version reaches CRAN the accompanying replication
-materials install it from
-\url{https://github.com/h7nian/IntegMultiReg}, whose \code{main} branch carries
-it. Readers reproducing the results below should check
-\code{packageVersion("IntegMultiReg")} against 0.2.0, because the interface
-changed at that version. The remainder of the paper follows the
+version 0.2.0, which the replication materials install from the \code{main}
+branch of \url{https://github.com/h7nian/IntegMultiReg} until it reaches CRAN.
+The interface changed at 0.2.0, so readers reproducing the results below should
+check the installed version first. The remainder of the paper follows the
 analysis workflow from model specification to empirical assessment.
 Section~\ref{sec:model} describes the IMR model and the priors that link the
 regression models across subgroups. Section~\ref{sec:package} presents the
@@ -973,10 +971,10 @@ outcomes are augmented within these conditional chains using the observed data.
 
 The function \code{posterior\_draws()} returns an \code{"imr\_posterior"}
 object. Its \code{confint()} method gives coefficient intervals on the
-transformed predictor scales. The method
-\code{predict()} on this object with \code{type = "mean"} gives intervals for conditional
-response means or binary event probabilities; \code{type = "response"}
-adds future outcome variability. For log-time survival fits these are
+transformed predictor scales. Its \code{predict()} method with
+\code{type = "mean"} gives intervals for conditional response means or for
+binary event probabilities, and \code{type = "response"} adds future outcome
+variability. For log-time survival fits these are
 transformed to time units and the point summaries are medians. A posterior
 mean on the time scale need not exist under an inverse-gamma variance mixture.
 Future censoring times are not generated.
@@ -1251,25 +1249,28 @@ the GCC and Clang sanitizer jobs, the macOS ARM sanitizer job and the R-devel
 Valgrind run all ran on them. The accompanying validation report identifies the
 source, environment and completed checks. Conditional coefficient intervals retain the selection sampler's
 Laplace approximation and finite-chain uncertainty.
-The strongest external check is an original-scale reproduction of the published
-application. Running the released 778/91/729-feature matrices under
+The most direct external check is to rerun the published application at its own
+scale. Using the released 778/91/729-feature matrices under
 \code{reference = "code2017"}, with the article's 350000 retained draws after
-50000 burn-in and its ten rounds of ten-fold cross-validation, returns the
-C-indices in Table~\ref{tab:kirc-reproduction}. The largest absolute difference is
-0.044 and the median is 0.011. Seventeen of the twenty-five cells fall inside
-the standard error \citet{chekouo2017} report for that cell and twenty-four
-fall inside twice it; the exception is the pooled column of IMR $+$ C $+$ M,
-where the difference is 0.020 against a reported standard error of 0.01. The archive does not distribute the replicate seeds, so the
-agreement is within sampling variation rather than at the level of digits.
+50000 burn-in and its ten rounds of ten-fold cross-validation, gives the
+C-indices in Table~\ref{tab:kirc-reproduction}. The largest absolute
+difference from the published values is 0.044 and the median is 0.011.
+Seventeen of the twenty-five cells fall inside the standard error
+\citet{chekouo2017} report for that cell, and twenty-four inside twice it; the
+one exception to the second bound is the pooled column of IMR $+$ C $+$ M,
+where 0.020 stands against a reported 0.01. The archive does not distribute the
+replicate seeds, so the agreement is within sampling variation rather than
+digit for digit.
 
 \begin{table}[!ht]
 \centering
+\small
 \begin{tabular}{l c c c c c}
 \toprule
  & \multicolumn{5}{c}{Availability subgroup} \\
 \cmidrule(lr){2-6}
-Model & $E_1$ (\code{111}) & $E_2$ (\code{011}) & $E_3$ (\code{101}) &
-$E_5$ (\code{001}) & Full \\
+Model & $E_1$ & $E_2$ & $E_3$ & $E_5$ & Full \\
+ & \code{111} & \code{011} & \code{101} & \code{001} & \\
  & $n=128$ & $n=70$ & $n=120$ & $n=130$ & $n=448$ \\
 \midrule
 CPH $+$ C & 0.72 (0.01) & 0.76 (0.01) & 0.79 (0.01) & 0.71 (0.01) & 0.71 (0.01) \\
@@ -1300,47 +1301,50 @@ sampling variation rather than digit-level reproduction.}
 \end{table}
 
 
-The simulation study reproduces as well, and at the level of its mechanism
-rather than only its numbers. Table~\ref{tab:simulation-reproduction} runs the
-archived data generator for the three overlap scenarios at 50 replicates each
-and the six correlation settings at 30 replicates each, the counts the article
+The simulation study reproduces the article's mechanism and not only its
+numbers. Table~\ref{tab:simulation-reproduction} reports the archived data
+generator run for the three overlap scenarios at 50 replicates each and the six
+correlated-marker settings at 30 each, the replicate counts the article
 specifies. IMR exceeds BMS on selection AUC in every platform-by-subgroup cell
-when the relevant biomarker sets coincide, in every cell at fifty percent
-overlap by a smaller margin, and in two of eight cells by at most 0.005 when
-the sets do not overlap. That ordering is what the MRF prior predicts and what
-\citet{chekouo2017} report; pooled predictive C-indices differ by at most 0.004
+when the relevant biomarker sets coincide, in every cell by a smaller margin at
+fifty percent overlap, and in two cells of eight by at most 0.005 when the sets
+do not overlap. That ordering is what the MRF prior predicts and what
+\citet{chekouo2017} report. Pooled predictive C-indices differ by at most 0.004
 between the two methods in all three scenarios, matching the article's
-description of IMR as competitive on prediction while better on selection.
-Selection AUC for IMR stays near 0.90 as the marker correlation rises to 0.8.
+description of IMR as competitive on prediction and better on selection. Under
+correlated markers IMR leads BMS at every setting. Its own selection AUC falls
+as $\rho$ rises when every signal marker is correlated, from 0.898 to 0.840,
+and rises when half of them are, from 0.916 to 0.956, so the two halves of that
+design should be read separately.
 
 \begin{table}[!ht]
 \centering
+\textit{(a) Main simulation, 50 replicates per scenario}\\[3pt]
 \begin{tabular}{l l c c c c}
 \toprule
-\multicolumn{6}{l}{\textit{(a) Main simulation, 50 replicates per scenario}} \\
-\midrule
-Scenario & Biomarker overlap & Cells favouring & IMR $-$ BMS &
+Scenario & Biomarker & Cells favouring & IMR $-$ BMS &
 \multicolumn{2}{c}{Mean selection AUC} \\
 \cmidrule(lr){5-6}
- & & IMR & range & IMR & BMS \\
+ & overlap & IMR & range & IMR & BMS \\
 \midrule
-1 & identical sets   & 8/8 & $+0.022$ to $+0.128$ & 0.831 & 0.757 \\
-2 & 50 percent       & 8/8 & $+0.007$ to $+0.062$ & 0.798 & 0.767 \\
-3 & none             & 2/8 & $-0.027$ to $+0.005$ & 0.762 & 0.771 \\
+1 & identical sets & 8/8 & $+0.022$ to $+0.128$ & 0.831 & 0.757 \\
+2 & 50 percent     & 8/8 & $+0.007$ to $+0.062$ & 0.798 & 0.767 \\
+3 & none           & 2/8 & $-0.027$ to $+0.005$ & 0.762 & 0.771 \\
+\bottomrule
+\end{tabular}
+
+\vspace{8pt}
+\textit{(b) Correlated-marker simulation, 30 replicates per setting}\\[3pt]
+\begin{tabular}{l c c c}
+\toprule
+Correlated markers & $\rho$ & IMR & BMS \\
 \midrule
-\multicolumn{6}{l}{\textit{(b) Correlated-marker simulation, 30 replicates per setting}} \\
-\midrule
-Correlated & Correlation & \multicolumn{2}{c}{} &
-\multicolumn{2}{c}{Mean selection AUC (SD)} \\
-\cmidrule(lr){5-6}
-markers & $\rho$ & & & IMR & BMS \\
-\midrule
-all  & 0.2 & & & 0.898 (0.055) & 0.745 (0.095) \\
-all  & 0.5 & & & 0.891 (0.057) & 0.738 (0.098) \\
-all  & 0.8 & & & 0.840 (0.074) & 0.751 (0.093) \\
-half & 0.2 & & & 0.916 (0.050) & 0.776 (0.093) \\
-half & 0.5 & & & 0.943 (0.038) & 0.840 (0.077) \\
-half & 0.8 & & & 0.956 (0.036) & 0.874 (0.067) \\
+all  & 0.2 & 0.898 (0.055) & 0.745 (0.095) \\
+all  & 0.5 & 0.891 (0.057) & 0.738 (0.098) \\
+all  & 0.8 & 0.840 (0.074) & 0.751 (0.093) \\
+half & 0.2 & 0.916 (0.050) & 0.776 (0.093) \\
+half & 0.5 & 0.943 (0.038) & 0.840 (0.077) \\
+half & 0.8 & 0.956 (0.036) & 0.874 (0.067) \\
 \bottomrule
 \end{tabular}
 \caption{\label{tab:simulation-reproduction}Original-scale reproduction of the
@@ -1490,17 +1494,18 @@ than patched. Table~\ref{tab:chain-diagnostics} reports eight chains from eight
 recorded starts, each retaining $10^{6}$ draws after 50000 burn-in, roughly
 three times the per-chain budget of the published analysis. The mRNA and miRNA
 interaction parameters reach rank-normalized split-$\widehat{R}$ below 1.01
-with bulk effective sample sizes in the thousands; the methylation interaction
-does not, at $\widehat{R}=1.045$ and bulk ESS 208. The smallest cross-chain
+with bulk effective sample sizes (ESS) in the thousands; the methylation
+interaction does not, at $\widehat{R}=1.045$ and a bulk ESS of 208. The smallest cross-chain
 correlation between marginal posterior inclusion probabilities is 0.803 for
 mRNA and 0.813 for methylation, below the 0.85 bound the article reports, while
 miRNA reaches 0.958.
 
 \begin{table}[!ht]
 \centering
+\small
 \begin{tabular}{l c c c c c c}
 \toprule
-Platform & Pairs & Rank $\widehat{R}$ & Bulk ESS & Tail ESS & Classical PSRF &
+Platform & Pairs & Rank $\widehat{R}$ & Bulk ESS & Tail ESS & PSRF &
 Min.\ $\rho$ \\
 \midrule
 mRNA        & 6 & 1.001--1.001 & 7,832--15,997 & 26,775--49,970 & 1.000--1.001 & 0.803 \\
@@ -1616,9 +1621,9 @@ Multi-chain diagnostics, prior sensitivity and validation appropriate to the
 prediction target remain necessary for substantive applications.
 
 The current model uses platform-specific sparsity parameters $\nu_k$.
-Extensions could incorporate known biological interactions among features or
+Extensions could incorporate known biological interactions among features, or
 adapt the feature-ordering and population-structure construction of
-\citet{dai2023} to this availability-subgroup setting.
+\citet{dai2023} to the availability-subgroup setting.
 
 %% ---------------------------------------------------------------------------
 \section*{Computational details}
