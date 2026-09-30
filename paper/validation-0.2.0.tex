@@ -1,0 +1,27 @@
+The suite passes 2851 expectations with no failure, warning or skip.
+\code{R CMD check --as-cran} reports \code{Status: OK} on
+\href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516101}{Ubuntu
+R-release, Ubuntu R-devel, Windows R-release and macOS R-release}, and on a
+\href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516112}{separate
+Linux check}: zero errors, zero warnings and zero notes. Those jobs set
+\code{error-on = "warning"}, so a warning on any platform would have failed
+them.
+
+The \href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516050}{R-devel
+Valgrind run} reports zero definitely lost bytes and zero errors from zero
+contexts, with no suppressions. The
+\href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516113}{Linux
+GCC and Clang} UBSAN and ASAN+UBSAN jobs and the
+\href{https://github.com/h7nian/IntegMultiReg/actions/runs/36508516172}{macOS ARM
+ASAN+UBSAN job} are clean. As a control, the archived 0.1.1 tarball still
+reproduces its exact 7,200-byte leak under these settings, so the configuration
+is known to detect the defect that caused that archival.
+
+Beyond the package checks, an original-scale study of 679 tasks completed with
+no task failure: the KIRC Table~1 rerun, the three-scenario and correlated
+simulations at the article's replicate counts, and eight chains of $10^{6}$
+retained draws. Its collection stage re-verified every task's source and data
+hashes before summarising. These results establish the reruns described in the
+manuscript's software-validation section; they do not establish MCMC convergence,
+which the manuscript's diagnostics section reports separately and which the methylation
+interaction does not reach.

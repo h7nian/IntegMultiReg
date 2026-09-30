@@ -212,8 +212,13 @@ SNF methods paper; documentation was consulted on September 21, 2026.}
 \end{table}
 
 The package is available through
-\url{https://CRAN.R-project.org/package=IntegMultiReg}; version 0.2.0 accompanies
-the revised replication materials. The remainder of the paper follows the
+\url{https://CRAN.R-project.org/package=IntegMultiReg}. This article describes
+version 0.2.0; until that version reaches CRAN the accompanying replication
+materials install it from
+\url{https://github.com/h7nian/IntegMultiReg}, whose \code{main} branch carries
+it. Readers reproducing the results below should check
+\code{packageVersion("IntegMultiReg")} against 0.2.0, because the interface
+changed at that version. The remainder of the paper follows the
 analysis workflow from model specification to empirical assessment.
 Section~\ref{sec:model} describes the IMR model and the priors that link the
 regression models across subgroups. Section~\ref{sec:package} presents the
@@ -602,7 +607,10 @@ R> fit <- imr(
 \end{CodeInput}
 \end{CodeChunk}
 
-The original component-wise call remains supported for backward compatibility.
+The original component-wise call remains supported: platform matrices may
+still be supplied as a list rather than through \code{imr\_data()}. The
+argument names changed at 0.2.0, however, and the pre-0.2.0 aliases are not
+accepted; \code{inst/MIGRATION.md} maps the old names to the new ones.
 For analyses organised as one subject-level data frame, a formula method is
 also available.  A binary response and adjustment covariates can be specified
 by the formula \code{y \textasciitilde{} age + sex + stage}, with the subject
@@ -1248,10 +1256,11 @@ The strongest external check is an original-scale reproduction of the published
 application. Running the released 778/91/729-feature matrices under
 \code{reference = "code2017"}, with the article's 350000 retained draws after
 50000 burn-in and its ten rounds of ten-fold cross-validation, returns the
-C-indices in Table~\ref{tab:kirc-reproduction}. All twenty-five cells lie
-within 0.044 of the published value, the median absolute difference is 0.011,
-and every difference is smaller than the standard error \citet{chekouo2017}
-report for that cell. Historical replicate seeds are not distributed with the
+C-indices in Table~\ref{tab:kirc-reproduction}. The largest absolute difference is
+0.044 and the median is 0.011. Seventeen of the twenty-five cells fall inside
+the standard error \citet{chekouo2017} report for that cell and twenty-four
+fall inside twice it; the exception is the pooled column of IMR $+$ C $+$ M,
+where the difference is 0.020 against a reported standard error of 0.01. Historical replicate seeds are not distributed with the
 archive, so this is agreement within sampling variation rather than
 digit-level reproduction. It does establish that the package reproduces the
 published analysis at the article's own scale when the released conventions are
@@ -1287,8 +1296,9 @@ draws after 50000 burn-in, ten rounds of ten-fold cross-validation and the mean
 taken over the 100 validation sets. Parenthetic values are standard errors;
 the published standard errors are reported to two decimals. Subgroup labels
 follow the bitstring convention of Table~\ref{tab:bitstring-key}, where the
-right-most digit denotes mRNA. Every cell agrees to within 0.044, with a median
-absolute difference of 0.011, which is inside the published standard errors.
+right-most digit denotes mRNA. The largest absolute difference is 0.044 and the median
+is 0.011; seventeen cells fall inside the published standard error for that
+cell and twenty-four inside twice it.
 Historical replicate seeds are unavailable, so this is agreement within
 sampling variation rather than digit-level reproduction.}
 \end{table}
@@ -1324,27 +1334,35 @@ Scenario & Biomarker overlap & Cells favouring & IMR $-$ BMS &
 \midrule
 \multicolumn{6}{l}{\textit{(b) Correlated-marker simulation, 30 replicates per setting}} \\
 \midrule
-\multicolumn{2}{l}{Correlation $\rho$} & \multicolumn{2}{c}{} &
-\multicolumn{2}{c}{Mean selection AUC} \\
+Correlated & Correlation & \multicolumn{2}{c}{} &
+\multicolumn{2}{c}{Mean selection AUC (SD)} \\
 \cmidrule(lr){5-6}
-\multicolumn{2}{l}{} & & & IMR & BMS \\
+markers & $\rho$ & & & IMR & BMS \\
 \midrule
-\multicolumn{2}{l}{0.2} & & & 0.907 & 0.760 \\
-\multicolumn{2}{l}{0.5} & & & 0.917 & 0.789 \\
-\multicolumn{2}{l}{0.8} & & & 0.898 & 0.812 \\
+all  & 0.2 & & & 0.898 (0.055) & 0.745 (0.095) \\
+all  & 0.5 & & & 0.891 (0.057) & 0.738 (0.098) \\
+all  & 0.8 & & & 0.840 (0.074) & 0.751 (0.093) \\
+half & 0.2 & & & 0.916 (0.050) & 0.776 (0.093) \\
+half & 0.5 & & & 0.943 (0.038) & 0.840 (0.077) \\
+half & 0.8 & & & 0.956 (0.036) & 0.874 (0.067) \\
 \bottomrule
 \end{tabular}
 \caption{\label{tab:simulation-reproduction}Original-scale reproduction of the
 simulation study of \citet[Section~5.2 and Web Appendix~E]{chekouo2017}, run
 under \code{reference = "code2017"}. Cells are the eight platform-by-subgroup
-combinations in which a selection AUC is defined. Panel (a) shows that the IMR
-advantage over BMS is large when the relevant biomarker sets coincide, smaller
-at fifty percent overlap, and absent when they do not overlap, which is the
-ordering the article predicts from the MRF prior. Pooled predictive C-indices
-are close throughout (IMR 0.819, 0.822, 0.836 against BMS 0.815, 0.819, 0.835),
-matching the article's description of IMR as competitive on prediction while
-better on selection. Panel (b) shows selection AUC under increasingly
-correlated markers.}
+combinations in which a selection AUC is defined; a panel entry averages over
+those cells. Panel (a) shows that the IMR advantage over BMS is large when the
+relevant biomarker sets coincide, smaller at fifty percent overlap, and absent
+when they do not overlap, which is the ordering the article predicts from the
+MRF prior. Pooled predictive C-indices are close throughout (IMR 0.819, 0.822,
+0.836 against BMS 0.815, 0.819, 0.835), matching the article's description of
+IMR as competitive on prediction while better on selection. Panel (b) keeps the
+six settings of Web Appendix~E separate rather than pooling them: the first
+three correlate every signal marker with the unobserved gene and the last three
+correlate half of them. Parenthetic values are the between-replicate standard
+deviation, averaged over cells. IMR stays above BMS in every setting, but the
+direction in $\rho$ differs between the two halves of the design, so the two
+should not be averaged together.}
 \end{table}
 
 
