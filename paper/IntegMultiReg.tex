@@ -911,12 +911,57 @@ prior. The ranked view summarises the strongest feature scores
 (Figure~\ref{fig:top}); the trace instead describes the sampled log-posterior
 trajectory (Figure~\ref{fig:trace}). The IMR--BMS comparison in
 Section~\ref{sec:gain} examines the consequences of including MRF borrowing.
-Posterior standard deviations and credible intervals from the retained
-selection-indicator and MRF-interaction draws are returned by
-\code{posterior\_summary(fit)} or the standard \code{confint(fit)} method.
-Parameter-specific traces are available through
-\code{plot(fit, type = "theta\_trace", ...)} and
-\code{plot(fit, type = "selection\_trace", ...)}.
+The log-posterior trace describes the sampler as a whole, and the printed
+overview reduces each parameter to a point summary. Individual parameters also
+have their own posterior summaries. \code{posterior\_summary(fit)} reports what
+the fit carries,
+
+\begin{CodeChunk}
+\begin{CodeInput}
+R> posterior_summary(fit)
+\end{CodeInput}
+\begin{CodeOutput}
+IMR posterior summary (95.0% credible intervals)
+  genomic: 60 selection indicators; 3 theta interaction(s)
+  proteomic: 20 selection indicators; 1 theta interaction(s)
+  metabolomic: 24 selection indicators; 3 theta interaction(s)
+\end{CodeOutput}
+\end{CodeChunk}
+
+and \code{confint()} returns the intervals themselves. Asking for the MRF
+interaction parameters gives one row per subgroup pair within each platform:
+
+\begin{CodeChunk}
+\begin{CodeInput}
+R> confint(fit, parm = "theta")
+\end{CodeInput}
+\begin{CodeOutput}
+$genomic
+  subgroup1 subgroup2     mean        sd    lower   median    upper
+1       011       101 1.985344 0.2569905 1.507146 1.974200 2.513169
+2       011       111 1.993510 0.2603408 1.485375 1.989172 2.525022
+3       101       111 1.999846 0.2587146 1.512176 1.991806 2.523566
+
+$proteomic
+  subgroup1 subgroup2     mean       sd    lower   median    upper
+1       011       111 2.836716 0.277198 2.288142 2.834532 3.378594
+
+$metabolomic
+  subgroup1 subgroup2     mean        sd    lower   median    upper
+1       100       101 2.287673 0.3561596 1.672681 2.253001 3.058494
+2       100       111 2.300647 0.3623199 1.671634 2.269324 3.113947
+3       101       111 2.307383 0.3711521 1.672369 2.269202 3.152777
+\end{CodeOutput}
+\end{CodeChunk}
+
+Every lower bound here is well above zero, so on this data set each platform
+borrows across all of its subgroup pairs; the proteomic interaction is the
+strongest at 2.84 and the genomic ones the weakest at about 1.99.
+\code{parm = "selection"} returns the same six columns for the selection
+indicators, and \code{parm = "all"} returns both. The matching traces are drawn
+by \code{plot(fit, type = "theta\_trace")} and
+\code{plot(fit, type = "selection\_trace")}, which show these parameters
+individually rather than the pooled log-posterior of Figure~\ref{fig:trace}.
 
 
 \FloatBarrier
@@ -979,9 +1024,81 @@ transformed to time units and the point summaries are medians. A posterior
 mean on the time scale need not exist under an inverse-gamma variance mixture.
 Future censoring times are not generated.
 
+Drawing the coefficients is an explicit second stage, not part of
+\code{imr()}:
+
+\begin{CodeChunk}
+\begin{CodeInput}
+R> post <- posterior_draws(fit, draws = 4000, burnin = 1000, chains = 4,
++    seed = 1)
+R> post
+\end{CodeInput}
+\begin{CodeOutput}
+IMR coefficient posterior: 4000 draws; 4 availability subgroups
+Empirical selection weights from the Laplace-based fit; conditional pMOM Gibbs draws. 
+Maximum conditional split R-hat: 1.318308 
+\end{CodeOutput}
+\end{CodeChunk}
+
+The \code{confint()} method returns one data frame per availability subgroup,
+giving the interval together with the posterior mean, the posterior standard
+deviation and the share of draws in which the coefficient is not exactly zero:
+
+\begin{CodeChunk}
+\begin{CodeInput}
+R> head(confint(post)[["111"]], 8)
+\end{CodeInput}
+\begin{CodeOutput}
+            term         mean         sd      lower      median      upper
+1    (Intercept)  0.011685982 0.19840546 -0.2783617 -0.05741477  0.3743706
+2   clinical:age  0.309761916 0.10685529  0.1268610  0.29844071  0.5429333
+3   clinical:sex -0.325270511 0.10516311 -0.5533093 -0.31667124 -0.1418255
+4 clinical:stage  0.430257769 0.13452268  0.2012413  0.41725157  0.7234746
+5    genomic:G01  0.587309053 0.10370056  0.4008204  0.58129453  0.8088881
+6    genomic:G02 -0.355920545 0.09632503 -0.5582652 -0.35190861 -0.1801110
+7    genomic:G03  0.333213344 0.08633344  0.1775701  0.32765030  0.5089518
+8    genomic:G04 -0.008463721 0.04573434 -0.1850931  0.00000000  0.0000000
+  probability_nonzero
+1             1.00000
+2             1.00000
+3             1.00000
+4             1.00000
+5             1.00000
+6             1.00000
+7             1.00000
+8             0.03825
+\end{CodeOutput}
+\end{CodeChunk}
+
+The clinical effects are active in every draw because they are forced into each
+subgroup model, and their intervals exclude zero. The genomic marker
+\code{G01} is likewise always selected, with an interval well away from zero,
+whereas \code{G04} enters in 3.8 percent of draws and is exactly zero in the
+rest, which is why its median and upper bound are both zero. The residual
+variances are sampled alongside the coefficients and are returned in the same
+object, so the subgroup-specific error scale needs no separate run:
+
+\begin{CodeChunk}
+\begin{CodeInput}
+R> round(sqrt(sapply(post$variance, mean)), 3)
+\end{CodeInput}
+\begin{CodeOutput}
+  011   100   101   111 
+0.548 0.498 0.535 0.597 
+\end{CodeOutput}
+\end{CodeChunk}
+
 These intervals retain the original sampler's Laplace approximation to model
-weights. Conditional split R-hat is reported for each sampled model, with an
-alert above 1.05 or when undefined; it does not diagnose the selection chain.
+weights. The reported split R-hat is a maximum over every sampled model, so a
+single badly-behaved model sets it. Here \code{post$diagnostics} carries one
+row per model, 473 in all: the median split R-hat is 1.039 and 62 percent of
+the models are at or below 1.05, while the maximum of 1.318 raises the alert.
+The models holding the largest values are those the selection chain visited
+only a few times -- the five highest were returned in between 1 and 139 of the
+4000 draws -- so their split statistic rests on very little information.
+Reading \code{post$diagnostics} therefore locates the subgroup and model to
+treat with caution, which the headline maximum alone does not. The statistic
+does not diagnose the selection chain.
 Both stages require adequate exploration. These additions do not introduce
 clinical covariate selection.
 

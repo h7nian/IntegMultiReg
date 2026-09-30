@@ -79,9 +79,14 @@ and \code{confint()}. These complement the original log-posterior trace and
 point summaries. \code{posterior\_draws()} \textcolor{red}{check this function, posterior.. show how this work, and show it line by line}provides coefficient uncertainty
 and posterior prediction for continuous, binary and right-censored outcomes;
 conditional sampling resamples latent responses. The methods table and the
-fitted-object and diagnostic sections describe their use. Tests exercise
-these methods for all three outcome families, including prediction routing,
-response scales and reproducibility.
+fitted-object and diagnostic sections now show their use with output rather
+than describing it: the fitted-object section prints
+\code{posterior\_summary(fit)} and \code{confint(fit, parm = "theta")}, and
+the interval section runs \code{posterior\_draws()} and displays the
+coefficient intervals for one availability subgroup, the residual scale drawn
+alongside them for each subgroup, and what the reported conditional split
+R-hat is a maximum over. Tests exercise these methods for all three outcome
+families, including prediction routing, response scales and reproducibility.
 
 \textcolor{red}{trace for other parameters}
 \textcolor{red}{$\beta$ values, summary of the latent values. currently we do not have. how to get confidence interval. Continue One: $\sigma$ based on the $\beta$ values, sample them. }
