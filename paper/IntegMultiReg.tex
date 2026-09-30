@@ -1257,7 +1257,42 @@ digit-level reproduction. It does establish that the package reproduces the
 published analysis at the article's own scale when the released conventions are
 requested.
 
-\input{table-kirc-reproduction}
+\begin{table}[!ht]
+\centering
+\begin{tabular}{l c c c c c}
+\toprule
+ & \multicolumn{5}{c}{Availability subgroup} \\
+\cmidrule(lr){2-6}
+Model & $E_1$ (\code{111}) & $E_2$ (\code{011}) & $E_3$ (\code{101}) &
+$E_5$ (\code{001}) & Full \\
+ & $n=128$ & $n=70$ & $n=120$ & $n=130$ & $n=448$ \\
+\midrule
+CPH $+$ C & 0.72 (0.01) & 0.76 (0.01) & 0.79 (0.01) & 0.71 (0.01) & 0.71 (0.01) \\
+ & \textit{0.733} (0.014) & \textit{0.757} (0.018) & \textit{0.784} (0.011) & \textit{0.702} (0.016) & \textit{0.721} (0.007) \\[2pt]
+IMR $+$ C $+$ M & 0.89 (0.02) & 0.82 (0.04) & 0.89 (0.02) & 0.80 (0.04) & 0.86 (0.01) \\
+ & \textit{0.859} (0.009) & \textit{0.829} (0.016) & \textit{0.879} (0.009) & \textit{0.775} (0.013) & \textit{0.840} (0.004) \\[2pt]
+BMS $+$ C $+$ M & 0.87 (0.03) & 0.82 (0.04) & 0.89 (0.02) & 0.79 (0.04) & 0.85 (0.01) \\
+ & \textit{0.885} (0.009) & \textit{0.864} (0.014) & \textit{0.887} (0.006) & \textit{0.798} (0.014) & \textit{0.859} (0.004) \\[2pt]
+IMR $+$ M & 0.88 (0.02) & 0.71 (0.06) & 0.84 (0.02) & 0.72 (0.05) & 0.82 (0.01) \\
+ & \textit{0.910} (0.007) & \textit{0.674} (0.023) & \textit{0.865} (0.008) & \textit{0.688} (0.016) & \textit{0.823} (0.004) \\[2pt]
+BMS $+$ M & 0.88 (0.02) & 0.67 (0.06) & 0.84 (0.02) & 0.72 (0.05) & 0.81 (0.01) \\
+ & \textit{0.849} (0.010) & \textit{0.693} (0.024) & \textit{0.851} (0.009) & \textit{0.719} (0.017) & \textit{0.808} (0.005) \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:kirc-reproduction}Original-scale KIRC predictive
+performance. Upright entries are the published C-indices of
+\citet[Table~1]{chekouo2017}; italic entries are the rerun produced by
+\pkg{IntegMultiReg} under \code{reference = "code2017"} with 350000 retained
+draws after 50000 burn-in, ten rounds of ten-fold cross-validation and the mean
+taken over the 100 validation sets. Parenthetic values are standard errors;
+the published standard errors are reported to two decimals. Subgroup labels
+follow the bitstring convention of Table~\ref{tab:bitstring-key}, where the
+right-most digit denotes mRNA. Every cell agrees to within 0.044, with a median
+absolute difference of 0.011, which is inside the published standard errors.
+Historical replicate seeds are unavailable, so this is agreement within
+sampling variation rather than digit-level reproduction.}
+\end{table}
+
 
 The simulation study reproduces as well, and at the level of its mechanism
 rather than only its numbers. Table~\ref{tab:simulation-reproduction} runs the
@@ -1272,7 +1307,46 @@ between the two methods in all three scenarios, matching the article's
 description of IMR as competitive on prediction while better on selection.
 Selection AUC for IMR stays near 0.90 as the marker correlation rises to 0.8.
 
-\input{table-simulation-reproduction}
+\begin{table}[!ht]
+\centering
+\begin{tabular}{l l c c c c}
+\toprule
+\multicolumn{6}{l}{\textit{(a) Main simulation, 50 replicates per scenario}} \\
+\midrule
+Scenario & Biomarker overlap & Cells favouring & IMR $-$ BMS &
+\multicolumn{2}{c}{Mean selection AUC} \\
+\cmidrule(lr){5-6}
+ & & IMR & range & IMR & BMS \\
+\midrule
+1 & identical sets   & 8/8 & $+0.022$ to $+0.128$ & 0.831 & 0.757 \\
+2 & 50 percent       & 8/8 & $+0.007$ to $+0.062$ & 0.798 & 0.767 \\
+3 & none             & 2/8 & $-0.027$ to $+0.005$ & 0.762 & 0.771 \\
+\midrule
+\multicolumn{6}{l}{\textit{(b) Correlated-marker simulation, 30 replicates per setting}} \\
+\midrule
+\multicolumn{2}{l}{Correlation $\rho$} & \multicolumn{2}{c}{} &
+\multicolumn{2}{c}{Mean selection AUC} \\
+\cmidrule(lr){5-6}
+\multicolumn{2}{l}{} & & & IMR & BMS \\
+\midrule
+\multicolumn{2}{l}{0.2} & & & 0.907 & 0.760 \\
+\multicolumn{2}{l}{0.5} & & & 0.917 & 0.789 \\
+\multicolumn{2}{l}{0.8} & & & 0.898 & 0.812 \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:simulation-reproduction}Original-scale reproduction of the
+simulation study of \citet[Section~5.2 and Web Appendix~E]{chekouo2017}, run
+under \code{reference = "code2017"}. Cells are the eight platform-by-subgroup
+combinations in which a selection AUC is defined. Panel (a) shows that the IMR
+advantage over BMS is large when the relevant biomarker sets coincide, smaller
+at fifty percent overlap, and absent when they do not overlap, which is the
+ordering the article predicts from the MRF prior. Pooled predictive C-indices
+are close throughout (IMR 0.819, 0.822, 0.836 against BMS 0.815, 0.819, 0.835),
+matching the article's description of IMR as competitive on prediction while
+better on selection. Panel (b) shows selection AUC under increasingly
+correlated markers.}
+\end{table}
+
 
 These checks are not a substitute for substantive model diagnostics, but they
 reduce the chance that a package user reaches the MCMC stage with misaligned
@@ -1409,7 +1483,29 @@ correlation between marginal posterior inclusion probabilities is 0.803 for
 mRNA and 0.813 for methylation, below the 0.85 bound the article reports, while
 miRNA reaches 0.958.
 
-\input{table-chain-diagnostics}
+\begin{table}[!ht]
+\centering
+\begin{tabular}{l c c c c c c}
+\toprule
+Platform & Pairs & Rank $\widehat{R}$ & Bulk ESS & Tail ESS & Classical PSRF &
+Min.\ $\rho$ \\
+\midrule
+mRNA        & 6 & 1.001--1.001 & 7,832--15,997 & 26,775--49,970 & 1.000--1.001 & 0.803 \\
+miRNA       & 1 & 1.007        & 1,426         & 1,490          & 1.005        & 0.958 \\
+Methylation & 1 & 1.045        & 208           & 498            & 1.016        & 0.813 \\
+\bottomrule
+\end{tabular}
+\caption{\label{tab:chain-diagnostics}Eight-chain diagnostics for the
+subgroup-interaction parameters $\theta$, from eight recorded starting points
+with $10^6$ retained draws per chain after 50000 burn-in under
+\code{sampler\_method = "paper"}. ``Pairs'' counts the subgroup pairs a
+platform contributes; ranges run over those pairs. Rank $\widehat{R}$ is the
+rank-normalized split-folded statistic and PSRF the classical potential scale
+reduction factor. Min.\ $\rho$ is the smallest Pearson correlation between
+marginal posterior inclusion probabilities over all 28 chain pairs and
+availability subgroups of that platform.}
+\end{table}
+
 
 This is a sensitivity result, not a contradiction of the published analysis.
 The reported bound was obtained from the released implementation, whose
