@@ -27,15 +27,20 @@ Multi-Regression of Multi-Platform Biomarkers}
 We thank the editor for the constructive assessment. We have revised the
 software interface, fit inspection, uncertainty reporting and replication
 materials. The current submission uses package version 0.2.0. Below we respond
-point by point; comments are condensed for readability. References to sections
-use their titles so that they remain valid after manuscript pagination changes.
+point by point. The editor's comments are quoted as written; comments~1 and~2
+come from the general assessment and comments~3 to~7 from the itemized specific
+comments. References to sections use their titles so that they remain valid
+after manuscript pagination changes.
 
 \section*{1. Software design and validated data objects}
 \begin{editorcomment}
-Further software development is needed beyond packaging the original study
-code. The input interface is complicated and potentially error prone; a
-dedicated data type should support validation, printing, summaries, component
-extraction and prediction data.
+The current user interface with the specification of the different inputs seems
+quite complicated and potentially also error prone. This raises the question why
+not a specific dedicated data type was introduced which allows to store the data
+required in a suitable form and is validated check as well as can be printed,
+summarized and extract components due the methods provided for the data class.
+Such a structure might also be exploited to specify newdata for the predict
+method.
 \end{editorcomment}
 \begin{response}
 We introduced \code{imr\_data()}, a reusable multi-platform data class shared
@@ -54,9 +59,10 @@ ambiguous column names and incomplete validation of saved fits.
 
 \section*{2. Fit inspection, uncertainty and covariates}
 \begin{editorcomment}
-Additional methods are needed to inspect, validate and compare fits, examine
-other parameter traces, obtain posterior uncertainty and consider suitable
-covariates.
+Also additional methods would seem required to inspect, validate and compare the
+different model fits as well as expand on them and for example select suitable
+covariates to include etc, assess trace plots for other parameters, obtain also
+posterior uncertainty estimates in addition to the point estimates, etc.
 \end{editorcomment}
 \begin{response}
 The package now supplies \code{validate\_imr()}, \code{compare\_imr()},
@@ -94,8 +100,15 @@ settings and interpretation.
 
 \section*{3. Executable manuscript commands and output}
 \begin{editorcomment}
-The replication script should contain all manuscript commands and print their
-output; for example, \code{print(fit, threshold = 0.5)} was missing.
+The replication script is not structured as expected. It should contain all code
+shown in the manuscript and when executed print also the output. E.g., the
+manuscript on page 11 includes
+\begin{verbatim}
+R> print(fit, threshold = 0.5)
+\end{verbatim}
+\noindent However, we could not find this code line in the replication script
+provided and thus could not easily verify that the output as included in the
+manuscript would be obtained.
 \end{editorcomment}
 \begin{response}
 We reorganized the standalone replication script to include the displayed
@@ -111,8 +124,16 @@ and the bundle README give the commands and validation scope.
 
 \section*{4. Prediction-table discrepancy and numerical correction}
 \begin{editorcomment}
-The binary IMR row in the expected prediction-comparison table differs from
-the newly generated replication output.
+Comparing the results obtained when running the replication material to the
+expected results shows:
+\begin{verbatim}
+diff -r expected-results/table_prediction_comparison.csv
+        replication-output/table_prediction_comparison.csv
+2c2
+< "binary","AUC","IMR",0.715,0.617,0.697,0.609,0.662
+---
+> "binary","AUC","IMR",0.764,0.624,0.712,0.713,0.71
+\end{verbatim}
 \end{editorcomment}
 \begin{response}
 While auditing the discrepancy, we identified that the historical cross-validation
@@ -153,8 +174,9 @@ software validation section.
 
 \section*{5. Software availability beyond R}
 \begin{editorcomment}
-The software overview focuses on R and should discuss related functionality in
-other environments.
+The software overview seems to focus on the R environment only raising the
+question about availability of related functionality for other software
+environments.
 \end{editorcomment}
 \begin{response}
 We added a sourced cross-environment comparison table. It covers
@@ -169,8 +191,9 @@ R, rather than relying on a claim that no direct IMR implementation is known.
 
 \section*{6. Full-precision predictions}
 \begin{editorcomment}
-Predictions should retain their full values; users should choose display
-precision.
+It is unclear why predict.imr() rounds some of the values before returning. It
+would seem preferable to return the full value and have the user decide on the
+digits themselves.
 \end{editorcomment}
 \begin{response}
 We removed internal rounding from \code{predict.imr()}. Returned probabilities
@@ -183,8 +206,13 @@ correctness.
 
 \section*{7. Formula/data regression interface}
 \begin{editorcomment}
-The package should use the usual formula/data interface, or accept a response
-vector, model matrix and explicit identifiers.
+The usual regression interface in R would use formula and data which are used to
+determine the outcome and the covariates. This would allow to use functionality
+to obtain a suitable model matrix from the formula. It is unclear why such an
+approach is not pursued here. Alternatively, regression implementations in R not
+making use of the formula interface usually ask directly for the vector of the
+dependent variable and a model matrix which in this case would require an
+additional specification of the IDs.
 \end{editorcomment}
 \begin{response}
 We added \code{imr.formula()}, combining a response/covariate formula and
