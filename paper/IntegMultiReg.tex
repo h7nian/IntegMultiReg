@@ -1260,11 +1260,8 @@ C-indices in Table~\ref{tab:kirc-reproduction}. The largest absolute difference 
 0.044 and the median is 0.011. Seventeen of the twenty-five cells fall inside
 the standard error \citet{chekouo2017} report for that cell and twenty-four
 fall inside twice it; the exception is the pooled column of IMR $+$ C $+$ M,
-where the difference is 0.020 against a reported standard error of 0.01. Historical replicate seeds are not distributed with the
-archive, so this is agreement within sampling variation rather than
-digit-level reproduction. It does establish that the package reproduces the
-published analysis at the article's own scale when the released conventions are
-requested.
+where the difference is 0.020 against a reported standard error of 0.01. The archive does not distribute the replicate seeds, so the
+agreement is within sampling variation rather than at the level of digits.
 
 \begin{table}[!ht]
 \centering
@@ -1525,16 +1522,12 @@ availability subgroups of that platform.}
 \end{table}
 
 
-This is a sensitivity result, not a contradiction of the published analysis.
-The reported bound was obtained from the released implementation, whose
-selection update omits a Hastings ratio at boundary flips and therefore targets
-a different stationary distribution from the corrected \code{"paper"} update
-used here (Section~\ref{sec:strategies}); neither its per-chain budget nor the
-exact form of its correlation summary is recoverable from the archive. The
-practical consequence for an applied user is specific and actionable:
-methylation rankings taken from a single chain of this length should not be
-treated as stable, and the diagnostic that shows this is now part of the
-ordinary workflow rather than a bespoke study.
+The two runs target different stationary distributions: the released selection
+update omits a Hastings ratio at boundary flips, and the corrected
+\code{"paper"} update used here does not (Section~\ref{sec:strategies}). The
+archive records neither the per-chain budget behind the published bound nor the
+form of its correlation summary. For an applied analysis the consequence is
+that methylation rankings from a single chain of this length are not stable.
 
 The comparison between IMR and BMS is also a sensitivity analysis for the MRF
 borrowing assumption.  Agreement between the fits indicates limited sensitivity to the borrowing
