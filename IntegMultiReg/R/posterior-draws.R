@@ -12,6 +12,10 @@
 #'   used for sampling and split R-hat (default `200`). Increase with `burnin`
 #'   if the reported conditional diagnostics are poor.
 #' @param seed Integer seed. The caller's random-number state is restored.
+#' @param latent Retain the augmented response draws. Only binary and
+#'   right-censored outcomes have a latent response; for a continuous outcome
+#'   the response is observed and nothing is retained. Storing them costs one
+#'   numeric per draw per subject, so the default is `FALSE`.
 #'
 #' @details
 #' All active coefficients, including the always-included intercept and clinical
@@ -42,9 +46,11 @@
 #'
 #' @return An `imr_posterior` object containing `beta` (one draws-by-coefficients
 #'   matrix per subgroup), `variance`, source `model_draw` indices, conditional
-#'   `diagnostics`, and the originating `fit`. Coefficient column names distinguish
-#'   clinical variables from platform features. Use `summary()`, `confint()`,
-#'   `coef()` and `predict()` on this object.
+#'   `diagnostics`, and the originating `fit`. With `latent = TRUE` it also
+#'   contains `latent`, one draws-by-subject matrix per subgroup holding the
+#'   augmented response, paired row by row with `beta`. Coefficient column names
+#'   distinguish clinical variables from platform features. Use `summary()`,
+#'   `confint()`, `coef()` and `predict()` on this object.
 #' @references
 #' Chekouo et al. (2017). \doi{10.1111/biom.12587}, Section 3.1 and Web Appendix C.
 #' @export
@@ -59,7 +65,8 @@
 #' summary(draws)
 #' }
 posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
-                            chains = 2L, conditional_draws = 200L, seed = 1L) {
+                            chains = 2L, conditional_draws = 200L, seed = 1L,
+                            latent = FALSE) {
   validate_imr(object)
   draws <- .imr_check_integer_scalar(draws, "draws", min = 2L)
   burnin <- .imr_check_integer_scalar(burnin, "burnin", min = 0L)
@@ -67,6 +74,10 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
   conditional_draws <- .imr_check_integer_scalar(
     conditional_draws, "conditional_draws", min = 4L)
   seed <- .imr_check_integer_scalar(seed, "seed", min = 0L)
+  .imr_check_flag(latent, "latent")
+  # For a continuous outcome the response is observed, so there is nothing
+  # latent to return.
+  keep_latent <- latent && object$control$outcome_type != "continuous"
   if (object$control$outcome_type == "right.censored" &&
       (length(object$control$response_scale) != 1L ||
        !object$control$response_scale %in% c("log", "identity"))) {
@@ -77,7 +88,8 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
   on.exit(.imr_restore_rng(rng), add = TRUE)
   set.seed(seed)
   model_draw <- sample.int(length(object$posterior$selection_draws), draws, replace = TRUE)
-  beta <- variance <- diagnostics <- vector("list", length(object$model$subgroup_names))
+  beta <- variance <- diagnostics <- augmented <-
+    vector("list", length(object$model$subgroup_names))
   priors <- object$control$priors
   for (g in seq_along(beta)) {
     design <- .imr_posterior_design(object, g)
@@ -90,6 +102,9 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
     keys <- vapply(masks, function(x) paste(as.integer(x), collapse = ""), "")
     beta[[g]] <- matrix(0, draws, ncol(design), dimnames = list(NULL, colnames(design)))
     variance[[g]] <- numeric(draws)
+    if (keep_latent) augmented[[g]] <- matrix(NA_real_, draws,
+      nrow(object$preprocessing$response[[g]]),
+      dimnames = list(NULL, rownames(object$preprocessing$response[[g]])))
     records <- list()
     for (key in unique(keys)) {
       positions <- which(keys == key)
@@ -105,13 +120,20 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
           priors$residual[["shape"]], priors$residual[["rate"]],
           draws = n, burnin = burnin,
           initial_beta = rep(if (chain %% 2L) -.5 else .5, ncol(X)),
-          initial_variance = 1, outcome_type = object$control$outcome_type, status = status)
+          initial_variance = 1, outcome_type = object$control$outcome_type,
+          status = status, keep_latent = keep_latent)
       })
       rhat <- .imr_split_rhat(samples)
       pool <- do.call(rbind, samples)
       chosen <- sample.int(nrow(pool), length(positions), replace = FALSE)
       beta[[g]][positions, active] <- pool[chosen, seq_len(ncol(X)), drop = FALSE]
       variance[[g]][positions] <- pool[chosen, ncol(X) + 1L]
+      if (keep_latent) {
+        # Index the pooled chains with the same rows, so that a latent draw and
+        # the coefficient draw beside it come from one sweep of the sampler.
+        pooled_latent <- do.call(rbind, lapply(samples, attr, "latent"))
+        augmented[[g]][positions, ] <- pooled_latent[chosen, , drop = FALSE]
+      }
       records[[length(records) + 1L]] <- data.frame(
         subgroup = object$model$subgroup_names[g], model = key,
         returned_draws = length(positions), conditional_draws = n,
@@ -120,11 +142,14 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
     diagnostics[[g]] <- do.call(rbind, records)
   }
   names(beta) <- names(variance) <- object$model$subgroup_names
+  if (keep_latent) names(augmented) <- object$model$subgroup_names
   diagnostics <- do.call(rbind, diagnostics)
   if (any(!is.finite(diagnostics$max_split_rhat) | diagnostics$max_split_rhat > 1.05)) {
     .imr_warn("Conditional split R-hat exceeds 1.05 or is undefined; inspect `diagnostics` and increase burn-in/draws before using intervals.")
   }
-  structure(list(beta = beta, variance = variance, model_draw = model_draw,
+  structure(list(beta = beta, variance = variance,
+    latent = if (keep_latent) augmented else NULL,
+    model_draw = model_draw,
     diagnostics = diagnostics, fit = object,
     control = list(draws = draws, burnin = burnin, chains = chains,
                    conditional_draws = conditional_draws, seed = seed),
@@ -178,7 +203,10 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
 #' Summarize Regression Posterior Draws
 #' @param object,x An `imr_posterior` object returned by [posterior_draws()].
 #' @param level Equal-tail credible level, between zero and one.
-#' @param parm Currently only `"coefficients"`.
+#' @param parm `"coefficients"` for the regression coefficients, or `"latent"`
+#'   for the augmented response of a binary or right-censored fit. `"latent"`
+#'   requires draws retained with `posterior_draws(latent = TRUE)` and gives one
+#'   row per subject, without a `probability_nonzero` column.
 #' @param ... Unused.
 #' @return `summary()` and `confint()` return coefficient tables by subgroup.
 #'   `coef()` returns posterior mean coefficient vectors. `print()` returns
@@ -189,8 +217,11 @@ NULL
 
 #' @rdname imr_posterior_methods
 #' @export
-summary.imr_posterior <- function(object, level = .95, ...) {
+summary.imr_posterior <- function(object, level = .95,
+                                  parm = c("coefficients", "latent"), ...) {
   .imr_interval_level(level)
+  parm <- .imr_posterior_parm(parm)
+  if (parm == "latent") return(.imr_latent_summary(object, level))
   lapply(object$beta, function(x) {
     q <- t(apply(x, 2L, stats::quantile, probs = c((1-level)/2, .5, (1+level)/2), names = FALSE))
     data.frame(term = colnames(x), mean = colMeans(x), sd = apply(x, 2L, stats::sd),
@@ -201,9 +232,36 @@ summary.imr_posterior <- function(object, level = .95, ...) {
 
 #' @rdname imr_posterior_methods
 #' @export
-confint.imr_posterior <- function(object, parm = "coefficients", level = .95, ...) {
-  if (!identical(parm, "coefficients")) .imr_abort("`parm` must be 'coefficients'.")
-  summary(object, level = level)
+confint.imr_posterior <- function(object, parm = c("coefficients", "latent"),
+                                  level = .95, ...) {
+  summary(object, level = level, parm = .imr_posterior_parm(parm))
+}
+
+# Named explicitly rather than through match.arg(), so that a bad value is
+# reported against `parm` as the other methods report their arguments.
+.imr_posterior_parm <- function(parm) {
+  choices <- c("coefficients", "latent")
+  if (identical(parm, choices)) return("coefficients")
+  if (length(parm) == 1L && !is.na(parm) && parm %in% choices) return(parm)
+  .imr_abort("`parm` must be 'coefficients' or 'latent'.")
+}
+
+# One row per subject, summarising the augmented response that the conditional
+# chains sampled. There is no `probability_nonzero` column: a latent response is
+# continuous and never exactly zero.
+.imr_latent_summary <- function(object, level) {
+  if (is.null(object$latent)) {
+    .imr_abort(if (object$fit$control$outcome_type == "continuous")
+      "A continuous outcome has no latent response; its response is observed."
+      else "Latent draws were not retained; call `posterior_draws(latent = TRUE)`.")
+  }
+  probs <- c((1 - level) / 2, .5, (1 + level) / 2)
+  lapply(object$latent, function(x) {
+    q <- t(apply(x, 2L, stats::quantile, probs = probs, names = FALSE))
+    data.frame(id = if (is.null(colnames(x))) seq_len(ncol(x)) else colnames(x),
+      mean = colMeans(x), sd = apply(x, 2L, stats::sd),
+      lower = q[, 1L], median = q[, 2L], upper = q[, 3L], row.names = NULL)
+  })
 }
 
 #' @rdname imr_posterior_methods
@@ -215,6 +273,7 @@ coef.imr_posterior <- function(object, ...) lapply(object$beta, colMeans)
 print.imr_posterior <- function(x, ...) {
   cat("IMR coefficient posterior:", length(x$model_draw), "draws;",
       length(x$beta), "availability subgroups\n")
+  if (!is.null(x$latent)) cat("Latent response draws retained.\n")
   cat(x$approximation, "\n")
   cat("Maximum conditional split R-hat:", max(x$diagnostics$max_split_rhat), "\n")
   invisible(x)

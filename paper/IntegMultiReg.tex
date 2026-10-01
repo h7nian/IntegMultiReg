@@ -6,6 +6,10 @@
 \usepackage{placeins}
 \usepackage{needspace}
 \usepackage[normalem]{ulem}
+\usepackage{xcolor}
+%% Revisions made after the 2026-09-30 review pass are set in blue, per the
+%% reviewer's request. Remove \revised before submission.
+\newcommand{\revised}[1]{\textcolor{blue}{#1}}
 \hypersetup{hypertexnames=false}
 \providecommand{\sn}[1]{\textcolor{blue}{#1}}
 \RecustomVerbatimEnvironment{CodeOutput}{Verbatim}{fontsize=\small}
@@ -911,6 +915,7 @@ prior. The ranked view summarises the strongest feature scores
 (Figure~\ref{fig:top}); the trace instead describes the sampled log-posterior
 trajectory (Figure~\ref{fig:trace}). The IMR--BMS comparison in
 Section~\ref{sec:gain} examines the consequences of including MRF borrowing.
+{\color{blue}%
 The log-posterior trace describes the sampler as a whole, and the printed
 overview reduces each parameter to a point summary. Individual parameters also
 have their own posterior summaries. \code{posterior\_summary(fit)} reports what
@@ -962,6 +967,7 @@ indicators, and \code{parm = "all"} returns both. The matching traces are drawn
 by \code{plot(fit, type = "theta\_trace")} and
 \code{plot(fit, type = "selection\_trace")}, which show these parameters
 individually rather than the pooled log-posterior of Figure~\ref{fig:trace}.
+}%
 
 
 \FloatBarrier
@@ -1024,6 +1030,7 @@ transformed to time units and the point summaries are medians. A posterior
 mean on the time scale need not exist under an inverse-gamma variance mixture.
 Future censoring times are not generated.
 
+{\color{blue}%
 Drawing the coefficients is an explicit second stage, not part of
 \code{imr()}:
 
@@ -1102,6 +1109,16 @@ formed rather than an inadequate budget.
 Reading \code{post$diagnostics} therefore locates the subgroup and model to
 treat with caution, which the headline maximum alone does not. The statistic
 does not diagnose the selection chain.
+
+For a binary or right-censored outcome the conditional chains augment the
+response, and \code{posterior\_draws(fit, latent = TRUE)} keeps those draws
+alongside the coefficients. \code{summary(post, parm = "latent")} then reports
+one row per subject on the latent scale. An observed event time is not
+augmented, so its draws are constant; a censored time is a lower bound, so its
+draws lie above it. A continuous outcome has no latent response and retains
+nothing. The draws are not kept by default because they cost one number per
+draw per subject.
+}%
 Both stages require adequate exploration. These additions do not introduce
 clinical covariate selection.
 
