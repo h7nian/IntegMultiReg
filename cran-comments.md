@@ -23,6 +23,10 @@ at are:
   default `"legacy"` retains the historical updates.
 * Fits use a named four-section schema; `upgrade_imr_fit()` converts a
   structurally complete 0.1.x fit explicitly rather than automatically.
+* `posterior_draws(latent = TRUE)` retains the augmented response draws for
+  binary and right-censored fits, and `summary()` and `confint()` take
+  `parm = "latent"`. The default is `FALSE` and the coefficient draws are
+  bit-identical with and without it.
 
 These are breaking changes. There are no reverse dependencies on CRAN.
 
@@ -45,7 +49,7 @@ These are breaking changes. There are no reverse dependencies on CRAN.
 `Status: OK` on all four `--as-cran` platforms: Ubuntu R-release, Ubuntu
 R-devel, Windows R-release and macOS R-release. Those runs use
 `error-on = "warning"`, so a warning on any platform would have failed them.
-The test suite reports `[ FAIL 0 | WARN 0 | SKIP 0 | PASS 2851 ]`.
+The test suite reports `[ FAIL 0 | WARN 0 | SKIP 0 | PASS 2864 ]`.
 
 ## Memory checks
 

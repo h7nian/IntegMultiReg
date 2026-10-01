@@ -8,9 +8,9 @@
 \alias{print.imr_posterior}
 \title{Summarize Regression Posterior Draws}
 \usage{
-\method{summary}{imr_posterior}(object, level = 0.95, ...)
+\method{summary}{imr_posterior}(object, level = 0.95, parm = c("coefficients", "latent"), ...)
 
-\method{confint}{imr_posterior}(object, parm = "coefficients", level = 0.95, ...)
+\method{confint}{imr_posterior}(object, parm = c("coefficients", "latent"), level = 0.95, ...)
 
 \method{coef}{imr_posterior}(object, ...)
 
@@ -21,9 +21,12 @@
 
 \item{level}{Equal-tail credible level, between zero and one.}
 
-\item{...}{Unused.}
+\item{parm}{\code{"coefficients"} for the regression coefficients, or \code{"latent"}
+for the augmented response of a binary or right-censored fit. \code{"latent"}
+requires draws retained with \code{posterior_draws(latent = TRUE)} and gives one
+row per subject, without a \code{probability_nonzero} column.}
 
-\item{parm}{Currently only \code{"coefficients"}.}
+\item{...}{Unused.}
 }
 \value{
 \code{summary()} and \code{confint()} return coefficient tables by subgroup.
