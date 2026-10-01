@@ -5,12 +5,14 @@ study <- normalizePath(args[1], mustWork = TRUE)
 source(file.path(study, "source/hpc/study-plan.R"))
 plan <- read_study_plan(study)
 stopifnot(identical(tools::md5sum(names(plan$hashes)), plan$hashes))
-.libPaths(c(file.path(plan$candidate, "library"), plan$dependencies, .libPaths()))
+.libPaths(c(file.path(plan$candidate, "library"), plan$dependencies,
+            .libPaths()))
 source(file.path(plan$source, "paper/original-experiment-helpers.R"))
 Sys.setenv(R_LIBS = paste(.libPaths(), collapse = .Platform$path.sep))
 run_validator <- function(name, arguments) {
   status <- system2(file.path(R.home("bin"), "Rscript"),
-    c("--vanilla", shQuote(file.path(plan$source, "paper", name)), vapply(arguments, shQuote, "")))
+    c("--vanilla", shQuote(file.path(plan$source, "paper", name)),
+      vapply(arguments, shQuote, "")))
   if (status != 0L) stop("Pilot validation failed: ", name)
 }
 tasks <- plan$tasks
@@ -57,7 +59,8 @@ for (i in seq_len(nrow(tasks))) {
         fit <- if (inherits(result$fit, "imr_experiment_fit_checkpoint_v1")) result$fit$fit else result$fit
         stopifnot(fit$control$mcmc$draws == settings$draws,
           fit$control$mcmc$burnin == settings$burnin, fit$control$seed == task$seed,
-          identical(fit$control$sampler_method, settings$reference_arguments$fit$sampler_method),
+          identical(fit$control$sampler_method,
+                    settings$reference_arguments$fit$sampler_method),
           result$cv$control$ridge == task$ridge,
           all(is.finite(result$cv$predictions$prediction)),
           all(result$summary$n_valid == result$summary$n_expected))

@@ -21,7 +21,8 @@ out <- normalizePath(out)
 frozen <- file.path(out, "source")
 files <- c(list.files(file.path(root, "paper"), "[.]R$", full.names = TRUE),
   list.files(file.path(root, "hpc"), "[.](R|sh|py)$", full.names = TRUE),
-  file.path(root, c("paper/reference/original-generator.c", "paper/data/kirc_table1_full.rda",
+  file.path(root, c("paper/reference/original-generator.c",
+                    "paper/data/kirc_table1_full.rda",
                   "Ref/biom12587-sup-0002-suppdata_code.zip")))
 destinations <- file.path(frozen, substring(files, nchar(root) + 2L))
 for (i in seq_along(files)) {
@@ -34,7 +35,8 @@ cat("\nIMR_DEPENDENCIES=", shQuote(dependencies), "\nIMR_RUNS=",
     file = file.path(frozen, "hpc/config.sh"))
 runtime_files <- c(list.files(file.path(candidate, "library"),
   "[.](rdb|rdx|so|dll)$", recursive = TRUE, full.names = TRUE),
-  list.files(dependencies, "[.](rdb|rdx|so|dll)$", recursive = TRUE, full.names = TRUE))
+  list.files(dependencies, "[.](rdb|rdx|so|dll)$", recursive = TRUE,
+             full.names = TRUE))
 tasks <- make_study_plan()
 plan <- list(tasks = tasks, candidate = candidate, dependencies = dependencies,
   native_validated_at_start = native_validated, native_validation_job = native_job,
@@ -45,9 +47,11 @@ plan <- list(tasks = tasks, candidate = candidate, dependencies = dependencies,
   resource_limits = list(memory_per_cpu_mib = as.integer(Sys.getenv("IMR_MEMORY_PER_CPU_MIB")),
     max_task_cpus = as.integer(Sys.getenv("IMR_MAX_TASK_CPUS")),
     max_wall_hours = as.integer(Sys.getenv("IMR_MAX_WALL_HOURS"))), created = Sys.time())
-stopifnot(all(is.finite(unlist(plan$resource_limits))), all(unlist(plan$resource_limits) > 0))
+stopifnot(all(is.finite(unlist(plan$resource_limits))),
+          all(unlist(plan$resource_limits) > 0))
 saveRDS(plan, file.path(out, "study.rds"))
-writeLines(unname(tools::md5sum(file.path(out, "study.rds"))), file.path(out, "MANIFEST.md5"))
+writeLines(unname(tools::md5sum(file.path(out, "study.rds"))), file.path(out,
+  "MANIFEST.md5"))
 write.csv(tasks, file.path(out, "tasks.csv"), row.names = FALSE, na = "")
 writeLines(capture.output(sessionInfo()), file.path(out, "sessionInfo.txt"))
 cat("Frozen", nrow(tasks), "tasks:", sum(tasks$kind == "audit"), "audits and",

@@ -11,6 +11,10 @@ spaced <- c("LEFT_ASSIGN", "RIGHT_ASSIGN", "EQ_ASSIGN", "EQ_SUB", "EQ_FORMALS",
   "EQ", "NE", "LT", "GT", "LE", "GE", "AND", "AND2", "OR", "OR2")
 heads <- c("IF", "FOR", "WHILE")
 faults <- character(0)
+# A single-quoted literal is only accepted when double quoting it would mean
+# escaping a quote of its own.
+single_quoted <- function(text)
+  startsWith(text, "'") & !grepl('"', text, fixed = TRUE)
 report <- function(path, line, message)
   faults <<- c(faults, sprintf("%s:%d: %s", path, line, message))
 for (path in files) {
@@ -18,6 +22,9 @@ for (path in files) {
   for (line in grep("\t", lines)) report(path, line, "tab indentation")
   for (line in grep("[ \t]+$", lines)) report(path, line, "trailing whitespace")
   data <- utils::getParseData(parse(path, keep.source = TRUE))
+  strings <- data[data$token == "STR_CONST", , drop = FALSE]
+  for (i in which(single_quoted(strings$text)))
+    report(path, strings$line1[i], "single-quoted string; the package uses `\"`")
   terminal <- data[data$terminal, , drop = FALSE]
   terminal <- terminal[order(terminal$line1, terminal$col1), , drop = FALSE]
   for (i in seq_len(nrow(terminal) - 1L)) {

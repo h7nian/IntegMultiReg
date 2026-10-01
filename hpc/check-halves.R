@@ -4,16 +4,17 @@ args <- commandArgs(TRUE)
 stopifnot(length(args) == 2L)
 root <- normalizePath(args[1])
 out <- args[2]
-paths <- file.path(root, sprintf('chain-%02d-diagnostic.rds', 1:8))
+paths <- file.path(root, sprintf("chain-%02d-diagnostic.rds", 1:8))
 rows <- list()
 for (ch in 1:8) {
   stopifnot(identical(readRDS(file.path(root,
-    sprintf('chain-%02d.rds.status.rds', ch)))$status, 'completed'))
+    sprintf("chain-%02d.rds.status.rds", ch)))$status, "completed"))
   f <- readRDS(paths[ch])
   for (p in seq_along(f$posterior$interaction_draws)) {
     groups <- f$model$subgroup_names[f$model$platform_subgroups[[p]]]
     if (length(groups) < 2L) next
-    pairs <- do.call(cbind, lapply(2:length(groups), function(j) rbind(seq_len(j - 1), j)))
+    pairs <- do.call(cbind, lapply(2:length(groups),
+                                   function(j) rbind(seq_len(j - 1), j)))
     mat <- f$posterior$interaction_draws[[p]]
     stopifnot(ncol(mat) == ncol(pairs), nrow(mat) == f$control$mcmc$draws,
               all(is.finite(mat)), nrow(mat) >= 4L)
@@ -36,10 +37,12 @@ for (ch in 1:8) {
 result <- do.call(rbind, rows)
 stopifnot(nrow(result) == 64L, !anyNA(result))
 dir.create(out, recursive = TRUE, showWarnings = FALSE)
-write.csv(result, file.path(out, 'theta-half-drift.csv'), row.names = FALSE)
-script <- sub('^--file=', '', grep('^--file=', commandArgs(FALSE), value = TRUE))
+write.csv(result, file.path(out, "theta-half-drift.csv"), row.names = FALSE)
+script <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE),
+                                   value = TRUE))
 saveRDS(list(result = result, input_hashes = tools::md5sum(paths),
   script_hash = tools::md5sum(script), session = sessionInfo(),
-  interpretation = 'Contiguous halves of every retained chain, no extra burn-in or thinning. Differences are descriptive; autocorrelation prevents interpreting raw draws as independent replicates. No pass/fail threshold or convergence claim.'),
-  file.path(out, 'theta-half-drift.rds'))
-print(result[order(abs(result$mean_difference), decreasing = TRUE), ][1:8, ], row.names = FALSE)
+  interpretation = "Contiguous halves of every retained chain, no extra burn-in or thinning. Differences are descriptive; autocorrelation prevents interpreting raw draws as independent replicates. No pass/fail threshold or convergence claim."),
+  file.path(out, "theta-half-drift.rds"))
+print(result[order(abs(result$mean_difference), decreasing = TRUE), ][1:8, ],
+      row.names = FALSE)

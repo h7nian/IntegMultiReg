@@ -11,13 +11,16 @@ dir.create(file.path(candidate, "evidence"), recursive = TRUE)
 dir.create(dependencies)
 for (name in c("study-plan.R", "config.sh"))
   stopifnot(file.copy(file.path(directory, name), file.path(root, "hpc")))
-for (name in c("paper/reference/original-generator.c", "paper/data/kirc_table1_full.rda",
+for (name in c("paper/reference/original-generator.c",
+               "paper/data/kirc_table1_full.rda",
                "Ref/biom12587-sup-0002-suppdata_code.zip"))
-  writeLines("preparation test fixture, never used for fitting", file.path(root, name))
+  writeLines("preparation test fixture, never used for fitting", file.path(root,
+    name))
 for (name in c("UNIT-VALIDATED", "SANITIZER-VALIDATED"))
   writeLines("test fixture", file.path(candidate, name))
 environment <- c(paste0("IMR_ROOT=", shQuote(root)),
-  paste0("IMR_DEPENDENCIES=", shQuote(dependencies)), "IMR_MEMORY_PER_CPU_MIB=1896",
+  paste0("IMR_DEPENDENCIES=",
+         shQuote(dependencies)), "IMR_MEMORY_PER_CPU_MIB=1896",
   "IMR_MAX_TASK_CPUS=128", "IMR_MAX_WALL_HOURS=96")
 run_fixture_script <- function(name, arguments, success) {
   log <- tempfile(tmpdir = fixture)
@@ -45,7 +48,8 @@ writeLines("test fixture", file.path(candidate, "SANITIZER-VALIDATED"))
 writeLines("test fixture", file.path(candidate, "NATIVE-VALIDATED"))
 plan <- prepare(TRUE)
 stopifnot(plan$native_validated_at_start, is.null(plan$native_validation_job))
-cat("changed", file = file.path(root, "paper/reference/original-generator.c"), append = TRUE)
+cat("changed", file = file.path(root, "paper/reference/original-generator.c"),
+    append = TRUE)
 prepare(FALSE, c("--pending-native-job", "99999"))
 unlink(fixture, recursive = TRUE)
 cat("PASS: explicit concurrent preparation, unchanged default gate, required sanitizer evidence and source-integrity refusal.\n")

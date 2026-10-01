@@ -126,7 +126,8 @@ methylation_ids <- ids_from_group_labels(group_methylation, group_all, ids)
 platforms <- list(
   mrna = data.frame(id = mrna_ids, gene, check.names = FALSE),
   mirna = data.frame(id = mirna_ids, mirna, check.names = FALSE),
-  methylation = data.frame(id = methylation_ids, methylation, check.names = FALSE)
+  methylation = data.frame(id = methylation_ids, methylation,
+                           check.names = FALSE)
 )
 
 covariates <- data.frame(id = ids, covariates, check.names = FALSE)

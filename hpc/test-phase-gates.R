@@ -15,7 +15,8 @@ writeLines(unname(tools::md5sum(file.path(study, "study.rds"))), file.path(study
 select <- function(phase, success) {
   log <- tempfile(tmpdir = study)
   status <- system2(file.path(R.home("bin"), "Rscript"),
-    c("--vanilla", shQuote(file.path(directory, "select-tasks.R")), shQuote(study), phase),
+    c("--vanilla", shQuote(file.path(directory, "select-tasks.R")),
+      shQuote(study), phase),
     stdout = log, stderr = log)
   stopifnot(identical(status == 0L, success))
   if (success) as.integer(strsplit(readLines(log), ",", fixed = TRUE)[[1]])

@@ -20,7 +20,8 @@ if (!is.null(mcmc)) {
   forward <- c(forward, "--draws", parts[1], "--burnin", parts[2])
 }
 if (!is.null(option_value("--prefix"))) stop("Use --out-dir to identify a run; --prefix is no longer supported.")
-script <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1])
+script <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE),
+                                   value = TRUE)[1])
 runner <- file.path(dirname(normalizePath(script)), "original-experiments.R")
 status <- system2(file.path(R.home("bin"), "Rscript"),
   c(shQuote(runner), "--experiment", "table1", vapply(forward, shQuote, "")))

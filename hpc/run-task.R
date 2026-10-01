@@ -9,8 +9,10 @@ plan <- read_study_plan(study)
 stopifnot(length(id) == 1L, !is.na(id), id >= 1L, id <= nrow(plan$tasks),
   identical(tools::md5sum(names(plan$hashes)), plan$hashes),
   identical(R.version, plan$R_version), identical(RNGkind(), plan$rng_kind),
-  identical(system2("gsl-config", "--version", stdout = TRUE), plan$gsl_version))
-.libPaths(c(file.path(plan$candidate, "library"), plan$dependencies, .libPaths()))
+  identical(system2("gsl-config", "--version", stdout = TRUE),
+            plan$gsl_version))
+.libPaths(c(file.path(plan$candidate, "library"), plan$dependencies,
+            .libPaths()))
 stopifnot(normalizePath(find.package("IntegMultiReg")) ==
           normalizePath(file.path(plan$candidate, "library/IntegMultiReg")))
 task <- plan$tasks[id, , drop = FALSE]
@@ -21,7 +23,8 @@ if (file.exists(identity_path)) {
   stopifnot(identical(readRDS(identity_path), task))
 } else saveRDS(task, identity_path)
 command <- study_task_arguments(task, directory)
-Sys.setenv(R_LIBS = paste(c(file.path(plan$candidate, "library"), plan$dependencies),
+Sys.setenv(R_LIBS = paste(c(file.path(plan$candidate, "library"),
+                            plan$dependencies),
                          collapse = .Platform$path.sep),
            R_LIBS_USER = file.path(plan$candidate, "library"))
 status <- system2(file.path(R.home("bin"), "Rscript"),

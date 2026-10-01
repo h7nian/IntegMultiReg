@@ -3,7 +3,8 @@ load_original_generator <- function(archive, out_dir, adapter) {
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
   out_dir <- normalizePath(out_dir)
   files <- c("ReadData.c", "utils.c", "utils.h", "myheader.h")
-  utils::unzip(archive, files = paste0("CcodeBiometrics/", files), exdir = out_dir)
+  utils::unzip(archive, files = paste0("CcodeBiometrics/", files),
+               exdir = out_dir)
   work <- file.path(out_dir, "CcodeBiometrics")
   hashes <- tools::md5sum(file.path(work, files))
   path <- file.path(work, "utils.c")
@@ -20,7 +21,8 @@ load_original_generator <- function(archive, out_dir, adapter) {
   old <- setwd(work)
    on.exit(setwd(old))
   status <- system2(file.path(R.home("bin"), "R"), c("CMD", "SHLIB", "-o",
-    paste0("generator", .Platform$dynlib.ext), "generator.c", "ReadData.c", "utils.c"),
+    paste0("generator",
+           .Platform$dynlib.ext), "generator.c", "ReadData.c", "utils.c"),
     env = c(paste0("PKG_CPPFLAGS=", shQuote(system2("gsl-config", "--cflags", stdout = TRUE))),
             paste0("PKG_LIBS=", shQuote(system2("gsl-config", "--libs", stdout = TRUE))),
             "PKG_CFLAGS=-std=gnu11"),
@@ -28,7 +30,8 @@ load_original_generator <- function(archive, out_dir, adapter) {
   if (status != 0) stop("Cannot compile original generator; see compile.log")
   writeLines(c("Original source hashes before portability/resource patches:",
     paste(names(hashes), hashes), "utils.c: malloc.h -> stdlib.h",
-    "ReadData.c: free auxiliary r1 RNG at generdata exit."), file.path(out_dir, "manifest.txt"))
+    "ReadData.c: free auxiliary r1 RNG at generdata exit."), file.path(out_dir,
+      "manifest.txt"))
   dyn.load(file.path(work, paste0("generator", .Platform$dynlib.ext)))[["name"]]
 }
 
@@ -40,7 +43,8 @@ original_simulation <- function(data, dll, scenario, seed, rho = 0, half = FALSE
   bits <- c("111", "011", "101", "001")
   groups <- list(1:4, 1:2, c(1, 3))
   availability <- data$platform_availability
-  ids <- lapply(c("E1", "E2", "E3", "E5"), function(g) availability$id[availability$paper_subgroup == g])
+  ids <- lapply(c("E1", "E2", "E3", "E5"),
+                function(g) availability$id[availability$paper_subgroup == g])
   permutation <- lapply(data$platforms, function(x) seq_len(ncol(x) - 1L))
   if (marker_design == "random") {
     # A common permutation per platform randomizes identities while preserving
@@ -64,22 +68,26 @@ original_simulation <- function(data, dll, scenario, seed, rho = 0, half = FALSE
     storage.mode(value) <- "double"
      value
   }))
-  output <- .Call("original_generate", matrices, as.integer(scenario), as.double(seed),
+  output <- .Call("original_generate", matrices, as.integer(scenario),
+                  as.double(seed),
                    as.double(rho), as.integer(half), PACKAGE = dll)
   platforms <- lapply(1:3, function(p) {
     value <- do.call(rbind, output[[2]][[p]])
     value <- value[, order(permutation[[p]]), drop = FALSE]
     colnames(value) <- names(data$platforms[[p]])[-1]
-    data.frame(id = unlist(ids[groups[[p]]], use.names = FALSE), value, check.names = FALSE)
+    data.frame(id = unlist(ids[groups[[p]]], use.names = FALSE), value,
+               check.names = FALSE)
   })
   names(platforms) <- names(data$platforms)
   y <- do.call(rbind, output[[1]])
-  outcome <- data.frame(id = unlist(ids, use.names = FALSE), time = exp(y[, 1]), status = as.integer(y[, 2]))
+  outcome <- data.frame(id = unlist(ids, use.names = FALSE), time = exp(y[, 1]),
+                        status = as.integer(y[, 2]))
   truth <- output[[3]]
    names(truth) <- names(platforms)
   for (p in 1:3) truth[[p]] <- truth[[p]][, order(permutation[[p]]), drop = FALSE]
   for (p in 1:3) dimnames(truth[[p]]) <- list(bits[groups[[p]]], names(platforms[[p]])[-1])
-  list(platforms = platforms, outcome = outcome, covariates = NULL, truth = truth,
+  list(platforms = platforms, outcome = outcome, covariates = NULL,
+       truth = truth,
        standardize = FALSE, generator = list(scenario = scenario, seed = seed, rho = rho, half = half,
          marker_design = marker_design, marker_permutation = permutation,
          marker_rng = if (marker_design == "random") c("Mersenne-Twister", "Inversion", "Rejection") else NULL,

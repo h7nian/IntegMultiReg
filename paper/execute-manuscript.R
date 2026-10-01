@@ -1,7 +1,8 @@
 # Execute every displayed CodeInput block, retain code/output mapping, and
 # refresh or add CodeOutput blocks only when --refresh-output is requested.
 args <- commandArgs(TRUE)
-script <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1])
+script <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE),
+                                   value = TRUE)[1])
 materials <- dirname(normalizePath(script))
 path <- file.path(materials, "IntegMultiReg.tex")
 text <- paste(readLines(path, warn = FALSE), collapse = "\n")
@@ -24,7 +25,8 @@ stopifnot(file.copy(companion, workspace))
 saveRDS(list(manuscript = normalizePath(path),
   hashes = tools::md5sum(c(path, script, companion,
     system.file("R", "IntegMultiReg.rdb", package = "IntegMultiReg"),
-    system.file("libs", paste0("IntegMultiReg", .Platform$dynlib.ext), package = "IntegMultiReg"))),
+    system.file("libs", paste0("IntegMultiReg", .Platform$dynlib.ext),
+                package = "IntegMultiReg"))),
   started = Sys.time()), file.path(out, "provenance.rds"))
 setwd(workspace)
 environment <- new.env(parent = globalenv())
@@ -48,13 +50,14 @@ escape <- function(x) {
   gsub(">", "&gt;", x, fixed = TRUE)
 }
 html <- c('<!doctype html><meta charset="utf-8"><title>Manuscript command audit</title>',
-  '<style>body{max-width:1000px;margin:3rem auto;font-family:system-ui}pre{white-space:pre-wrap;background:#f5f5f5;padding:1rem}</style>',
-  '<h1>Executed manuscript commands</h1>')
-for (i in seq_along(code)) html <- c(html, sprintf('<h2>Block %d</h2><pre>%s</pre><pre>%s</pre>',
+  "<style>body{max-width:1000px;margin:3rem auto;font-family:system-ui}pre{white-space:pre-wrap;background:#f5f5f5;padding:1rem}</style>",
+  "<h1>Executed manuscript commands</h1>")
+for (i in seq_along(code)) html <- c(html, sprintf("<h2>Block %d</h2><pre>%s</pre><pre>%s</pre>",
   i, escape(code[i]), escape(paste(outputs[[i]], collapse = "\n"))))
-writeLines(c(html, paste0('<pre>', escape(paste(capture.output(sessionInfo()), collapse = "\n")), '</pre>')),
+writeLines(c(html, paste0("<pre>", escape(paste(capture.output(sessionInfo()), collapse = "\n")), "</pre>")),
   file.path(out, "code.html"))
-saveRDS(list(code = code, output = outputs, session = sessionInfo()), file.path(out, "commands.rds"))
+saveRDS(list(code = code, output = outputs, session = sessionInfo()),
+        file.path(out, "commands.rds"))
 if ("--refresh-output" %in% args) {
   for (i in rev(seq_along(matches))) {
     end <- matches[i] + attr(matches, "match.length")[i] - 1L

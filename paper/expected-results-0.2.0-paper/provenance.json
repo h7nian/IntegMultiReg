@@ -9,25 +9,47 @@
     "output/manuscript-full-20260921/figure-audit/A-vs-B.json": "435e099f40cbc93dd667be260791e2f531dcd6c6b0d7cd0cc7e78e569caf333a",
     "output/manuscript-full-20260921/run-A/sessionInfo.txt": "31fa72a3a66019d11b57f03020d4c9e21bfce091b4e8847fab3ca24518e1ee55",
     "output/manuscript-full-20260921/run-B/sessionInfo.txt": "31fa72a3a66019d11b57f03020d4c9e21bfce091b4e8847fab3ca24518e1ee55",
-    "paper/IntegMultiReg-replication.R": "39b84e74a501455ab9e58968d422d3f438002fba9b27030f297ac513339a403e",
-    "paper/IntegMultiReg-covariate-comparison.R": "8038887d33e6b69513b571de152ccccb229e4a970bbeec2c0a3d5c09602bc774",
-    "paper/validate-manuscript-run.R": "92cf4e386d895ea26764b84de2ab4ff4d7977f52ef561a1f81a3d7e43d72a3f5",
+    "paper/IntegMultiReg-replication.R": "428544142284b2e14e18c09cae2e6b9177055221069d521b1103503333afd845",
+    "paper/IntegMultiReg-covariate-comparison.R": "82c0523bc8797cf1d0e6bf202492078f3785f9e5c89cf3779788f40c2498bf27",
+    "paper/validate-manuscript-run.R": "3c03805c497a50c7606e1e5e46652bd59892c7635c129e00dbb6a36d0580f6a0",
     "output/shared-candidate-check-20260921/IntegMultiReg_0.2.0.tar.gz": "00d557a648f27663996fbd6e9270759d3499b59e693b9388d07268d00c00cec2"
   },
-  "source_reformatting": {
-    "date": "2026-09-26",
-    "change": "Spacing aligned with IntegMultiReg/R, and local identifier renames in validate-manuscript-run.R. No change to any computed quantity, output file name, or CSV column.",
-    "results_regenerated": false,
-    "note": "The frozen results below were produced by the previous revisions of these scripts, recorded as previous_sha256. They were not re-run.",
-    "scripts": {
-      "paper/IntegMultiReg-replication.R": {
-        "previous_sha256": "069a3cd093bc4fe8218400bd59c95d42947617c8371b59d1dbf39929d280d28c",
-        "sha256": "39b84e74a501455ab9e58968d422d3f438002fba9b27030f297ac513339a403e"
-      },
-      "paper/validate-manuscript-run.R": {
-        "previous_sha256": "1d20a87f844392050a68dc9b8081c8ed0587063789e93329a86148a2847fe66b",
-        "sha256": "92cf4e386d895ea26764b84de2ab4ff4d7977f52ef561a1f81a3d7e43d72a3f5"
+  "source_reformatting": [
+    {
+      "date": "2026-09-26",
+      "change": "Spacing aligned with IntegMultiReg/R, and local identifier renames in validate-manuscript-run.R. No change to any computed quantity, output file name, or CSV column.",
+      "results_regenerated": false,
+      "note": "The frozen results below were produced by the previous revisions of these scripts, recorded as previous_sha256. They were not re-run.",
+      "scripts": {
+        "paper/IntegMultiReg-replication.R": {
+          "previous_sha256": "069a3cd093bc4fe8218400bd59c95d42947617c8371b59d1dbf39929d280d28c",
+          "sha256": "39b84e74a501455ab9e58968d422d3f438002fba9b27030f297ac513339a403e"
+        },
+        "paper/validate-manuscript-run.R": {
+          "previous_sha256": "1d20a87f844392050a68dc9b8081c8ed0587063789e93329a86148a2847fe66b",
+          "sha256": "92cf4e386d895ea26764b84de2ab4ff4d7977f52ef561a1f81a3d7e43d72a3f5"
+        }
+      }
+    },
+    {
+      "date": "2026-09-30",
+      "change": "Long lines broken at argument commas, and single-quoted string literals rewritten as double-quoted to match IntegMultiReg/R. No change to any computed quantity, output file name, or CSV column.",
+      "results_regenerated": false,
+      "note": "Each file was verified to parse to an identical abstract syntax tree before and after, by comparing deparse(parse(keep.source = FALSE)). The frozen results below were produced by the previous revisions of these scripts, recorded as previous_sha256, and were not re-run.",
+      "scripts": {
+        "paper/IntegMultiReg-replication.R": {
+          "previous_sha256": "39b84e74a501455ab9e58968d422d3f438002fba9b27030f297ac513339a403e",
+          "sha256": "428544142284b2e14e18c09cae2e6b9177055221069d521b1103503333afd845"
+        },
+        "paper/IntegMultiReg-covariate-comparison.R": {
+          "previous_sha256": "8038887d33e6b69513b571de152ccccb229e4a970bbeec2c0a3d5c09602bc774",
+          "sha256": "82c0523bc8797cf1d0e6bf202492078f3785f9e5c89cf3779788f40c2498bf27"
+        },
+        "paper/validate-manuscript-run.R": {
+          "previous_sha256": "92cf4e386d895ea26764b84de2ab4ff4d7977f52ef561a1f81a3d7e43d72a3f5",
+          "sha256": "3c03805c497a50c7606e1e5e46652bd59892c7635c129e00dbb6a36d0580f6a0"
+        }
       }
     }
-  }
+  ]
 }

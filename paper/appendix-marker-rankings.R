@@ -5,7 +5,7 @@ appendix_marker_rankings <- function(fit, original, out_dir) {
   counts <- c(mrna = 10L, mirna = 6L, methylation = 10L)
   # The archive's readme numbers the mRNA-only subgroup as group 4 but names it
   # E5, which is the label Table 1 of the article uses.
-  equations <- c('111' = 'E1', '011' = 'E2', '101' = 'E3', '001' = 'E5')
+  equations <- c("111" = "E1", "011" = "E2", "101" = "E3", "001" = "E5")
   rankings <- list()
   for (p in seq_along(fit$model$platform_names)) {
     platform <- fit$model$platform_names[p]
@@ -29,20 +29,22 @@ appendix_marker_rankings <- function(fit, original, out_dir) {
     }
   }
   full <- do.call(rbind, rankings)
-  feature_key <- paste(full$platform, full$feature_index, sep = ':')
+  feature_key <- paste(full$platform, full$feature_index, sep = ":")
   count <- tapply(as.integer(full$in_top_list), feature_key, sum)
   full$n_top_subgroups <- as.integer(count[feature_key])
   top <- full[full$in_top_list, ]
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-  write.csv(full, file.path(out_dir, 'all-marker-rankings.csv'), row.names = FALSE)
-  write.csv(top, file.path(out_dir, 'top-marker-rankings.csv'), row.names = FALSE)
-  writeLines(c('Rank within each platform and availability subgroup by descending mPIP.',
-    'Top counts follow Appendix G: 10 genes, 6 miRNAs, 10 methylation probes.',
-    'Ties are ordered by archived feature-column position; cutoff ties are flagged.',
-    'Original names are mapped by validated feature-column order, not approximate name matching.',
-    'n_top_subgroups counts membership in these top lists; it is not a threshold-based selection count.',
-    'No posterior-mode coefficient is supplied by this exporter. coef(imr) is mPIP, not a regression slope.',
-    'Historical coefficient conditioning/model choices and IPA remain separate unresolved work.'),
-    file.path(out_dir, 'INTERPRETATION.txt'))
+  write.csv(full, file.path(out_dir, "all-marker-rankings.csv"),
+            row.names = FALSE)
+  write.csv(top, file.path(out_dir, "top-marker-rankings.csv"),
+            row.names = FALSE)
+  writeLines(c("Rank within each platform and availability subgroup by descending mPIP.",
+    "Top counts follow Appendix G: 10 genes, 6 miRNAs, 10 methylation probes.",
+    "Ties are ordered by archived feature-column position; cutoff ties are flagged.",
+    "Original names are mapped by validated feature-column order, not approximate name matching.",
+    "n_top_subgroups counts membership in these top lists; it is not a threshold-based selection count.",
+    "No posterior-mode coefficient is supplied by this exporter. coef(imr) is mPIP, not a regression slope.",
+    "Historical coefficient conditioning/model choices and IPA remain separate unresolved work."),
+    file.path(out_dir, "INTERPRETATION.txt"))
   invisible(list(all = full, top = top))
 }

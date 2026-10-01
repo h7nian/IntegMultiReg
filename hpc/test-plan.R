@@ -1,4 +1,5 @@
-script <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1])
+script <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE),
+                                   value = TRUE)[1])
 source(file.path(dirname(normalizePath(script)), "study-plan.R"))
 tasks <- make_study_plan()
 stopifnot(nrow(tasks) == 679L, identical(tasks$task_id, seq_len(679L)),
@@ -20,20 +21,25 @@ for (i in seq_len(nrow(tasks))) {
   stopifnot(tail(args, 1) == "directory with spaces" || "--out-dir" %in% args,
             identical("--audit" %in% args, task$kind == "audit"))
   if (task$kind != "chain") {
-    stopifnot(as.integer(args[match("--replicate", args) + 1L]) == task$replicate,
-              as.integer(args[match("--replicates", args) + 1L]) == task$replicates,
+    stopifnot(as.integer(args[match("--replicate",
+                                    args) + 1L]) == task$replicate,
+              as.integer(args[match("--replicates",
+                                    args) + 1L]) == task$replicates,
               !"--chain" %in% args)
   }
 }
-source(file.path(dirname(dirname(normalizePath(script))), "paper/original-experiment-helpers.R"))
+source(file.path(dirname(dirname(normalizePath(script))),
+                 "paper/original-experiment-helpers.R"))
 strict <- resolve_experiment_arguments("paper", list())
 paper_ridge_arguments <- resolve_experiment_arguments("paper", list("--ridge" = "0.001"))
 stopifnot(strict$cv$ridge == 0, paper_ridge_arguments$cv$ridge == .001,
           identical(strict$fit, paper_ridge_arguments$fit),
-          identical(reference_arguments("code2017"), resolve_experiment_arguments("code2017", list())))
+          identical(reference_arguments("code2017"),
+                    resolve_experiment_arguments("code2017", list())))
 for (options in list(list("--ridge" = "NaN"), list("--ridge" = "-1"),
                     list("--cv-method" = "refit", "--ridge" = "0"))) {
-  failure <- tryCatch(resolve_experiment_arguments("paper", options), error = identity)
+  failure <- tryCatch(resolve_experiment_arguments("paper", options),
+                      error = identity)
   stopifnot(inherits(failure, "error"))
 }
 cat("PASS: complete task coverage, selectors, seed independence and argument overrides.\n")

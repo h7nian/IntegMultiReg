@@ -123,9 +123,11 @@ sim_modelled_subgroups <- sim_subgroups[sim_subgroups >= 30L]
 computational_scale <- data.frame(
   workflow = c("simIMR figures and prediction table", "kircIMR reduced example",
                "covariate comparison and nested selection"),
-  subjects = c(length(all_ids(simIMR)), sum(kircIMR$model_subgroup_sizes), 300L),
+  subjects = c(length(all_ids(simIMR)), sum(kircIMR$model_subgroup_sizes),
+               300L),
   features = c(number_of_features(simIMR), number_of_features(kircIMR), 38L),
-  subgroups = c(length(sim_modelled_subgroups), length(kircIMR$model_subgroup_sizes), 4L),
+  subgroups = c(length(sim_modelled_subgroups),
+                length(kircIMR$model_subgroup_sizes), 4L),
   configuration = c(
     paste("Figures: 8000 retained + 2000 burn-in; prediction:",
           "4000 retained + 1000 burn-in, 10 x 5-fold CV"),

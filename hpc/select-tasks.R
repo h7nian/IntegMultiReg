@@ -17,7 +17,8 @@ if (length(args) == 3L) {
   values <- strsplit(args[3], ",", fixed = TRUE)[[1]]
   stopifnot(length(values) > 0L, all(grepl("^[1-9][0-9]*$", values)))
   requested <- suppressWarnings(as.integer(values))
-  stopifnot(!anyNA(requested), !anyDuplicated(requested), all(requested %in% ids))
+  stopifnot(!anyNA(requested), !anyDuplicated(requested),
+            all(requested %in% ids))
   ids <- requested
 }
 cat(paste(ids, collapse = ","), "\n", sep = "")

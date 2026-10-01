@@ -16,7 +16,8 @@ for (type in c("binary", "continuous", "right.censored")) {
       cv_imr(fit, k = 3, rounds = 1, cv_method = mode)[1:5])
     results[[paste(type, method)]] <- list(posterior = fit$posterior,
       model = fit$model, preprocessing = fit$preprocessing,
-      predictions = predict(fit, simIMR$platforms, covariates = simIMR$covariates), cv = cv)
+      predictions = predict(fit, simIMR$platforms,
+                            covariates = simIMR$covariates), cv = cv)
   }
 }
 if (args[3] == "capture") saveRDS(results, args[2]) else {

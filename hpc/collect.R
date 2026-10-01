@@ -13,7 +13,8 @@ plan <- read_study_plan(study)
 stopifnot(file.exists(file.path(plan$candidate, "NATIVE-VALIDATED")),
           identical(tools::md5sum(names(plan$hashes)), plan$hashes))
 source(file.path(plan$source, "hpc/collection.R"))
-.libPaths(c(file.path(plan$candidate, "library"), plan$dependencies, .libPaths()))
+.libPaths(c(file.path(plan$candidate, "library"), plan$dependencies,
+            .libPaths()))
 Sys.setenv(R_LIBS = paste(.libPaths(), collapse = .Platform$path.sep))
 run_validator <- function(script, arguments) {
   validator <- if (identical(script, "paper/validate-original-simulation.R") &&
@@ -38,7 +39,8 @@ for (group in split(tasks, key)) {
   if (experiment == "chains") {
     run_validator("hpc/diagnose-chains.R", out)
     run_validator("paper/rank-chain-diagnostics.R", c(out, file.path(out, "diagnostics")))
-    run_validator("paper/chain-ranking-stability.R", c(out, file.path(out, "diagnostics")))
+    run_validator("paper/chain-ranking-stability.R", c(out, file.path(out,
+      "diagnostics")))
     run_validator("hpc/check-halves.R", c(out, file.path(out, "half-drift")))
   } else {
     run_validator("paper/validate-original-simulation.R", c(out, "--require-complete-study"))

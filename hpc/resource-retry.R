@@ -37,6 +37,8 @@ attempts[as.character(retry$id)] <- 1L
 temporary <- paste0(attempts_path, ".tmp-", Sys.getpid())
 saveRDS(attempts, temporary)
 stopifnot(file.rename(temporary, attempts_path))
-write.csv(retry, file.path(study, paste0("resource-retry-", last[[1]], ".csv")), row.names = FALSE)
-cat(paste(c(paste(retry$id, collapse = ","), memory_mib, hours), collapse = "\n"),
+write.csv(retry, file.path(study, paste0("resource-retry-", last[[1]], ".csv")),
+          row.names = FALSE)
+cat(paste(c(paste(retry$id, collapse = ","), memory_mib, hours),
+          collapse = "\n"),
     "\n", sep = "")

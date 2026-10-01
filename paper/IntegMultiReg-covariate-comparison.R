@@ -1,5 +1,6 @@
 # Thin replication entry point; computation lives in the installed package example.
-source(system.file("examples", "compare-covariates.R", package = "IntegMultiReg"))
+source(system.file("examples", "compare-covariates.R",
+                   package = "IntegMultiReg"))
 if (sys.nframe() == 0L) {
   args <- commandArgs(TRUE)
   hit <- match("--out-dir", args)

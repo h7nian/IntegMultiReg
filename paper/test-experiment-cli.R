@@ -1,6 +1,8 @@
 # Run from any directory with Rscript; requires no installed candidate package.
-script <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1])
-source(file.path(dirname(normalizePath(script)), "original-experiment-helpers.R"))
+script <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE),
+                                   value = TRUE)[1])
+source(file.path(dirname(normalizePath(script)),
+                 "original-experiment-helpers.R"))
 stopifnot(identical(parse_experiment_args(character()), list()))
 stopifnot(identical(parse_experiment_args(c("--marker-design", "random")),
   list("--marker-design" = "random")))

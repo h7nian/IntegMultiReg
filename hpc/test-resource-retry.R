@@ -11,20 +11,24 @@ saveRDS(list(tasks = make_study_plan(), resource_limits = list(
   file.path(study, "study.rds"))
 writeLines(unname(tools::md5sum(file.path(study, "study.rds"))), file.path(study, "MANIFEST.md5"))
 writeLines("12345\tpilot\t16384\t1,9\t48", file.path(study, "submissions.tsv"))
-writeLines(c("#!/bin/sh", 'cat "$IMR_ACCOUNTING_FIXTURE"'), file.path(study, "bin/sacct"))
+writeLines(c("#!/bin/sh", 'cat "$IMR_ACCOUNTING_FIXTURE"'), file.path(study,
+  "bin/sacct"))
 Sys.chmod(file.path(study, "bin/sacct"), "0755")
 fixture <- file.path(study, "accounting.txt")
 run_with_accounting <- function(rows, success) {
   writeLines(rows, fixture)
   log <- tempfile(tmpdir = study)
   status <- system2(file.path(R.home("bin"), "Rscript"),
-    c("--vanilla", shQuote(file.path(directory, "resource-retry.R")), shQuote(study), "pilot"),
+    c("--vanilla", shQuote(file.path(directory, "resource-retry.R")),
+      shQuote(study), "pilot"),
     env = c(paste0("PATH=", shQuote(paste(file.path(study, "bin"), Sys.getenv("PATH"), sep = ":"))),
-            paste0("IMR_ACCOUNTING_FIXTURE=", shQuote(fixture))), stdout = log, stderr = log)
+            paste0("IMR_ACCOUNTING_FIXTURE=",
+                   shQuote(fixture))), stdout = log, stderr = log)
   stopifnot(identical(status == 0L, success))
   if (success) readLines(log)
 }
-observed <- run_with_accounting(c("12345_1|OUT_OF_MEMORY|", "12345_9|FAILED|"), TRUE)
+observed <- run_with_accounting(c("12345_1|OUT_OF_MEMORY|", "12345_9|FAILED|"),
+                                TRUE)
 if (!identical(observed, c("1", "32768", "48"))) stop(paste(observed, collapse = " | "))
 run_with_accounting(c("12345_1|OUT_OF_MEMORY|", "12345_9|FAILED|"), FALSE)
 stopifnot(identical(run_with_accounting(c("12345_1|COMPLETED|", "12345_9|TIMEOUT|"), TRUE),

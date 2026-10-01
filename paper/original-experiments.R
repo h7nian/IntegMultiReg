@@ -1,6 +1,7 @@
 # Original-scale experiment runner. Run from any directory; outputs are separate
 # for quick/full, experiment, reference, configuration, replicate and method.
-script <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1])
+script <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE),
+                                   value = TRUE)[1])
 materials <- dirname(normalizePath(script))
 root <- dirname(materials)
 source(file.path(materials, "original-reference.R"))
@@ -47,7 +48,8 @@ settings$source_hashes <- tools::md5sum(c(script,
   file.path(materials, c("original-reference.R", "original-experiment-helpers.R", "reference/original-generator.c")),
   if (settings$audit) file.path(materials, "audit-unpenalized-cv.R"),
   system.file("R", "IntegMultiReg.rdb", package = "IntegMultiReg"),
-  system.file("libs", paste0("IntegMultiReg", .Platform$dynlib.ext), package = "IntegMultiReg")))
+  system.file("libs", paste0("IntegMultiReg", .Platform$dynlib.ext),
+              package = "IntegMultiReg")))
 manifest <- file.path(out, "settings.rds")
 if (file.exists(manifest) && !identical(readRDS(manifest), settings))
   stop("Output directory contains different settings; choose a new directory")
@@ -77,16 +79,18 @@ configurations <- if (experiment == "table1") data.frame(scenario = 0, rho = 0, 
 if (experiment != "table1") generator <- load_original_generator(
   file.path(root, "Ref", "biom12587-sup-0002-suppdata_code.zip"),
   file.path(out, "reference-generator"), file.path(materials, "reference", "original-generator.c"))
-selected_configurations <- if (is.null(options[['--configuration']])) seq_len(nrow(configurations)) else option_integer('--configuration', 1L, 1L)
-selected_replicates <- if (is.null(options[['--replicate']])) seq_len(settings$replicates) else option_integer('--replicate', 1L, 1L)
-stopifnot(all(selected_configurations <= nrow(configurations)), all(selected_replicates <= settings$replicates))
+selected_configurations <- if (is.null(options[["--configuration"]])) seq_len(nrow(configurations)) else option_integer("--configuration", 1L, 1L)
+selected_replicates <- if (is.null(options[["--replicate"]])) seq_len(settings$replicates) else option_integer("--replicate", 1L, 1L)
+stopifnot(all(selected_configurations <= nrow(configurations)),
+          all(selected_replicates <= settings$replicates))
 record_task_selection(out, list(kind = experiment, configurations = selected_configurations, replicates = selected_replicates))
 for (configuration in selected_configurations) for (replicate in selected_replicates) {
   config <- configurations[configuration, ]
   seed <- settings$seed + replicate - 1L
   data <- if (experiment == "table1") original else original_simulation(original, generator,
     config$scenario, seed, config$rho, config$half, marker_design = settings$marker_design)
-  job_dir <- file.path(out, sprintf("configuration-%02d-replicate-%03d", configuration, replicate))
+  job_dir <- file.path(out, sprintf("configuration-%02d-replicate-%03d",
+                                    configuration, replicate))
   dir.create(job_dir, showWarnings = FALSE)
   saveRDS(list(configuration = config, data = data), file.path(job_dir, "data.rds"))
   runs <- if (experiment == "table1") expand.grid(method = c("imr", "bms"), clinical = c(TRUE, FALSE)) else
@@ -117,19 +121,24 @@ for (configuration in selected_configurations) for (replicate in selected_replic
           cv_args$folds <- shared_folds
            cv_args$fold_rng <- NULL
         }
-        cv <- do.call(cv_imr, c(list(object = fit, k = settings$k, rounds = settings$rounds,
+        cv <- do.call(cv_imr, c(list(object = fit, k = settings$k,
+                                     rounds = settings$rounds,
           workers = settings$workers), cv_args))
         if (is.null(shared_folds)) shared_folds <- cv$control$folds
-        scores <- fold_scores(cv$predictions, data$outcome, cv$control$score_method)
-        result <- list(fit = fit, cv = cv, scores = scores, summary = summarize_scores(scores),
+        scores <- fold_scores(cv$predictions, data$outcome,
+                              cv$control$score_method)
+        result <- list(fit = fit, cv = cv, scores = scores,
+                       summary = summarize_scores(scores),
           selection = if (!is.null(data$truth)) biomarker_auc(fit, data$truth) else NULL)
       })
       result$elapsed <- elapsed
       write_experiment_result(result, path)
       saveRDS(cv$control$folds, paste0(path, ".folds.rds"))
-      write.csv(result$summary, sub("[.]rds$", "-scores.csv", path), row.names = FALSE)
+      write.csv(result$summary, sub("[.]rds$", "-scores.csv", path),
+                row.names = FALSE)
       if (!is.null(result$selection)) write.csv(result$selection, sub("[.]rds$", "-selection.csv", path), row.names = FALSE)
-      cat(format(Sys.time()), label, "completed; seconds", elapsed[["elapsed"]], "\n")
+      cat(format(Sys.time()), label, "completed; seconds", elapsed[["elapsed"]],
+          "\n")
     })
     if (settings$audit) {
       tryCatch(run_method(), error = function(error) {
@@ -149,11 +158,13 @@ for (configuration in selected_configurations) for (replicate in selected_replic
     record_experiment_job(path, {
       baseline <- benchmark_cox(data, shared_folds, experiment != "table1", seed,
         inner_k = if (quick) 3L else 10L)
-      baseline$scores <- fold_scores(baseline$predictions, data$outcome, "standard",
+      baseline$scores <- fold_scores(baseline$predictions, data$outcome,
+                                     "standard",
         weighted_overall = experiment != "table1")
       baseline$summary <- summarize_scores(baseline$scores)
       saveRDS(baseline, path)
-      write.csv(baseline$summary, sub("[.]rds$", "-scores.csv", path), row.names = FALSE)
+      write.csv(baseline$summary, sub("[.]rds$", "-scores.csv", path),
+                row.names = FALSE)
       if (!is.null(baseline$selection)) write.csv(baseline$selection, sub("[.]rds$", "-selection.csv", path), row.names = FALSE)
     })
   }

@@ -25,9 +25,9 @@ parse_experiment_args <- function(args) {
 
 # MSI task identity is separate from global scientific settings.
 record_task_selection <- function(out, selection) {
-  path <- file.path(out, 'task.rds')
+  path <- file.path(out, "task.rds")
   if (file.exists(path) && !identical(readRDS(path), selection))
-    stop('Task selector changed; choose a new output directory')
+    stop("Task selector changed; choose a new output directory")
   saveRDS(selection, path)
 }
 
@@ -138,7 +138,8 @@ record_experiment_job <- function(path, code) {
       time = Sys.time(), message = conditionMessage(w), call = conditionCall(w))
   }), error = function(e) {
     record$status <<- "failed"
-    record$error <<- list(message = conditionMessage(e), call = conditionCall(e))
+    record$error <<- list(message = conditionMessage(e),
+                          call = conditionCall(e))
     stop(e)
   })
   record$status <- "completed"
@@ -147,11 +148,14 @@ record_experiment_job <- function(path, code) {
 
 reference_arguments <- function(reference) {
   switch(reference,
-    paper = list(fit = list(sampler_method = "paper", prior_indexing = "standard"),
+    paper = list(fit = list(sampler_method = "paper",
+                            prior_indexing = "standard"),
       cv = list(cv_method = "importance", ridge = 0, model_set = "draws",
                 df_method = "fractional", score_method = "standard")),
-    code2017 = list(fit = list(sampler_method = "legacy", prior_indexing = "code2017",
-      laplace_max_iter = c(initial = 25L, selection = 40L, latent = 25L, prediction = 25L)),
+    code2017 = list(fit = list(sampler_method = "legacy",
+                               prior_indexing = "code2017",
+      laplace_max_iter = c(initial = 25L, selection = 40L, latent = 25L,
+                           prediction = 25L)),
       cv = list(cv_method = "legacy", ridge = 0, model_set = "ranked_unique",
                 df_method = "legacy_integer", score_method = "legacy", fold_rng = "continue")),
     package = list(fit = list(), cv = list(cv_method = "legacy")),
@@ -165,7 +169,8 @@ resolve_experiment_arguments <- function(reference, options) {
   if (identical(options[["--cv-method"]], "refit"))
     arguments$cv <- list(cv_method = "refit")
   fit_names <- c("sampler_method", "prior_indexing")
-  cv_names <- c("cv_method", "ridge", "model_set", "df_method", "score_method", "fold_rng")
+  cv_names <- c("cv_method", "ridge", "model_set", "df_method", "score_method",
+                "fold_rng")
   for (name in c(fit_names, cv_names)) {
     flag <- paste0("--", gsub("_", "-", name, fixed = TRUE))
     value <- options[[flag]]
@@ -179,7 +184,8 @@ resolve_experiment_arguments <- function(reference, options) {
     arguments[[section]][[name]] <- value
   }
   if (identical(arguments$cv$cv_method, "refit") &&
-      any(c("ridge", "model_set", "df_method", "fold_rng") %in% names(arguments$cv)))
+      any(c("ridge", "model_set", "df_method",
+            "fold_rng") %in% names(arguments$cv)))
     stop("Refit CV cannot use post-fit-only overrides")
   arguments
 }
@@ -189,14 +195,16 @@ selection_auc <- function(score, truth) {
    n1 <- sum(positive)
    n0 <- sum(!positive)
   if (!n1 || !n0) return(NA_real_)
-  (sum(rank(score, ties.method = "average")[positive]) - n1 * (n1 + 1) / 2) / (n1 * n0)
+  (sum(rank(score,
+            ties.method = "average")[positive]) - n1 * (n1 + 1) / 2) / (n1 * n0)
 }
 
 survival_score <- function(time, event, prediction, method = "standard") {
   if (method == "standard") return(as.numeric(survival::concordance(
     survival::Surv(time, event) ~ prediction)$concordance))
   # Independent pairwise transcription of the archived historical metric.
-  pair <- which(upper.tri(matrix(FALSE, length(time), length(time))), arr.ind = TRUE)
+  pair <- which(upper.tri(matrix(FALSE, length(time), length(time))),
+                arr.ind = TRUE)
   i <- pair[, 1]
    j <- pair[, 2]
   denominator <- (time[j] > time[i]) * event[i] + (time[j] < time[i]) * event[j] +
@@ -207,7 +215,8 @@ survival_score <- function(time, event, prediction, method = "standard") {
   if (sum(denominator)) sum(numerator) / sum(denominator) else NA_real_
 }
 
-fold_scores <- function(predictions, outcome, score_method, weighted_overall = FALSE) {
+fold_scores <- function(predictions, outcome, score_method,
+                        weighted_overall = FALSE) {
   rows <- split(predictions, interaction(predictions$round, predictions$fold, drop = TRUE))
   do.call(rbind, lapply(rows, function(x) {
     groups <- split(x, x$subgroup)
@@ -273,7 +282,8 @@ benchmark_cox <- function(data, folds, lasso, seed, inner_k = 10L) {
     outcome <- data$outcome[match(ids, data$outcome$id), ]
     if (lasso) {
       present <- vapply(data$platforms, function(x) all(ids %in% x$id), TRUE)
-      blocks <- lapply(data$platforms[present], function(x) as.matrix(x[match(ids, x$id), -1]))
+      blocks <- lapply(data$platforms[present],
+                       function(x) as.matrix(x[match(ids, x$id), -1]))
       design <- do.call(cbind, blocks)
       path_fit <- fit_cox_path(design, outcome, seed, inner_k)
       full <- path_fit$fit
@@ -302,10 +312,13 @@ benchmark_cox <- function(data, folds, lasso, seed, inner_k = 10L) {
         path_fit <- fit_cox_path(design[train, , drop = FALSE], y,
           seed + 100L * round + fold, inner_k)
         fitted <- path_fit$fit
-        score <- as.numeric(predict(fitted, design[test, , drop = FALSE], s = "lambda.min", type = "link"))
+        score <- as.numeric(predict(fitted, design[test, , drop = FALSE],
+                                    s = "lambda.min", type = "link"))
       } else {
-        training <- data.frame(time = y$time, status = y$status, design[train, , drop = FALSE])
-        fitted <- survival::coxph(survival::Surv(time, status) ~ ., training, ties = "breslow")
+        training <- data.frame(time = y$time, status = y$status, design[train, ,
+          drop = FALSE])
+        fitted <- survival::coxph(survival::Surv(time, status) ~ ., training,
+                                  ties = "breslow")
         score <- as.numeric(predict(fitted, data.frame(design[test, , drop = FALSE]), type = "lp"))
       }
       }, warning = function(w) {
@@ -335,7 +348,8 @@ univariate_cox_auc <- function(data) {
     }, 0)
     if (any(!is.finite(pvalues))) stop("Univariate Cox produced non-finite p-values")
     score <- 1 - p.adjust(pvalues, "hommel")
-    data.frame(platform = names(data$platforms)[p], subgroup = rownames(data$truth[[p]]),
+    data.frame(platform = names(data$platforms)[p],
+               subgroup = rownames(data$truth[[p]]),
       auc = apply(data$truth[[p]], 1, function(truth) selection_auc(score, truth)))
   }))
 }
@@ -344,18 +358,19 @@ univariate_cox_auc <- function(data) {
 # results remain readable; numerical values and selection-state order are kept.
 write_experiment_result <- function(result, path) {
   saved <- result
-  if (inherits(saved$fit, 'imr')) saved$fit <- pack_experiment_fit(saved$fit)
-  container <- structure(list(result = saved), class = 'imr_experiment_result_v1')
-  temporary <- paste0(path, '.tmp-', Sys.getpid())
+  if (inherits(saved$fit, "imr")) saved$fit <- pack_experiment_fit(saved$fit)
+  container <- structure(list(result = saved),
+                         class = "imr_experiment_result_v1")
+  temporary <- paste0(path, ".tmp-", Sys.getpid())
   on.exit(unlink(temporary), add = TRUE)
   saveRDS(container, temporary, compress = "xz")
-  if (!file.rename(temporary, path)) stop('Cannot commit result: ', path)
+  if (!file.rename(temporary, path)) stop("Cannot commit result: ", path)
   invisible(path)
 }
 
 read_experiment_result <- function(path, include_fit = TRUE) {
   saved <- readRDS(path)
-  if (inherits(saved, 'imr_experiment_result_v1')) saved <- saved$result
+  if (inherits(saved, "imr_experiment_result_v1")) saved <- saved$result
   if (include_fit) saved$fit <- unpack_experiment_fit(saved$fit)
   else saved$fit <- NULL
   saved

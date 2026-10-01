@@ -5,7 +5,8 @@ audit_unpenalized_failure <- function(path, settings, error) {
   checkpoint <- paste0(path, ".fit.rds")
   if (!identical(args$ridge, 0) || !identical(args$model_set, "draws") ||
       !file.exists(checkpoint) ||
-      !grepl("Cholesky|singular|positive definite", conditionMessage(error), ignore.case = TRUE))
+      !grepl("Cholesky|singular|positive definite", conditionMessage(error),
+             ignore.case = TRUE))
     stop(error)
   fit <- experiment_fit_checkpoint(checkpoint, stop("Missing completed fit"))
   controls <- do.call(IntegMultiReg:::.imr_cv_settings, args)
@@ -44,7 +45,8 @@ audit_unpenalized_failure <- function(path, settings, error) {
   if (is.null(example)) stop(error) # unexplained numerical failures block acceptance
   report <- do.call(rbind, reports)
   write.csv(report, paste0(path, ".rank-audit.csv"), row.names = FALSE)
-  saveRDS(list(error = conditionMessage(error), report = report, example = example,
+  saveRDS(list(error = conditionMessage(error), report = report,
+               example = example,
     note = "Structural failure retained. Example is not asserted to be the first native failing state."),
     paste0(path, ".rank-audit.rds"))
   cat("AUDITED structural rank deficiency:", path, "\n")

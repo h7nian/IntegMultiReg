@@ -41,7 +41,8 @@ make_study_plan <- function() {
   }
   add("table1", "table1", "code2017", 0, NA_character_, pilot = TRUE)
   for (experiment in c("simulation", "correlated", "table1")) {
-    configurations <- switch(experiment, simulation = 3L, correlated = 6L, table1 = 1L)
+    configurations <- switch(experiment, simulation = 3L, correlated = 6L,
+                             table1 = 1L)
     for (configuration in seq_len(configurations))
       add("audit", experiment, "paper", 0,
         if (experiment == "table1") NA_character_ else "random", configuration)
