@@ -10,7 +10,8 @@ posterior_draws(
   burnin = 1000L,
   chains = 2L,
   conditional_draws = 200L,
-  seed = 1L
+  seed = 1L,
+  latent = FALSE
 )
 }
 \arguments{
@@ -28,13 +29,20 @@ used for sampling and split R-hat (default \code{200}). Increase with \code{burn
 if the reported conditional diagnostics are poor.}
 
 \item{seed}{Integer seed. The caller's random-number state is restored.}
+
+\item{latent}{Retain the augmented response draws. Only binary and
+right-censored outcomes have a latent response; for a continuous outcome
+the response is observed and nothing is retained. Storing them costs one
+numeric per draw per subject, so the default is \code{FALSE}.}
 }
 \value{
 An \code{imr_posterior} object containing \code{beta} (one draws-by-coefficients
 matrix per subgroup), \code{variance}, source \code{model_draw} indices, conditional
-\code{diagnostics}, and the originating \code{fit}. Coefficient column names distinguish
-clinical variables from platform features. Use \code{summary()}, \code{confint()},
-\code{coef()} and \code{predict()} on this object.
+\code{diagnostics}, and the originating \code{fit}. With \code{latent = TRUE} it also
+contains \code{latent}, one draws-by-subject matrix per subgroup holding the
+augmented response, paired row by row with \code{beta}. Coefficient column names
+distinguish clinical variables from platform features. Use \code{summary()},
+\code{confint()}, \code{coef()} and \code{predict()} on this object.
 }
 \description{
 Augments the retained selection models with conditional coefficient and

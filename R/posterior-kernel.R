@@ -20,7 +20,8 @@
 .imr_conditional_chain <- function(X, y, prior_scale, moment, alpha, psi,
                              draws = 2000L, burnin = 1000L,
                              initial_beta = NULL, initial_variance = NULL,
-                             outcome_type = "continuous", status = NULL) {
+                             outcome_type = "continuous", status = NULL,
+                             keep_latent = FALSE) {
   stopifnot(is.matrix(X), is.numeric(X), all(is.finite(X)),
             is.numeric(y), length(y) == nrow(X), all(is.finite(y)),
             nrow(X) > 0L, ncol(X) > 0L,
@@ -52,6 +53,10 @@
   stopifnot(length(beta) == p, all(is.finite(beta)),
             length(v) == 1L, is.finite(v), v > 0)
   out <- matrix(NA_real_, draws, p + 1L)
+  # The augmented response is a latent quantity only for binary and censored
+  # outcomes; for a continuous outcome `y` is the observed data throughout.
+  latent <- if (keep_latent && outcome_type != "continuous")
+    matrix(NA_real_, draws, length(y)) else NULL
   colnames(out) <- c(if (is.null(colnames(X))) paste0("beta", seq_len(p)) else
                     colnames(X), "variance")
   shape <- alpha + (length(y) + p) / 2 + sum(moment)
@@ -79,8 +84,12 @@
     if (any(!is.finite(beta)) || !is.finite(v) || v <= 0) {
       stop("Non-finite posterior state; check the data and prior scales.")
     }
-    if (iter > burnin) out[iter - burnin, ] <- c(beta, v)
+    if (iter > burnin) {
+      out[iter - burnin, ] <- c(beta, v)
+      if (!is.null(latent)) latent[iter - burnin, ] <- y
+    }
   }
+  if (!is.null(latent)) attr(out, "latent") <- latent
   out
 }
 
