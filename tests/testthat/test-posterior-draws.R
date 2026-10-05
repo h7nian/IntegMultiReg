@@ -148,3 +148,55 @@ test_that("survival point summaries are medians and prediction restores RNG", {
   expect_equal(result$prediction, median(value))
   expect_equal(c(result$lower, result$upper), unname(quantile(value, c(.025, .975))))
 })
+
+test_that("latent draws are opt-in and leave the coefficient draws untouched", {
+  f <- posterior_fixture("right.censored")
+  without <- small_posterior(f, draws = 12, burnin = 6, chains = 2, seed = 3)
+  with <- small_posterior(f, draws = 12, burnin = 6, chains = 2, seed = 3,
+                          latent = TRUE)
+  expect_null(without$latent)
+  expect_identical(without$beta, with$beta)
+  expect_identical(without$variance, with$variance)
+  expect_equal(dim(with$latent[[1L]]),
+               c(12L, nrow(f$preprocessing$response[[1L]])))
+  expect_false(anyNA(with$latent[[1L]]))
+})
+
+test_that("the augmented response moves only where the outcome is censored", {
+  f <- posterior_fixture("right.censored")
+  p <- small_posterior(f, draws = 12, burnin = 6, chains = 2, seed = 4,
+                       latent = TRUE)
+  for (g in seq_along(p$latent)) {
+    response <- f$preprocessing$response[[g]]
+    status <- response[, 2L]
+    moves <- apply(p$latent[[g]], 2L, stats::sd) > 0
+    expect_identical(unname(moves), unname(status == 0))
+    # an event time is observed, so its augmented value is that time
+    expect_equal(unname(p$latent[[g]][1L, status == 1]),
+                 unname(response[status == 1, 1L]))
+    # a censored time is only a lower bound, so every draw sits above it
+    censored <- which(status == 0)
+    if (length(censored)) {
+      bound <- matrix(response[censored, 1L], nrow(p$latent[[g]]),
+                      length(censored), byrow = TRUE)
+      expect_true(all(p$latent[[g]][, censored, drop = FALSE] >= bound))
+    }
+  }
+})
+
+test_that("latent summaries are per subject and refuse the cases without them", {
+  f <- posterior_fixture("binary")
+  p <- small_posterior(f, draws = 12, burnin = 6, chains = 2, seed = 5,
+                       latent = TRUE)
+  s <- summary(p, parm = "latent")
+  expect_named(s[[1L]], c("id", "mean", "sd", "lower", "median", "upper"))
+  expect_identical(nrow(s[[1L]]), nrow(f$preprocessing$response[[1L]]))
+  expect_identical(s, confint(p, parm = "latent"))
+  expect_error(summary(small_posterior(f, draws = 12, burnin = 6, chains = 2,
+                                       seed = 5), parm = "latent"),
+               "posterior_draws\\(latent = TRUE\\)")
+  continuous <- small_posterior(posterior_fixture(), draws = 12, burnin = 6,
+                                chains = 2, seed = 5, latent = TRUE)
+  expect_null(continuous$latent)
+  expect_error(summary(continuous, parm = "latent"), "no latent response")
+})

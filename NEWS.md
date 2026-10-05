@@ -1,5 +1,11 @@
 # IntegMultiReg 0.2.0
 
+* `posterior_draws(latent = TRUE)` retains the augmented response draws for
+  binary and right-censored fits, paired row by row with the coefficient
+  draws, and `summary()` and `confint()` accept `parm = "latent"` to summarise
+  them per subject. A continuous outcome has no latent response and retains
+  nothing. The default is `FALSE`, so existing results are unchanged.
+
 * Reject nonpositive or nonfinite theta proposals and undefined acceptance
   ratios. Gamma proposal log densities use a stable fallback when the ordinary
   density underflows or overflows; the representable-density path is unchanged.
