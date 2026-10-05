@@ -6,7 +6,11 @@ and `R CMD check --use-valgrind` (including vignette rebuilds since R 4.2).
 
 This manually dispatched release audit supplements the ordinary per-push
 Valgrind and cross-platform jobs. It builds Valgrind 3.27.1 from its official
-source and R-devel r90498 with level-2 instrumentation and reference BLAS.
+source and the current CRAN R-devel prerelease with level-2 instrumentation and
+reference BLAS. That snapshot is not pinned, because CRAN withdraws older ones;
+the build records its checksum and revision marker alongside the other
+evidence. The separate candidate audit does pin its snapshot, and that pin has
+to be refreshed when CRAN withdraws it.
 It checks the exact 0.1.3 submission tarball, including `--run-donttest` examples,
 tests, vignette code/rebuilds and the PDF manual. No package suppression is used.
 
