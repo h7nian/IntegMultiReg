@@ -7,7 +7,11 @@ mkdir -p "${work}" "${prefix}"
 cd "${work}"
 curl --fail --location --retry 3 https://sourceware.org/pub/valgrind/valgrind-3.27.1.tar.bz2 -o valgrind.tar.bz2
 echo '5d589152eb8071c02feab8ce6ab719e431a1fbc3e2b1700f5432632a8b9264dc  valgrind.tar.bz2' | sha256sum --check
-curl --fail --location --retry 3 https://cran.r-project.org/src/base-prerelease/R-devel_2026-09-06_r90498.tar.gz -o R-devel.tar.gz
+# CRAN keeps only the most recent prerelease snapshots, so a dated R-devel
+# tarball stops resolving within a few weeks. Take the current snapshot and
+# record which one it was: the sha256 below and the revision marker extracted
+# after unpacking identify the build exactly.
+curl --fail --location --retry 3 https://cran.r-project.org/src/base-prerelease/R-devel.tar.gz -o R-devel.tar.gz
 sha256sum valgrind.tar.bz2 R-devel.tar.gz > "${evidence}/runtime-source-SHA256SUMS.txt"
 if test -x "${prefix}/bin/valgrind" && test "$("${prefix}/bin/valgrind" --version)" = 'valgrind-3.27.1'; then
   cp "${prefix}/provenance/valgrind-configure.log" "${evidence}/"
@@ -20,6 +24,11 @@ else
 fi
 cd "${work}"
 tar -xf R-devel.tar.gz
+for marker in SVN-REVISION VERSION; do
+  if test -f "R-devel/${marker}"; then
+    cp "R-devel/${marker}" "${evidence}/R-devel-${marker}"
+  fi
+done
 mkdir R-build
 cd R-build
 CPPFLAGS="-I${prefix}/include" CFLAGS='-g -O2 -Wall -pedantic -mtune=native' \
