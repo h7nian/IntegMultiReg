@@ -11,11 +11,16 @@ echo '5d589152eb8071c02feab8ce6ab719e431a1fbc3e2b1700f5432632a8b9264dc  valgrind
 if [[ -n "${IMR_R_SOURCE_ARCHIVE:-}" ]]; then
   cp "${IMR_R_SOURCE_ARCHIVE}" R-devel.tar.gz
 else
-  curl --fail --location --retry 3 https://cran.r-project.org/src/base-prerelease/R-devel_2026-09-21_r90579.tar.gz -o R-devel.tar.gz
+  # Pinned deliberately: this audit must rebuild the same runtime. CRAN
+  # removes older prerelease snapshots, so when this URL stops resolving the
+  # pin and the checksum below have to be refreshed together, or
+  # IMR_R_SOURCE_ARCHIVE set to a retained copy.
+  curl --fail --location --retry 3 https://cran.r-project.org/src/base-prerelease/R-devel_2026-10-05_r90640.tar.gz -o R-devel.tar.gz
 fi
-# Fresh official download audited against SVN r90579 on Anvil. This is a new
-# archive pin; it does not inherit acceptance of the former ab0444... artifact.
-echo '080d29d0791b77df9a1e856fff16160e48ec744fa931baf84afde40fe27b154c  R-devel.tar.gz' | sha256sum --check
+# Pin refreshed to r90640 after CRAN withdrew the r90579 snapshot. The checksum
+# below was taken from this archive as downloaded; this pin has not been
+# re-audited on Anvil and it inherits acceptance of no earlier artifact.
+echo 'd1a7da13ddb7f3c59a041c00d5bb842a806bce9b78a84931477152c24d82002d  R-devel.tar.gz' | sha256sum --check
 sha256sum valgrind.tar.bz2 R-devel.tar.gz > "${evidence}/runtime-source-SHA256SUMS.txt"
 if test -x "${prefix}/bin/valgrind" && test "$("${prefix}/bin/valgrind" --version)" = 'valgrind-3.27.1'; then
   cp "${prefix}/provenance/valgrind-configure.log" "${evidence}/"
