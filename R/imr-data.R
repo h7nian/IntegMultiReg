@@ -129,6 +129,17 @@ imr_data <- function(platforms, outcome = NULL, covariates = NULL,
 #'
 #' @param x An `"imr_data"` object.
 #' @return `TRUE`, invisibly.
+#' @examples
+#' x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
+#' y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
+#' analysis <- imr_data(platforms = list(assay = x), outcome = y,
+#'                      outcome_type = "continuous")
+#' validate_imr_data(analysis)
+#'
+#' # Subject alignment is rechecked, so a truncated outcome is rejected.
+#' broken <- analysis
+#' broken$outcome <- broken$outcome[1:5, , drop = FALSE]
+#' try(validate_imr_data(broken))
 #' @export
 validate_imr_data <- function(x) {
   if (!inherits(x, "imr_data") || !is.list(x)) {

@@ -16,3 +16,15 @@ validate_imr_data(x)
 Rechecks the structure and subject alignment of an object created by
 \code{\link[=imr_data]{imr_data()}}. Invalid objects fail with an informative error.
 }
+\examples{
+x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
+y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
+analysis <- imr_data(platforms = list(assay = x), outcome = y,
+                     outcome_type = "continuous")
+validate_imr_data(analysis)
+
+# Subject alignment is rechecked, so a truncated outcome is rejected.
+broken <- analysis
+broken$outcome <- broken$outcome[1:5, , drop = FALSE]
+try(validate_imr_data(broken))
+}

@@ -31,9 +31,11 @@ Must be at least \code{2}, and each availability subgroup must contain at least
 \item{rounds}{Integer number of independent cross-validation rounds to
 average over (default \code{2}).  Must be positive.}
 
-\item{method}{Optional compatibility argument.  If supplied, it must match
-the method stored in \code{object}; \code{cv_imr()} cannot turn an IMR fit into a BMS
-fit or vice versa.}
+\item{method}{Optional check of the fitted model type, \code{"imr"} or \code{"bms"}.
+Leave \code{NULL} to use the method stored in \code{object}. Supplying a value only
+checks that it matches the fit; it cannot change an IMR fit into a BMS fit
+or choose the validation algorithm. Fit a separate BMS model with
+\code{imr(..., method = "bms")}, and use \code{cv_method} to choose validation.}
 
 \item{max_models}{Integer maximum number of selection models used for
 Bayesian model averaging with \code{model_set = "ranked_unique"} and for refit
@@ -82,7 +84,8 @@ Continuation requires a new fit saved on a compatible platform. Cannot
 be supplied with explicit \code{folds} or with refit CV.}
 }
 \value{
-A named list. \code{pooled} and \code{fold_mean} are numeric matrices of dimension
+An \code{imr_cv} object: a named list with a compact \code{\link[=print.imr_cv]{print.imr_cv()}}
+method. \code{pooled} and \code{fold_mean} are numeric matrices of dimension
 \code{rounds} x \code{(n_subgroups + 1)}, whose last column corresponds to all
 subjects pooled and whose remaining columns are named by the availability
 subgroup bitstrings:

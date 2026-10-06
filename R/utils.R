@@ -21,8 +21,25 @@
     all(abs(x) <= .Machine$integer.max) && all(x == trunc(x))
 }
 
-#' @keywords internal
-#' @noRd
+# Guards repeated by every method that takes a fitted model.
+.imr_check_fit <- function(object) {
+  if (!inherits(object, "imr")) {
+    .imr_abort("`object` must be an `imr` object returned by `imr()`.")
+  }
+  invisible(object)
+}
+
+# Inclusion-probability thresholds are shared by printing and summarising.
+.imr_check_threshold <- function(threshold) {
+  threshold <- .imr_check_numeric_vector(
+    threshold, "threshold", length = 1, nonnegative = TRUE
+  )
+  if (threshold > 1) {
+    .imr_abort("`threshold` must be between 0 and 1.")
+  }
+  threshold
+}
+
 .imr_check_flag <- function(x, arg) {
   if (!is.logical(x) || length(x) != 1L || is.na(x)) {
     .imr_abort(sprintf("`%s` must be TRUE or FALSE.", arg))
@@ -174,7 +191,7 @@
 ## `verbose` is TRUE the output is shown; otherwise it is captured and dropped.
 #' @keywords internal
 #' @noRd
-.quietly <- function(verbose, code) {
+.imr_quietly <- function(verbose, code) {
   if (isTRUE(verbose)) {
     return(eval.parent(substitute(code)))
   }
@@ -191,4 +208,10 @@
     .imr_abort(sprintf("`%s` must have complete, unique column names.", arg))
   }
   invisible(x)
+}
+
+.imr_check_interval_level <- function(level) {
+  .imr_check_numeric_vector(level, "level", length = 1L, positive = TRUE)
+  if (level >= 1) .imr_abort("`level` must be less than one.")
+  invisible(level)
 }

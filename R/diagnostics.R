@@ -5,6 +5,18 @@
 #'
 #' @param object A fitted `"imr"` object.
 #' @return `TRUE`, invisibly. Invalid objects fail with an informative error.
+#' @examples
+#' x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
+#' y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
+#' fit <- imr(list(assay = x), y, outcome_type = "continuous",
+#'            forced_prior_scale = 1, draws = 500, burnin = 250, seed = 1)
+#'
+#' validate_imr(fit)
+#'
+#' # A damaged object is rejected rather than used.
+#' damaged <- fit
+#' damaged$posterior <- NULL
+#' try(validate_imr(damaged))
 #' @export
 validate_imr <- function(object) {
   if (!inherits(object, "imr") || !is.list(object)) {
@@ -221,6 +233,15 @@ validate_imr <- function(object) {
 #'
 #' @param object A fitted `imr` object created by IntegMultiReg 0.1.x.
 #' @return A validated schema-version-2 `imr` object.
+#' @examples
+#' x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
+#' y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
+#' fit <- imr(list(assay = x), y, outcome_type = "continuous",
+#'            forced_prior_scale = 1, draws = 500, burnin = 250, seed = 1)
+#'
+#' # A current fit already uses the named schema, so it is returned unchanged
+#' # after validation.
+#' identical(upgrade_imr_fit(fit), fit)
 #' @export
 upgrade_imr_fit <- function(object) {
   if (!inherits(object, "imr") || !is.list(object)) {
@@ -293,6 +314,16 @@ upgrade_imr_fit <- function(object) {
 }
 
 
+# One credible-interval row per parameter. The identifying columns differ
+# between the selection indicators and the theta interactions; the location,
+# scale and quantile summary does not.
+.imr_draw_interval <- function(draws, probs, ...) {
+  qs <- stats::quantile(draws, probs = probs, names = FALSE, type = 8)
+  data.frame(..., mean = mean(draws), sd = stats::sd(draws),
+             lower = qs[1L], median = qs[2L], upper = qs[3L],
+             row.names = NULL, stringsAsFactors = FALSE)
+}
+
 #' Posterior Uncertainty Summary for an IMR Fit
 #'
 #' Summarizes retained MCMC draws for variable-selection indicators and MRF
@@ -306,6 +337,16 @@ upgrade_imr_fit <- function(object) {
 #' @param ... Unused; present for future methods.
 #' @return An object of class `"posterior_summary.imr"` containing `selection`
 #'   and `theta` tables.
+#' @examples
+#' x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
+#' y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
+#' fit <- imr(list(assay = x), y, outcome_type = "continuous",
+#'            forced_prior_scale = 1, draws = 500, burnin = 250, seed = 1)
+#'
+#' # Posterior mean, standard deviation and interval for every indicator,
+#' # alongside the MRF interactions that link the availability subgroups.
+#' summaries <- posterior_summary(fit)
+#' head(summaries$selection$assay)
 #' @export
 posterior_summary <- function(object, ...) {
   UseMethod("posterior_summary")
@@ -315,10 +356,7 @@ posterior_summary <- function(object, ...) {
 #' @export
 posterior_summary.imr <- function(object, level = 0.95, ...) {
   validate_imr(object)
-  level <- .imr_check_numeric_vector(
-    level, "level", length = 1L, positive = TRUE
-  )
-  if (level >= 1) .imr_abort("`level` must be less than 1.")
+  .imr_check_interval_level(level)
   probs <- c((1 - level) / 2, 0.5, 1 - (1 - level) / 2)
 
   selection <- lapply(seq_len(object$model$n_platforms), function(l) {
@@ -332,14 +370,9 @@ posterior_summary.imr <- function(object, level = 0.95, ...) {
           object$posterior$selection_draws,
           function(draw) as.numeric(draw[[l]][i, j]), numeric(1L)
         )
-        qs <- stats::quantile(draws, probs = probs, names = FALSE, type = 8)
-        rows[[at]] <- data.frame(
+        rows[[at]] <- .imr_draw_interval(draws, probs,
           subgroup = rownames(template)[i],
-          feature = colnames(template)[j],
-          mean = mean(draws), sd = stats::sd(draws),
-          lower = qs[1L], median = qs[2L], upper = qs[3L],
-          row.names = NULL, stringsAsFactors = FALSE
-        )
+          feature = colnames(template)[j])
       }
     }
     do.call(rbind, rows)
@@ -360,14 +393,9 @@ posterior_summary.imr <- function(object, level = 0.95, ...) {
       function(i) rbind(seq_len(i - 1L), i)))
     rows <- lapply(seq_len(ncol(samples)), function(j) {
       draws <- samples[, j]
-      qs <- stats::quantile(draws, probs = probs, names = FALSE, type = 8)
-      data.frame(
+      .imr_draw_interval(draws, probs,
         subgroup1 = subgroup_names[pairs[1L, j]],
-        subgroup2 = subgroup_names[pairs[2L, j]],
-        mean = mean(draws), sd = stats::sd(draws),
-        lower = qs[1L], median = qs[2L], upper = qs[3L],
-        row.names = NULL, stringsAsFactors = FALSE
-      )
+        subgroup2 = subgroup_names[pairs[2L, j]])
     })
     do.call(rbind, rows)
   })
@@ -421,6 +449,17 @@ confint.imr <- function(object, parm = c("all", "selection", "theta"),
 #' @param ... Fitted `"imr"` objects, or one list of fitted objects.
 #' @param threshold Common mPIP threshold used to count selected features.
 #' @return A data frame with one row per fit.
+#' @examples
+#' x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
+#' y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
+#' fit <- imr(list(assay = x), y, outcome_type = "continuous",
+#'            forced_prior_scale = 1, draws = 500, burnin = 250, seed = 1)
+#' sparse <- imr(list(assay = x), y, outcome_type = "continuous",
+#'               forced_prior_scale = 1, nu = -6,
+#'               draws = 500, burnin = 250, seed = 1)
+#'
+#' # One row per fit: structure, and how many features clear the threshold.
+#' compare_imr(default = fit, sparser_prior = sparse)
 #' @export
 compare_imr <- function(..., threshold = 0.5) {
   fits <- list(...)
@@ -431,10 +470,7 @@ compare_imr <- function(..., threshold = 0.5) {
   if (length(fits) < 2L) {
     .imr_abort("Supply at least two fitted `imr` objects.")
   }
-  threshold <- .imr_check_numeric_vector(
-    threshold, "threshold", length = 1L, nonnegative = TRUE
-  )
-  if (threshold > 1) .imr_abort("`threshold` must be between 0 and 1.")
+  threshold <- .imr_check_threshold(threshold)
   invisible(lapply(fits, validate_imr))
   reference <- fits[[1L]]
   compatible <- vapply(fits[-1L], function(fit) {

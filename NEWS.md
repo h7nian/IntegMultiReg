@@ -1,5 +1,10 @@
 # IntegMultiReg 0.2.0
 
+* `cv_imr()` returns an object of class `imr_cv` with a `print()` method, so a
+  cross-validation result shows its metric, validation mode, fold design and
+  effective post-fit settings instead of dumping the whole structure. The
+  object is still an ordinary list and every existing field is unchanged.
+
 * `posterior_draws(latent = TRUE)` retains the augmented response draws for
   binary and right-censored fits, paired row by row with the coefficient
   draws, and `summary()` and `confint()` accept `parm = "latent"` to summarise

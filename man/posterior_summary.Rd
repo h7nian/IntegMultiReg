@@ -27,3 +27,14 @@ posterior standard deviations and equal-tail credible intervals for each
 platform-feature/subgroup indicator. The theta tables provide the same
 summaries for each pair of linked availability subgroups.
 }
+\examples{
+x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
+y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
+fit <- imr(list(assay = x), y, outcome_type = "continuous",
+           forced_prior_scale = 1, draws = 500, burnin = 250, seed = 1)
+
+# Posterior mean, standard deviation and interval for every indicator,
+# alongside the MRF interactions that link the availability subgroups.
+summaries <- posterior_summary(fit)
+head(summaries$selection$assay)
+}

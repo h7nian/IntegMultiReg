@@ -36,19 +36,8 @@ double *predict_bma(int model, int K, int n_selected_platforms, int sample_size,
     for (int i = 0; i < n_selected_platforms; i++)
     {
       int platform_index = selected_platforms[i];
-      int platform_model_index = -1;
-      for (int ss = 0; ss < n_platform_models[platform_index]; ss++)
-      {
-        if (platform_models[platform_index][ss] == model)
-        {
-          platform_model_index = ss;
-          break;
-        }
-      }
-      if (platform_model_index == -1)
-      {
-        Rf_error("Subgroup %d not found for platform %d\n", 1 + model, 1 + platform_index);
-      }
+      int platform_model_index = imr_platform_model_index(
+          model, platform_index, n_platform_models, platform_models);
       selected_feature_index[i] = malloc(G[platform_index] * sizeof(int));
       if (!selected_feature_index[i])
       {
@@ -158,19 +147,8 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
       for (int ll = 0; ll < n_model_platforms_c[m]; ll++)
       {
         int platform_index = model_platforms_c[m][ll];
-        int platform_model_index = -1;
-        for (int ss = 0; ss < n_platform_models_c[platform_index]; ss++)
-        {
-	          if (platform_models_c[platform_index][ss] == m)
-	          {
-	            platform_model_index = ss;
-	            break;
-	          }
-	        }
-	        if (platform_model_index == -1)
-	        {
-	          Rf_error("Subgroup %d not found for platform %d\n", m, platform_index);
-	        }
+        int platform_model_index = imr_platform_model_index(
+            m, platform_index, n_platform_models_c, platform_models_c);
         selected_feature_index[ll] = calloc(G[platform_index], sizeof(int));
         find_indices_not_equal(G[platform_index], gamma_sample[n_draws - 1 - l1][platform_index][platform_model_index], 0, selected_feature_index[ll], &n_selected_features[ll]);
       }
@@ -180,7 +158,7 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
       for (int ll = 0; ll < n_model_platforms_c[m]; ll++)
       {
 	        total_selected_features += n_selected_features[ll];
-	      }
+      }
 
       int s;
 
@@ -214,23 +192,15 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
         int rr = 1;
         int k = 1 + K + total_selected_features;
         double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG, numerical);
-        double *precision_copy = malloc((size_t) k * k * sizeof(double));
-        if (!precision_copy) Rf_error("malloc failed for precision_copy");
-        for (int i = 0; i < k; i++)
-        {
-          for (int j = 0; j <= i; j++)
-          {
-	            precision_copy[i * k + j] = precision_copy[j * k + i] = precision[i * k + j];
-	          }
-	        }
-	        gsl_matrix_view m11 = gsl_matrix_view_array(precision, k, k);
+        double *precision_copy = imr_copy_symmetric_matrix(precision, k);
+        gsl_matrix_view m11 = gsl_matrix_view_array(precision, k, k);
         gsl_linalg_cholesky_decomp(&m11.matrix);
         beta[l][m] = malloc(k * sizeof(double));
-	        loglik[m] = log_likelihood_nonlocal(k, K, n_selected_features[0], N, alpha, psi, y[m], PG, precision_copy, &m11.matrix,
-	                                   beta[l][m], rr, h[m], h1, h0, hg, maxiter, stop, 0, numerical, IMR_LAPLACE_PREDICTION);
-	        free(precision);
-	        free(precision_copy);
-	      }
+        loglik[m] = log_likelihood_nonlocal(k, K, n_selected_features[0], N, alpha, psi, y[m], PG, precision_copy, &m11.matrix,
+                                         beta[l][m], rr, h[m], h1, h0, hg, maxiter, stop, 0, numerical, IMR_LAPLACE_PREDICTION);
+        free(precision);
+        free(precision_copy);
+      }
       for (int i = 0; i < N; i++)
         free(PG[i]);
       free(PG);

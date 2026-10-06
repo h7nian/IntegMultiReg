@@ -16,24 +16,24 @@ test_that("matrix preparation handles constant and empty columns gracefully", {
 test_that("known-mean/sd normalization inverts the training transform", {
   m <- matrix(rnorm(40), ncol = 4)
   prepared <- IntegMultiReg:::.imr_prepare_matrix(m)
-  z <- IntegMultiReg:::normalize_matrix_known_mean_variance(m, prepared$mean, prepared$sd)
+  z <- IntegMultiReg:::.imr_standardize_matrix(m, prepared$mean, prepared$sd)
   expect_equal(z, prepared$normalized, tolerance = 1e-8)
 })
 
-test_that("subgroup_data partitions subjects by availability pattern", {
-  d <- IntegMultiReg:::subgroup_data(simIMR$outcome.binary, simIMR$covariates,
+test_that(".imr_subgroup_data partitions subjects by availability pattern", {
+  d <- IntegMultiReg:::.imr_subgroup_data(simIMR$outcome.binary, simIMR$covariates,
                                      simIMR$platforms)
   expect_named(d, c("outcome", "covariate", "platform_data"))
   expect_setequal(names(d$platform_data), c("011", "100", "101", "111"))
 })
 
-test_that("subgroup_data aligns outcome, covariate and platform rows by id", {
+test_that(".imr_subgroup_data aligns outcome, covariate and platform rows by id", {
   set.seed(99)
   platforms <- lapply(simIMR$platforms, function(x) x[sample(nrow(x)), ])
   outcome <- simIMR$outcome.binary[sample(nrow(simIMR$outcome.binary)), ]
   cov <- simIMR$covariates[sample(nrow(simIMR$covariates)), ]
 
-  d <- IntegMultiReg:::subgroup_data(outcome, cov, platforms)
+  d <- IntegMultiReg:::.imr_subgroup_data(outcome, cov, platforms)
 
   for (pat in names(d$platform_data)) {
     ids <- d$outcome[[pat]]$id

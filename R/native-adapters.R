@@ -34,7 +34,7 @@
   } else if (!is.null(predictions)) {
     .imr_abort("Predictions may only be supplied to the internal scoring stage.")
   }
-  .quietly(verbose, .Call(
+  .imr_quietly(verbose, .Call(
     "imr_cv_postfit",
     as.double(priors$forced_scale), as.double(priors$molecular_scale),
     as.double(priors$residual[["shape"]]), as.double(priors$residual[["rate"]]),
@@ -69,7 +69,7 @@
                                  features, response, outcome_type, covariates,
                                  draws, burnin, verbose, sampler_method = "legacy",
                                  numerical = .imr_numerical_control(), initial = NULL) {
-  .quietly(verbose, .Call(
+  .imr_quietly(verbose, .Call(
     "imr_fit",
     as.double(priors$forced_scale), as.double(priors$molecular_scale),
     as.double(priors$residual[["shape"]]),
@@ -94,7 +94,7 @@
                                      test_covariates, test_sample_sizes,
                                      max_models, verbose) {
   priors <- control$priors
-  .quietly(verbose, .Call(
+  .imr_quietly(verbose, .Call(
     "imr_predict",
     as.double(priors$forced_scale), as.double(priors$molecular_scale),
     as.double(priors$residual[["shape"]]),

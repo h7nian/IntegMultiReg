@@ -16,3 +16,13 @@ A validated schema-version-2 \code{imr} object.
 Convert a structurally complete 0.1.x \code{imr} object to the named schema used
 by version 0.2.0. Corrupted or incomplete objects must be refitted.
 }
+\examples{
+x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
+y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
+fit <- imr(list(assay = x), y, outcome_type = "continuous",
+           forced_prior_scale = 1, draws = 500, burnin = 250, seed = 1)
+
+# A current fit already uses the named schema, so it is returned unchanged
+# after validation.
+identical(upgrade_imr_fit(fit), fit)
+}

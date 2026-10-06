@@ -16,9 +16,11 @@
 #'   `k` subjects.
 #' @param rounds Integer number of independent cross-validation rounds to
 #'   average over (default `2`).  Must be positive.
-#' @param method Optional compatibility argument.  If supplied, it must match
-#'   the method stored in `object`; `cv_imr()` cannot turn an IMR fit into a BMS
-#'   fit or vice versa.
+#' @param method Optional check of the fitted model type, `"imr"` or `"bms"`.
+#'   Leave `NULL` to use the method stored in `object`. Supplying a value only
+#'   checks that it matches the fit; it cannot change an IMR fit into a BMS fit
+#'   or choose the validation algorithm. Fit a separate BMS model with
+#'   `imr(..., method = "bms")`, and use `cv_method` to choose validation.
 #' @param max_models Integer maximum number of selection models used for
 #'   Bayesian model averaging with `model_set = "ranked_unique"` and for refit
 #'   prediction (default `100`). Must be positive. `model_set = "draws"` uses
@@ -56,7 +58,8 @@
 #'   Continuation requires a new fit saved on a compatible platform. Cannot
 #'   be supplied with explicit `folds` or with refit CV.
 #'
-#' @return A named list. `pooled` and `fold_mean` are numeric matrices of dimension
+#' @return An `imr_cv` object: a named list with a compact [print.imr_cv()]
+#'   method. `pooled` and `fold_mean` are numeric matrices of dimension
 #'   `rounds` x `(n_subgroups + 1)`, whose last column corresponds to all
 #'   subjects pooled and whose remaining columns are named by the availability
 #'   subgroup bitstrings:
@@ -153,9 +156,6 @@ cv_imr <- function(object, k = 5, rounds = 2,
                    workers = 1L, ridge = NULL, model_set = NULL,
                    df_method = NULL, score_method = NULL, folds = NULL,
                    fold_rng = NULL) {
-  if (!inherits(object, "imr")) {
-    .imr_abort("`object` must be an `imr` object returned by `imr()`.")
-  }
   validate_imr(object)
   cv_method <- match.arg(cv_method)
   settings <- .imr_cv_settings(cv_method, ridge, model_set, df_method, score_method, fold_rng)
@@ -180,12 +180,9 @@ cv_imr <- function(object, k = 5, rounds = 2,
   control <- object$control
   model <- object$model
   preprocessing <- object$preprocessing
-  object_method <- control$method
-  if (is.null(method)) {
-    method <- object_method
-  } else {
+  if (!is.null(method)) {
     method <- match.arg(method, c("imr", "bms"))
-    if (!identical(method, object_method)) {
+    if (!identical(method, control$method)) {
       .imr_abort(
         "`method` must match the fitted object; fit a separate `imr(..., method = \"bms\")` object for BMS validation."
       )
@@ -211,6 +208,47 @@ cv_imr <- function(object, k = 5, rounds = 2,
                             settings, folds))
   }
   .imr_cv_refit_result(object, k, rounds, max_models, verbose, workers, settings, folds)
+}
+
+#' Print Method for IMR Cross-Validation Results
+#'
+#' @param x An `imr_cv` object returned by [cv_imr()].
+#' @param digits Number of significant digits for the reported scores.
+#' @param ... Ignored.
+#' @return `x`, invisibly. Called for the printed summary.
+#' @seealso [cv_imr()]
+#' @export
+#' @examples
+#' \donttest{
+#' x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
+#' y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
+#' fit <- imr(list(assay = x), y, outcome_type = "continuous",
+#'            min_subgroup_size = 5, forced_prior_scale = 1,
+#'            draws = 500, burnin = 250, seed = 1)
+#' cv_imr(fit, k = 2, rounds = 1)
+#' }
+print.imr_cv <- function(x, digits = 3, ...) {
+  control <- x$control
+  cat("IMR cross-validation:", x$metric, "by availability subgroup\n")
+  cat(sprintf("  %s validation, %d %s of %d-fold, %s folds\n",
+              x$validation, control$rounds,
+              if (control$rounds == 1L) "round" else "rounds", control$k,
+              switch(control$fold_source, supplied = "supplied",
+                     gsl = "GSL-generated", r = "R-generated",
+                     control$fold_source)))
+  if (!identical(x$validation, "refit")) {
+    cat(sprintf("  ridge %s, model set \"%s\", df \"%s\", score \"%s\"\n",
+                format(control$ridge), control$model_set, control$df_method,
+                control$score_method))
+  }
+  cat("\nPooled out-of-fold score:\n")
+  print(signif(x$pooled, digits))
+  cat("\nMean fold score:\n")
+  print(signif(x$fold_mean, digits))
+  cat(sprintf("\n%d subject predictions in `predictions`;",
+              nrow(x$predictions)))
+  cat(" effective settings and a reusable fold table in `control`.\n")
+  invisible(x)
 }
 
 .imr_cv_refit_result <- function(object, k, rounds, max_models, verbose,
@@ -267,7 +305,7 @@ cv_imr <- function(object, k = 5, rounds = 2,
     records[[r]] <- data.frame(round = r, fold = folds, subjects,
                                prediction = prediction, row.names = NULL)
   }
-  list(
+  structure(class = "imr_cv", list(
     pooled = total,
     fold_mean = subset,
     predictions = do.call(rbind, records),
@@ -281,7 +319,7 @@ cv_imr <- function(object, k = 5, rounds = 2,
       })) else supplied_folds,
       if (is.null(supplied_folds)) "r" else "supplied"),
       list(refit_seeds = seeds))
-  )
+  ))
 }
 
 # Keep folds nonempty and balanced even when separate strata contain < k rows.
@@ -304,7 +342,7 @@ cv_imr <- function(object, k = 5, rounds = 2,
   priors <- control$priors
   dat <- preprocessing$input_data
   # Keep rows outside the eligible cohort for otherwise unused platforms;
-  # subgroup_data() intersects these with the training outcome IDs before any
+  # .imr_subgroup_data() intersects these with the training outcome IDs before any
   # normalization or sampling. No held-out outcome is passed to the refit.
   train_platforms <- lapply(dat$platforms, function(x) {
     keep <- x$id %in% train_ids | !x$id %in% dat$availability$id

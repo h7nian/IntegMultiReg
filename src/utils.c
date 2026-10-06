@@ -13,6 +13,30 @@
 #include "my_header.h"
 static const double t4 = 0.45;
 
+int imr_platform_model_index(int subgroup, int platform,
+                             const int *n_platform_models,
+                             int *const *platform_models)
+{
+    for (int index = 0; index < n_platform_models[platform]; index++) {
+        if (platform_models[platform][index] == subgroup) return index;
+    }
+    Rf_error("Subgroup %d not found for platform %d", subgroup + 1, platform + 1);
+    return -1;
+}
+
+/* Fill both triangles from the lower triangle before Cholesky overwrites it. */
+double *imr_copy_symmetric_matrix(const double *lower, int n)
+{
+    double *copy = malloc((size_t) n * n * sizeof(double));
+    if (!copy) Rf_error("malloc failed for precision_copy");
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j <= i; j++) {
+            copy[i * n + j] = copy[j * n + i] = lower[i * n + j];
+        }
+    }
+    return copy;
+}
+
 
 /*
  * Ridge regression predictor:
@@ -69,7 +93,7 @@ void ridge_predict_only(const double *X, const double *y,
     gsl_vector_free(beta);
     gsl_permutation_free(perm);
 }
-float generate_normal(const float sigma)
+static float generate_normal(const float sigma)
 {
 
   float x, y, r2;
@@ -77,12 +101,8 @@ float generate_normal(const float sigma)
   do
   {
     /* choose x,y in uniform square (-1,-1) to (+1,+1) */
-  //  x = -1 + 2 * ((double)rand() + 1.) / (1. + (double)RAND_MAX);
-    //y = -1 + 2 * ((double)rand() + 1.) / (1. + (double)RAND_MAX);
-
-// Clean, standard R-compatible uniform sampling between -1 and 1
-x = -1.0 + 2.0 * unif_rand();
-y = -1.0 + 2.0 * unif_rand();
+    x = -1.0 + 2.0 * unif_rand();
+    y = -1.0 + 2.0 * unif_rand();
     /* see if it is in the unit circle */
     r2 = x * x + y * y;
   } while (r2 > 1.0 || r2 == 0);
@@ -98,17 +118,15 @@ y = -1.0 + 2.0 * unif_rand();
 
    for x = 0 ... +infty */
 
-double rexponential(const double mu)
+static double rexponential(const double mu)
 {
-  //double u = ((double)rand() + 1.) / (1. + (double)RAND_MAX);
-  //return -mu * log1p(-u);
-  return mu*exp_rand();
+  return mu * exp_rand();
 }
 
-// Generae from truncated normal distribution
+/* Generate from a truncated normal distribution. */
 
 /* Exponential rejection sampling (a,inf) */
-double ers_a_inf(double a)
+static double ers_a_inf(double a)
 {
   const double ainv = 1.0 / a;
   double x, z, rho;
@@ -123,7 +141,7 @@ double ers_a_inf(double a)
 }
 
 /* Normal rejection sampling (a,inf) */
-double nrs_a_inf(double a)
+static double nrs_a_inf(double a)
 {
   // double x = -DBL_AX;
   double x = generate_normal(1.0);
@@ -154,8 +172,6 @@ double r_righttruncnorm(double b, double mean, double sd)
   /* Exploit symmetry: */
   return mean - sd * r_lefttruncnorm(-beta, 0.0, 1.0);
 }
-
-
 
 
 
@@ -497,15 +513,6 @@ double norm(int n, double *x)
     return sqrt(normx);
 }
 
-double sum(int n, double *x)
-{
-    int i;
-    double sum = 0;
-    for (i = 0; i < n; i++)
-        sum += x[i];
-    return sum;
-}
-
 double mean(int n, double *x)
 {
     int i;
@@ -514,16 +521,6 @@ double mean(int n, double *x)
         me += x[i];
     return me / n;
 }
-double var(int n, double *x)
-{
-    int i;
-    double me = mean(n, x);
-    double va = 0;
-    for (i = 0; i < n; i++)
-        va += (x[i] - me) * (x[i] - me);
-    return va / (n - 1);
-}
-
 double *dvector(int nl, int nh)
 {
     double *v;
