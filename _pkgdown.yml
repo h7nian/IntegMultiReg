@@ -2,7 +2,6 @@ url: https://h7nian.github.io/IntegMultiReg/
 
 template:
   bootstrap: 5
-  bootswatch: cosmo
 
 development:
   mode: unreleased
