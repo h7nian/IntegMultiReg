@@ -30,50 +30,63 @@ at are:
 
 These are breaking changes. There are no reverse dependencies on CRAN.
 
-## Current candidate and validation
+## Checked source
 
-The package remains version 0.2.0. The local source tarball checked on
-October 5, 2026 has SHA256
-`fd0fdbe1a311090c70869759f9772cd2c16852540d467dccd98d53898dc7aa08`.
-All results below refer to that candidate's R/C sources and generated help.
+The package remains version 0.2.0. The implementation was validated at
+`f90a7d350f9c68fa745d397594c08ee08a505ded` in
+https://github.com/h7nian/IntegMultiReg/pull/6.
+The subsequent website changes do not alter R/C code, the namespace, data,
+help topics, tests or vignettes. This submission record is excluded from the
+source package by .Rbuildignore.
 
-* Linux, R 4.4.1, GSL 2.4: the installed suite passes 2879 expectations,
-  with zero failures, errors, warnings or skips. The test driver checks errors
-  separately from failed expectations and exits unsuccessfully for either.
-* Independent installations of the preceding source snapshot and the refactor
-  give identical posterior objects, preprocessing, model metadata, predictions
-  and CV metrics across six outcome/model combinations and eighteen CV runs.
-* The native Gamma-density, prior-indexing and stationary-distribution checks
-  pass. Conditional predictions agree with the independently compiled archived
-  C reference to the recorded tolerance of 1e-12.
-* Roxygen 7.1.1 regenerates NAMESPACE and all help files without changes.
-  The new documentation guard also rejects a deliberately misplaced helper
-  that takes over a public function's export annotation.
+## Test environments and R CMD check
 
-## R CMD check results
+All thirteen candidate checks completed successfully on October 6, 2026:
 
-Linux, R-devel 2026-09-21 r90579, `R CMD check --as-cran`:
+* Ubuntu R-release and R-devel, Windows R-release, and macOS ARM R-release:
+  each R CMD check log reports `Status: OK` (0 errors, 0 warnings, 0 notes).
+  Linux and macOS also check the PDF manual; Windows checks without it.
+* The installed suite reports 2880 passing expectations on each platform,
+  with zero failures, errors, warnings or skips.
+* Linux GCC UBSAN, GCC ASAN+UBSAN, Clang UBSAN and Clang ASAN+UBSAN pass.
+* The macOS ARM ASAN+UBSAN job passes.
+* Coverage, documentation-export verification and the complete covariate
+  comparison workflow pass.
 
-0 errors | 0 warnings | 1 note
+The earlier local HTML-tooling note is absent from these CI checks, which
+provide tidy and V8. The local R 4.4.1 run used an older testthat and reported
+2879 expectations; that count is not substituted for the CI result.
 
-The note reports unavailable HTML checking tools (`tidy` and R package `V8`).
-Examples, including `--run-donttest`, package tests, vignette rebuilding and
-PDF manual generation pass. Remote CRAN incoming checks were disabled for
-this local run.
+## Memory checks
 
-## Native memory check
-
-Valgrind 3.27.1 with level-2 instrumented R-devel runs a focused check of the
-refactored native paths: binary, continuous and censored fits with both sampler
-conventions, prediction, and all three CV modes. It reports:
+The full installed suite and instrumented PSOCK workers pass Valgrind.
+The parent log reports:
 
     definitely lost: 0 bytes in 0 blocks
     indirectly lost: 0 bytes in 0 blocks
     possibly lost: 0 bytes in 0 blocks
     ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
 
-This focused check does not replace the complete sanitizer and Valgrind suites.
-The previous cross-platform and memory results belong to earlier sources.
-Before submission, run those suites and the four-platform checks on the final
-candidate, resolve the HTML-check tooling note, and update this record with
-that candidate's source identity and results.
+The retained full-suite artifact contains 177 logs with zero error summaries;
+the dedicated worker artifact contains another 36. These are the current
+candidate's results, not results copied from a previous release.
+
+## Numerical and documentation checks
+
+Independent installations of the pre-refactor and candidate sources give
+identical results across six fits and eighteen CV combinations on the same
+runtime. Native Gamma-density, prior-indexing and stationary-distribution
+checks pass, as does comparison with independently compiled archived-C
+conditional predictions at tolerance 1e-12.
+
+Two independent manuscript-scale predictive runs on Linux give identical
+saved fit/CV objects for all six outcome/model configurations. The eight
+covariate-comparison CSV tables also agree with an independent execution of
+the displayed manuscript commands. The recorded ARM Mac numerical reference
+is preserved: its binary MCMC results are platform-sensitive, and the archived
+source reproduces the current Linux values. No reference table was overwritten
+to claim cross-platform bitwise agreement.
+
+The website is built from maintained documentation, with generated HTML
+excluded from the source package. Local-link, desktop search, math rendering
+and mobile-navigation checks pass at https://h7nian.github.io/IntegMultiReg/.
