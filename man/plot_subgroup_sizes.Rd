@@ -63,6 +63,15 @@ Draws a bar chart of the number of subjects in each modelled
 availability subgroup (the non-empty regions of the Venn diagram), giving a
 quick picture of how the sample is distributed across subgroups.
 }
+\section{Counted subjects}{
+
+For a retained availability pattern \eqn{s}, the bar height is
+\eqn{n_s=\sum_i I(A_i=s)}, where \eqn{A_i} is the subject's platform
+availability pattern defined in \code{\link[=imr_data]{imr_data()}}. Counts are the observed sample
+sizes stored in the fit, after eligibility checks and subgroup filtering.
+They are not posterior estimates or imputed numbers of complete cases.
+}
+
 \examples{
 \donttest{
 data("simIMR", package = "IntegMultiReg")

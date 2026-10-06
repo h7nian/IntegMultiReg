@@ -58,10 +58,14 @@ reference:
   - predict.imr
   - cv_imr
   - print.imr_cv
-- title: Posterior uncertainty
+- title: Selection and interaction uncertainty
+  desc: Summarize retained draws from the fitted selection sampler.
   contents:
   - posterior_summary
   - confint.imr
+- title: Coefficient and predictive uncertainty
+  desc: Run conditional sampling, then summarize the resulting posterior draws or predict.
+  contents:
   - posterior_draws
   - imr_posterior_methods
   - predict.imr_posterior

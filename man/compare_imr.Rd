@@ -20,6 +20,23 @@ deliberately does not treat raw log-posterior values as likelihood criteria;
 it reports model structure and the number of features passing a common mPIP
 threshold.
 }
+\section{Descriptive comparison}{
+
+The selected-feature count is
+\deqn{N_{\mathrm{selected}}(t)=\sum_l |\mathcal A_l(t)|,}
+using the strict maximum-subgroup mPIP threshold set defined in
+\code{\link[=summary.imr]{summary.imr()}}. Counts are by platform-feature pair. Other columns describe
+the fitted method, dimensions and retained sampling budget.
+
+The returned table is descriptive: it computes no Bayes factor, information
+criterion or predictive ranking. Comparability checks require the same
+outcome type, platforms, feature names and availability subgroups; they do
+not establish identical subject samples or CV folds. For predictive model
+comparison, evaluate prespecified candidates on matched subjects and folds
+with \code{\link[=cv_imr]{cv_imr()}}. Choosing a specification from the data requires an outer
+validation layer when estimating the performance of that choice.
+}
+
 \examples{
 x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
 y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)

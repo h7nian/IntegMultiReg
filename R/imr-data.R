@@ -5,6 +5,22 @@
 #' observed-platform pattern for every subject and catches alignment problems
 #' before the MCMC sampler is called.
 #'
+#' @section Availability groups and eligibility:
+#' For subject \eqn{i} and platform \eqn{l}, define
+#' \eqn{A_{il}=I(i\text{ occurs in platform }l)}. The availability pattern is
+#' \eqn{A_i=(A_{i1},\ldots,A_{iL})}; its integer code is
+#' \deqn{c_i=\sum_{l=1}^{L}2^{l-1}A_{il}.}
+#' Printed bitstrings put platform 1 on the right. For example, `101` means
+#' platforms 1 and 3 are present. Subjects with the same pattern form a
+#' regression subgroup. Missing whole platforms are represented by this pattern,
+#' rather than by filling their feature values with zeros.
+#'
+#' Eligible subjects are the union of platform IDs intersected with the outcome
+#' and covariate IDs when those frames are supplied. This constructor records
+#' all eligible patterns; the `min_subgroup_size` filter is applied later by
+#' [imr()]. It aligns and validates data but does not standardize predictors or
+#' fit a model. Predictor standardization is described in [imr()].
+#'
 #' @param platforms A non-empty named list of data frames, one per platform.
 #'   Platform names must be unique and cannot be `id` or `subgroup`, which are
 #'   reserved for availability metadata.
@@ -127,6 +143,14 @@ imr_data <- function(platforms, outcome = NULL, covariates = NULL,
 #' Rechecks the structure and subject alignment of an object created by
 #' [imr_data()]. Invalid objects fail with an informative error.
 #'
+#' @section Validation scope:
+#' The checks reconstruct subject availability from the supplied platform IDs
+#' and verify it against the stored availability table and subgroup sizes.
+#' They also check identifiers, feature columns, finite data and outcome coding.
+#' The grouping and eligibility rules are defined in [imr_data()]. Successful
+#' validation establishes structural consistency of the object; it does not
+#' assess a likelihood, statistical assumptions or fitted-model convergence.
+#'
 #' @param x An `"imr_data"` object.
 #' @return `TRUE`, invisibly.
 #' @examples
@@ -212,6 +236,13 @@ validate_imr_data <- function(x) {
 }
 
 #' Convert IMR Data to an Availability Data Frame
+#'
+#' @section Meaning of the rows:
+#' Each row describes one eligible subject's observed-platform indicators and
+#' bitstring, with the platform order and eligibility rules defined in
+#' [imr_data()]. This method returns availability metadata, not a merged or
+#' imputed molecular feature matrix. Use the object's named `platforms`,
+#' `outcome` and `covariates` components for the underlying data.
 #'
 #' @param x An `"imr_data"` object.
 #' @param row.names Unused; present for compatibility with [as.data.frame()].

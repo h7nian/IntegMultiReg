@@ -3,7 +3,7 @@
 \name{posterior_summary}
 \alias{posterior_summary}
 \alias{posterior_summary.imr}
-\title{Posterior Uncertainty Summary for an IMR Fit}
+\title{Selection and Interaction Posterior Summaries}
 \usage{
 posterior_summary(object, ...)
 
@@ -27,6 +27,26 @@ posterior standard deviations and equal-tail credible intervals for each
 platform-feature/subgroup indicator. The theta tables provide the same
 summaries for each pair of linked availability subgroups.
 }
+\section{Summaries of retained parameters}{
+
+For retained values \eqn{a^{(1)},\ldots,a^{(B)}} of a selection indicator
+or MRF interaction, the reported mean, standard deviation and interval are
+\deqn{\bar a=\frac{1}{B}\sum_b a^{(b)}, \qquad
+      s_a=\sqrt{\frac{1}{B-1}\sum_b(a^{(b)}-\bar a)^2},}
+\deqn{[Q_{(1-L)/2}(a),\ Q_{(1+L)/2}(a)],}
+where \eqn{L} is \code{level} and \eqn{Q} is the empirical quantile computed by
+\code{stats::quantile(type = 8)}. The median is \eqn{Q_{0.5}}.
+For a binary selection indicator, the mean is its mPIP and the quantile
+interval describes the indicator's posterior distribution. It is not an
+interval for the Monte Carlo error of the estimated mPIP. BMS has no sampled
+MRF interactions and therefore returns empty theta tables.
+
+This function summarizes the original fitted selection and interaction
+draws without additional sampling. Its \code{sd} is posterior spread, not a
+Monte Carlo standard error. For regression coefficient intervals, first
+create an object with \code{\link[=posterior_draws]{posterior_draws()}} and use its \code{confint()} method.
+}
+
 \examples{
 x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
 y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)

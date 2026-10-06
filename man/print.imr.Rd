@@ -29,3 +29,11 @@ Prints a compact overview of the fit, including a platform key (\code{P1},
 it can also print the top-ranked features per platform, ranked by each
 feature's maximum mPIP over availability subgroups containing that platform.
 }
+\section{Reading the display}{
+
+Selected-feature counts use the strict threshold and maximum subgroup mPIP
+defined in \code{\link[=summary.imr]{summary.imr()}}. With \code{rank = TRUE}, the display shows the \code{top}
+highest-ranking features even if some are below \code{threshold}; the threshold
+controls the counts, not the displayed ranking. Printing does not rerun
+sampling or change the stored inclusion probabilities.
+}

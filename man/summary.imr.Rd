@@ -29,3 +29,16 @@ Produces a per-platform summary of the selected features (those whose
 marginal posterior inclusion probability exceeds \code{threshold} in at least one
 subgroup), ranked by their maximum inclusion probability.
 }
+\section{Selection and ranking}{
+
+Let \eqn{\widehat\pi_{lsj}} denote the subgroup mPIP defined in \code{\link[=coef.imr]{coef.imr()}}.
+For each platform-feature pair, the ranking score and selected set are
+\deqn{r_{lj}=\max_{s\in\mathcal S_l}\widehat\pi_{lsj}, \qquad
+      \mathcal A_l(t)=\{j:r_{lj}>t\},}
+where \eqn{\mathcal S_l} contains subgroups with platform \eqn{l}, and
+\eqn{t} is \code{threshold}. The inequality is strict. Rows are sorted by
+\eqn{r_{lj}}; the reported subgroup is the first maximizing row in the fitted
+order. This maximum is a ranking score, not the posterior probability of
+selection in at least one subgroup. A common feature is counted once per
+platform, even if it exceeds the threshold in several subgroups.
+}

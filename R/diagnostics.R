@@ -3,6 +3,14 @@
 #' Checks the public structure, dimensions and numerical ranges of a fitted IMR
 #' object. This is useful after loading a saved fit or before comparing fits.
 #'
+#' @section Validation scope:
+#' Validation checks the fitted-object schema, data dimensions, subgroup/platform
+#' mappings, parameter ranges and consistency of retained-draw counts. It does
+#' not rerun MCMC or establish posterior convergence. For statistical inspection,
+#' use [plot.imr()] and [posterior_summary()] for the selection stage and
+#' [posterior_draws()] for conditional coefficient sampling and its diagnostics.
+#' The statistical model and computational conventions are described in [imr()].
+#'
 #' @param object A fitted `"imr"` object.
 #' @return `TRUE`, invisibly. Invalid objects fail with an informative error.
 #' @examples
@@ -231,6 +239,15 @@ validate_imr <- function(object) {
 #' Convert a structurally complete 0.1.x `imr` object to the named schema used
 #' by version 0.2.0. Corrupted or incomplete objects must be refitted.
 #'
+#' @section What conversion preserves:
+#' The conversion reorganizes an existing fit into the current named schema and
+#' then validates it. It does not refit the model, regenerate random draws or
+#' replace historical sampler behavior with the paper convention. Statistical
+#' interpretation remains tied to the original fit's outcome scale and
+#' computational settings. [imr()] documents those conventions; missing data or
+#' insufficient response-scale information can require refitting before later
+#' operations are available.
+#'
 #' @param object A fitted `imr` object created by IntegMultiReg 0.1.x.
 #' @return A validated schema-version-2 `imr` object.
 #' @examples
@@ -324,13 +341,31 @@ upgrade_imr_fit <- function(object) {
              row.names = NULL, stringsAsFactors = FALSE)
 }
 
-#' Posterior Uncertainty Summary for an IMR Fit
+#' Selection and Interaction Posterior Summaries
 #'
 #' Summarizes retained MCMC draws for variable-selection indicators and MRF
 #' interaction parameters. The selection tables report posterior means,
 #' posterior standard deviations and equal-tail credible intervals for each
 #' platform-feature/subgroup indicator. The theta tables provide the same
 #' summaries for each pair of linked availability subgroups.
+#'
+#' @section Summaries of retained parameters:
+#' For retained values \eqn{a^{(1)},\ldots,a^{(B)}} of a selection indicator
+#' or MRF interaction, the reported mean, standard deviation and interval are
+#' \deqn{\bar a=\frac{1}{B}\sum_b a^{(b)}, \qquad
+#'       s_a=\sqrt{\frac{1}{B-1}\sum_b(a^{(b)}-\bar a)^2},}
+#' \deqn{[Q_{(1-L)/2}(a),\ Q_{(1+L)/2}(a)],}
+#' where \eqn{L} is `level` and \eqn{Q} is the empirical quantile computed by
+#' `stats::quantile(type = 8)`. The median is \eqn{Q_{0.5}}.
+#' For a binary selection indicator, the mean is its mPIP and the quantile
+#' interval describes the indicator's posterior distribution. It is not an
+#' interval for the Monte Carlo error of the estimated mPIP. BMS has no sampled
+#' MRF interactions and therefore returns empty theta tables.
+#'
+#' This function summarizes the original fitted selection and interaction
+#' draws without additional sampling. Its `sd` is posterior spread, not a
+#' Monte Carlo standard error. For regression coefficient intervals, first
+#' create an object with [posterior_draws()] and use its `confint()` method.
 #'
 #' @param object A fitted `"imr"` object.
 #' @param level Credible interval level between zero and one (default `0.95`).
@@ -419,9 +454,17 @@ print.posterior_summary.imr <- function(x, ...) {
 }
 
 
-#' Credible Intervals for an IMR Fit
+#' Credible Intervals for Selection and Interaction Parameters
 #'
 #' Standard `confint()` interface to [posterior_summary()].
+#'
+#' @section Which parameters are summarized:
+#' For an `imr` fit, this method extracts the selection-indicator and/or MRF
+#' interaction tables computed by [posterior_summary()]. That page defines
+#' the posterior mean, standard deviation and equal-tail quantiles. Calling
+#' `confint(fit)` does not sample regression coefficients. Their intervals
+#' are obtained by `confint(posterior_draws(fit))`; see
+#' [imr_posterior_methods] for the different parameter set.
 #'
 #' @param object A fitted `"imr"` object.
 #' @param parm Either `"all"`, `"selection"` or `"theta"`.
@@ -445,6 +488,21 @@ confint.imr <- function(object, parm = c("all", "selection", "theta"),
 #' deliberately does not treat raw log-posterior values as likelihood criteria;
 #' it reports model structure and the number of features passing a common mPIP
 #' threshold.
+#'
+#' @section Descriptive comparison:
+#' The selected-feature count is
+#' \deqn{N_{\mathrm{selected}}(t)=\sum_l |\mathcal A_l(t)|,}
+#' using the strict maximum-subgroup mPIP threshold set defined in
+#' [summary.imr()]. Counts are by platform-feature pair. Other columns describe
+#' the fitted method, dimensions and retained sampling budget.
+#'
+#' The returned table is descriptive: it computes no Bayes factor, information
+#' criterion or predictive ranking. Comparability checks require the same
+#' outcome type, platforms, feature names and availability subgroups; they do
+#' not establish identical subject samples or CV folds. For predictive model
+#' comparison, evaluate prespecified candidates on matched subjects and folds
+#' with [cv_imr()]. Choosing a specification from the data requires an outer
+#' validation layer when estimating the performance of that choice.
 #'
 #' @param ... Fitted `"imr"` objects, or one list of fitted objects.
 #' @param threshold Common mPIP threshold used to count selected features.

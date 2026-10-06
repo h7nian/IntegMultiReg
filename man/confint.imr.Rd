@@ -2,7 +2,7 @@
 % Please edit documentation in R/diagnostics.R
 \name{confint.imr}
 \alias{confint.imr}
-\title{Credible Intervals for an IMR Fit}
+\title{Credible Intervals for Selection and Interaction Parameters}
 \usage{
 \method{confint}{imr}(object, parm = c("all", "selection", "theta"), level = 0.95, ...)
 }
@@ -21,4 +21,13 @@ selection and theta results when \code{parm = "all"}.
 }
 \description{
 Standard \code{confint()} interface to \code{\link[=posterior_summary]{posterior_summary()}}.
+}
+\section{Which parameters are summarized}{
+
+For an \code{imr} fit, this method extracts the selection-indicator and/or MRF
+interaction tables computed by \code{\link[=posterior_summary]{posterior_summary()}}. That page defines
+the posterior mean, standard deviation and equal-tail quantiles. Calling
+\code{confint(fit)} does not sample regression coefficients. Their intervals
+are obtained by \code{confint(posterior_draws(fit))}; see
+\link{imr_posterior_methods} for the different parameter set.
 }

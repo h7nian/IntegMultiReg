@@ -19,6 +19,15 @@
 \description{
 Print Method for IMR Cross-Validation Results
 }
+\section{Interpreting the scores}{
+
+The display reads the stored \code{pooled} and \code{fold_mean} matrices and reports
+the validation algorithm and effective settings. \code{\link[=cv_imr]{cv_imr()}} defines their
+scoring formulas and explains why a pooled score can differ from the mean
+fold score. \code{digits} changes significant digits in the display only;
+stored values and subject-level predictions retain full precision.
+}
+
 \examples{
 \donttest{
 x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))

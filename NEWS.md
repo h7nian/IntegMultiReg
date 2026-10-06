@@ -1,5 +1,11 @@
 # IntegMultiReg 0.2.0
 
+* Explain the model, inclusion probabilities, posterior summaries, prediction
+  and cross-validation with equations in the function reference. Separate
+  selection/interaction uncertainty from coefficient/predictive uncertainty
+  in the website navigation. Conditional R-hat warnings now name
+  `conditional_draws` and `burnin` explicitly; sampling is unchanged.
+
 * `cv_imr()` returns an object of class `imr_cv` with a `print()` method, so a
   cross-validation result shows its metric, validation mode, fold design and
   effective post-fit settings instead of dumping the whole structure. The

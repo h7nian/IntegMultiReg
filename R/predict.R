@@ -7,6 +7,33 @@
 #' test features are standardized with the training set's centring and scaling
 #' factors before Bayesian model averaging.
 #'
+#' @section Ranked-model point prediction:
+#' The retained joint selection states are collapsed to distinct models and
+#' ranked by their recomputed approximate log-posterior scores. The calculation
+#' uses the full-fit latent-response means and mean MRF interactions. Let
+#' \eqn{\mathcal M} be the retained set of at most `max_models` states and
+#' \eqn{\ell_m} their scores. The prediction weights are
+#' \deqn{w_m=\frac{\exp(\ell_m-\ell_{\max})}
+#'                  {\sum_{h\in\mathcal M}\exp(\ell_h-\ell_{\max})}.}
+#' They are normalized scores of the ranked distinct states, rather than their
+#' empirical MCMC visit frequencies. Let \eqn{\widehat b_{s,m}} be the
+#' coefficient-mode estimate from the model's Laplace calculation, and let
+#' \eqn{z} be the new subject's transformed design row. Then
+#' \deqn{\widehat y=\sum_{m\in\mathcal M}w_m z^T\widehat b_{s,m}}
+#' for continuous and working-scale survival responses. Binary predictions
+#' apply the probit link within each model:
+#' \deqn{\widehat p=\sum_{m\in\mathcal M}w_m
+#'       \Phi(z^T\widehat b_{s,m}).}
+#' The binary point-prediction path uses the unit-variance probit approximation;
+#' it does not average the conditional variance draws from [posterior_draws()].
+#' For a default survival fit, \eqn{\widehat y} is on the log-time scale.
+#'
+#' These are plug-in point predictions. For coefficient uncertainty and
+#' predictive intervals, use [posterior_draws()] followed by
+#' [predict.imr_posterior()], which also uses a different model-averaging
+#' construction. Increasing `max_models` changes this finite ranked-model
+#' approximation; it does not lengthen the fitted MCMC chain.
+#'
 #' @param object A fitted object of class `"imr"` returned by [imr()].
 #' @param newdata A list of data frames with the new platform measurements, or
 #'   an [imr_data()] object created for prediction. When an `imr_data` object is

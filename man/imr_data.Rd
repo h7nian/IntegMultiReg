@@ -44,6 +44,24 @@ prediction. It standardizes the subject identifier to \code{id}, records the
 observed-platform pattern for every subject and catches alignment problems
 before the MCMC sampler is called.
 }
+\section{Availability groups and eligibility}{
+
+For subject \eqn{i} and platform \eqn{l}, define
+\eqn{A_{il}=I(i\text{ occurs in platform }l)}. The availability pattern is
+\eqn{A_i=(A_{i1},\ldots,A_{iL})}; its integer code is
+\deqn{c_i=\sum_{l=1}^{L}2^{l-1}A_{il}.}
+Printed bitstrings put platform 1 on the right. For example, \code{101} means
+platforms 1 and 3 are present. Subjects with the same pattern form a
+regression subgroup. Missing whole platforms are represented by this pattern,
+rather than by filling their feature values with zeros.
+
+Eligible subjects are the union of platform IDs intersected with the outcome
+and covariate IDs when those frames are supplied. This constructor records
+all eligible patterns; the \code{min_subgroup_size} filter is applied later by
+\code{\link[=imr]{imr()}}. It aligns and validates data but does not standardize predictors or
+fit a model. Predictor standardization is described in \code{\link[=imr]{imr()}}.
+}
+
 \examples{
 data("simIMR", package = "IntegMultiReg")
 dat <- imr_data(

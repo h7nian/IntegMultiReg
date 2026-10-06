@@ -6,7 +6,7 @@
 \alias{confint.imr_posterior}
 \alias{coef.imr_posterior}
 \alias{print.imr_posterior}
-\title{Summarize Regression Posterior Draws}
+\title{Summarize Coefficient and Latent-Response Draws}
 \usage{
 \method{summary}{imr_posterior}(object, level = 0.95, parm = c("coefficients", "latent"), ...)
 
@@ -35,5 +35,28 @@ its argument invisibly. Effects are on subgroup-standardized predictor
 scales. Intervals include zero-mass from inactive selection models.
 }
 \description{
-Summarize Regression Posterior Draws
+Summarize Coefficient and Latent-Response Draws
+}
+\section{Posterior summaries}{
+
+For \eqn{D} stored draws of coefficient \eqn{b_j}, \code{coef()} returns
+\deqn{\bar b_j=\frac{1}{D}\sum_{d=1}^{D}b_j^{(d)}.}
+\code{summary()} and \code{confint()} report this mean, the sample standard deviation,
+the median, an equal-tail interval
+\eqn{[Q_{(1-L)/2}(b_j),Q_{(1+L)/2}(b_j)]}, and
+\deqn{\widehat{\Pr}(b_j\ne0\mid D_{\mathrm{obs}})=
+      \frac{1}{D}\sum_{d=1}^{D}I(b_j^{(d)}\ne0).}
+Here \eqn{L} is \code{level}, \eqn{D_{\mathrm{obs}}} denotes the observed data,
+and quantiles use \code{stats::quantile(type = 7)}. The interval includes the
+point mass at zero from inactive models. \code{confint()} reuses \code{summary()};
+neither method runs further MCMC. \code{print()} reports the stored approximation
+and maximum conditional R-hat described in \code{\link[=posterior_draws]{posterior_draws()}}.
+
+With \code{parm = "latent"}, the same mean, standard deviation and quantiles are
+computed per subject, without a nonzero-probability column. For log-time
+survival fits these are log-time summaries: an observed event is constant
+across draws, whereas a censored response is sampled above its observed
+log-time bound. For binary fits the latent normal value is below or above
+zero according to the observed class. These latent summaries are conditional
+on observed outcomes; they are not predictions for new subjects.
 }

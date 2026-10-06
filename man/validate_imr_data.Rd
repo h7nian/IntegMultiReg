@@ -16,6 +16,16 @@ validate_imr_data(x)
 Rechecks the structure and subject alignment of an object created by
 \code{\link[=imr_data]{imr_data()}}. Invalid objects fail with an informative error.
 }
+\section{Validation scope}{
+
+The checks reconstruct subject availability from the supplied platform IDs
+and verify it against the stored availability table and subgroup sizes.
+They also check identifiers, feature columns, finite data and outcome coding.
+The grouping and eligibility rules are defined in \code{\link[=imr_data]{imr_data()}}. Successful
+validation establishes structural consistency of the object; it does not
+assess a likelihood, statistical assumptions or fitted-model convergence.
+}
+
 \examples{
 x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
 y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)

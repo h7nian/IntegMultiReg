@@ -10,9 +10,12 @@ class Page(HTMLParser):
         super().__init__()
         self.links = []
         self.ids = set()
+        self.math_errors = []
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
+        if "katex-error" in attrs.get("class", "").split():
+            self.math_errors.append(attrs.get("title", "KaTeX failed to render an expression"))
         if "id" in attrs:
             self.ids.add(attrs["id"])
         if tag == "a" and "name" in attrs:
@@ -53,6 +56,10 @@ if not pages:
     failures.append((root, "No generated HTML pages"))
 for source, link in sorted(set(failures), key=str):
     print("Broken local link:", source, "->", link)
-if failures:
+math_errors = [(source.relative_to(root), error)
+               for source, page in pages.items() for error in page.math_errors]
+for source, error in math_errors:
+    print("Math rendering error:", source, "->", error)
+if failures or math_errors:
     sys.exit(1)
-print("Checked local links and assets in", len(pages), "HTML pages.")
+print("Checked local links, assets and math rendering in", len(pages), "HTML pages.")
