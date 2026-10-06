@@ -30,8 +30,26 @@ check_documentation <- function() {
   roxygen2::roxygenize(work, roclets = c("namespace", "rd"),
                       load_code = load_source_data)
   entries <- function(path) {
-    lines <- readLines(path, warn = FALSE)
-    sort(lines[nzchar(lines) & !startsWith(lines, "#")])
+    declarations <- as.list(parse(path, keep.source = FALSE))
+    entries <- lapply(declarations, function(declaration) {
+      directive <- as.character(declaration[[1L]])
+      arguments <- as.list(declaration)[-1L]
+      # Roxygen versions may group several imports or exports in one call.
+      # Compare their bindings, independently of grouping and line wrapping.
+      if (directive == "importFrom") {
+        package <- as.character(arguments[[1L]])
+        return(vapply(arguments[-1L], function(name) {
+          paste0("importFrom(", package, ",", as.character(name), ")")
+        }, character(1)))
+      }
+      if (directive == "export") {
+        return(vapply(arguments, function(name) {
+          paste0("export(", as.character(name), ")")
+        }, character(1)))
+      }
+      paste(deparse(declaration, width.cutoff = 500L), collapse = " ")
+    })
+    sort(unique(unlist(entries, use.names = FALSE)))
   }
   recorded <- entries(file.path(root, "NAMESPACE"))
   generated <- entries(file.path(work, "NAMESPACE"))
