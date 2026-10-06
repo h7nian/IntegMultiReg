@@ -17,6 +17,10 @@ availability subgroups through
 so that no subject with partially observed platforms is discarded and the same
 biomarkers tend to be selected across availability subgroups.
 
+Read the [getting started guide](https://h7nian.github.io/IntegMultiReg/articles/IntegMultiReg.html)
+or browse the [function reference](https://h7nian.github.io/IntegMultiReg/reference/index.html).
+These pages describe the GitHub development version, 0.2.0.
+
 ## Installation
 
 The package contains C code that links against the
@@ -27,10 +31,17 @@ installed first:
 * Debian/Ubuntu: `sudo apt-get install libgsl-dev`
 * Windows: GSL is provided by Rtools.
 
-Once available on CRAN, install the package with:
+Install the CRAN release with:
 
 ```r
 install.packages("IntegMultiReg")
+```
+
+To use the development version documented here, install from GitHub:
+
+```r
+install.packages("remotes")
+remotes::install_github("h7nian/IntegMultiReg")
 ```
 
 Alternatively, install a local source tarball:
@@ -176,7 +187,7 @@ estimate. This is not an exact reproduction of the original study.
 can override individual CV decisions. Fit-time `sampler_method`,
 `prior_indexing`, `laplace_max_iter`, and `laplace_tolerance` express the
 corresponding sampling and numerical conventions. Existing defaults are
-preserved. See [the coverage guide](inst/METHOD-COVERAGE.md) for paper and
+preserved. See [the coverage guide](https://h7nian.github.io/IntegMultiReg/method-coverage.html) for paper and
 released-code combinations, known differences, and validation limits.
 
 Use `initial=list(selection=..., interaction=...)` for explicitly different

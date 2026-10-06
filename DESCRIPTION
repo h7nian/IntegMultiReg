@@ -23,6 +23,9 @@ Description: A Bayesian framework that integrates several regression models to
     Posterior inference is carried out by a Markov chain Monte Carlo sampler
     implemented in C for computational efficiency.
 License: GPL (>= 3)
+URL: https://h7nian.github.io/IntegMultiReg/,
+    https://github.com/h7nian/IntegMultiReg
+BugReports: https://github.com/h7nian/IntegMultiReg/issues
 Encoding: UTF-8
 LazyData: true
 Depends:

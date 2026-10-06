@@ -1,0 +1,79 @@
+url: https://h7nian.github.io/IntegMultiReg/
+
+template:
+  bootstrap: 5
+  bootswatch: cosmo
+
+development:
+  mode: unreleased
+  version_label: info
+
+home:
+  title: Bayesian regression for multi-platform biomarkers in R
+  description: >
+    Fit Bayesian regression models to partially overlapping molecular platforms,
+    inspect posterior uncertainty, and evaluate predictions with cross-validation.
+  links:
+  - text: Methodology paper
+    href: https://doi.org/10.1111/biom.12587
+  - text: Methods and reproducibility
+    href: method-coverage.html
+  - text: Migrating to version 0.2.0
+    href: migration.html
+
+navbar:
+  structure:
+    left: [intro, reference, guides, news]
+    right: [search, github]
+  components:
+    intro:
+      text: Get started
+      href: articles/IntegMultiReg.html
+    guides:
+      text: Guides
+      menu:
+      - text: Methods and reproducibility
+        href: method-coverage.html
+      - text: Migrating to version 0.2.0
+        href: migration.html
+
+reference:
+- title: Prepare data and fit models
+  desc: Validate subject identifiers, align platforms, and fit the model.
+  contents:
+  - imr_data
+  - validate_imr_data
+  - as.data.frame.imr_data
+  - imr
+- title: Inspect and compare fits
+  contents:
+  - print.imr
+  - summary.imr
+  - coef.imr
+  - validate_imr
+  - compare_imr
+  - upgrade_imr_fit
+- title: Predict and cross-validate
+  contents:
+  - predict.imr
+  - cv_imr
+  - print.imr_cv
+- title: Posterior uncertainty
+  contents:
+  - posterior_summary
+  - confint.imr
+  - posterior_draws
+  - imr_posterior_methods
+  - predict.imr_posterior
+- title: Plot results
+  contents:
+  - plot.imr
+  - plot_top_features
+  - plot_subgroup_sizes
+- title: Example data
+  contents:
+  - simIMR
+  - kircIMR
+- title: Package information
+  contents:
+  - IntegMultiReg-package
