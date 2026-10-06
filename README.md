@@ -14,8 +14,12 @@ availability subgroups through
 * **non-local (product moment) priors** on the regression coefficients, and
 * a **Markov random field (MRF) prior** on the variable-selection indicators,
 
-so that no subject with partially observed platforms is discarded and the same
-biomarkers tend to be selected across availability subgroups.
+so that subjects can contribute even when some platforms are missing and
+biomarkers can be selected across availability subgroups.
+
+Read the [getting started guide](https://h7nian.github.io/IntegMultiReg/articles/IntegMultiReg.html)
+or browse the [function reference](https://h7nian.github.io/IntegMultiReg/reference/index.html).
+These pages describe the GitHub development version, 0.2.0.
 
 ## Installation
 
@@ -27,7 +31,15 @@ installed first:
 * Debian/Ubuntu: `sudo apt-get install libgsl-dev`
 * Windows: GSL is provided by Rtools.
 
-Once available on CRAN, install the package with:
+To follow the version 0.2.0 examples on this site, install from GitHub:
+
+```r
+install.packages("remotes")
+remotes::install_github("h7nian/IntegMultiReg")
+```
+
+The CRAN release can be installed separately. Its interface may differ from
+these development-version examples:
 
 ```r
 install.packages("IntegMultiReg")
@@ -63,7 +75,7 @@ fit <- imr(
   nu = c(-4, -3, -4),
   draws = 2000, burnin = 1000,
   min_subgroup_size = 30,
-  seed = 1
+  seed = 1, sampler_method = "paper"
 )
 
 fit                       # short summary
@@ -72,7 +84,7 @@ coef(fit)                 # per-platform mPIP matrices
 plot(fit, type = "selection")
 plot_top_features(fit)    # ranked biomarker bar chart
 predict(fit, newdata = simIMR$platforms[1:2], covariates = simIMR$covariates)
-cv_imr(fit)               # fold-split predictive assessment using fitted samples
+cv_imr(fit, k = 3, rounds = 1, cv_method = "refit")
 ```
 
 ## Real-data example
@@ -176,7 +188,7 @@ estimate. This is not an exact reproduction of the original study.
 can override individual CV decisions. Fit-time `sampler_method`,
 `prior_indexing`, `laplace_max_iter`, and `laplace_tolerance` express the
 corresponding sampling and numerical conventions. Existing defaults are
-preserved. See [the coverage guide](inst/METHOD-COVERAGE.md) for paper and
+preserved. See [the coverage guide](https://h7nian.github.io/IntegMultiReg/method-coverage.html) for paper and
 released-code combinations, known differences, and validation limits.
 
 Use `initial=list(selection=..., interaction=...)` for explicitly different

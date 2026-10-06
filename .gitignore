@@ -27,3 +27,8 @@ data-raw/cache/
 .DS_Store
 .vscode/
 *~
+
+# Generated website and temporary copies of maintained guides.
+/docs/
+/method-coverage.md
+/migration.md

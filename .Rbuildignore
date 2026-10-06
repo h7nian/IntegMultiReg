@@ -12,3 +12,7 @@
 ^src/symbols\.rds$
 ^src/Makevars$
 ^cran-comments\.md$
+^_pkgdown\.yml$
+^docs$
+^method-coverage\.md$
+^migration\.md$
