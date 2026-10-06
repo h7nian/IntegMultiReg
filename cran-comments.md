@@ -1,8 +1,8 @@
 ## Submission
 
 This is a feature release. The archived 0.1.1 memory-access problems were
-corrected in 0.1.3, which is the version currently on CRAN and passing on all
-flavors; nothing in this submission relates to that archival.
+corrected in 0.1.3; this release adds the interface and analysis features
+described below.
 
 ## What changed
 
@@ -30,46 +30,50 @@ at are:
 
 These are breaking changes. There are no reverse dependencies on CRAN.
 
-## Test environments
+## Current candidate and validation
 
-* GitHub Actions, `--as-cran` with `error-on = "warning"`:
-  Ubuntu R-release, Ubuntu R-devel, Windows R-release, macOS R-release
-* GitHub Actions sanitizers: Linux GCC UBSAN, Clang UBSAN, Clang ASAN+UBSAN,
-  and macOS ARM ASAN+UBSAN, each running the installed tests and rebuilding
-  the vignette
-* GitHub Actions Valgrind on R-devel with level-2 instrumentation
-* Linux, R 4.4.1, GSL 2.4: installed test suite, frozen default-regression
-  comparison against the previous release, and independent sampler and
-  original-C prediction checks
+The package remains version 0.2.0. The local source tarball checked on
+October 5, 2026 has SHA256
+`fd0fdbe1a311090c70869759f9772cd2c16852540d467dccd98d53898dc7aa08`.
+All results below refer to that candidate's R/C sources and generated help.
+
+* Linux, R 4.4.1, GSL 2.4: the installed suite passes 2879 expectations,
+  with zero failures, errors, warnings or skips. The test driver checks errors
+  separately from failed expectations and exits unsuccessfully for either.
+* Independent installations of the preceding source snapshot and the refactor
+  give identical posterior objects, preprocessing, model metadata, predictions
+  and CV metrics across six outcome/model combinations and eighteen CV runs.
+* The native Gamma-density, prior-indexing and stationary-distribution checks
+  pass. Conditional predictions agree with the independently compiled archived
+  C reference to the recorded tolerance of 1e-12.
+* Roxygen 7.1.1 regenerates NAMESPACE and all help files without changes.
+  The new documentation guard also rejects a deliberately misplaced helper
+  that takes over a public function's export annotation.
 
 ## R CMD check results
 
-0 errors | 0 warnings | 0 notes
+Linux, R-devel 2026-09-21 r90579, `R CMD check --as-cran`:
 
-`Status: OK` on all four `--as-cran` platforms: Ubuntu R-release, Ubuntu
-R-devel, Windows R-release and macOS R-release. Those runs use
-`error-on = "warning"`, so a warning on any platform would have failed them.
-The test suite reports `[ FAIL 0 | WARN 0 | SKIP 0 | PASS 2864 ]`.
+0 errors | 0 warnings | 1 note
 
-## Memory checks
+The note reports unavailable HTML checking tools (`tidy` and R package `V8`).
+Examples, including `--run-donttest`, package tests, vignette rebuilding and
+PDF manual generation pass. Remote CRAN incoming checks were disabled for
+this local run.
 
-Installed tests run under Valgrind with `--leak-check=full` and
-`--track-origins=yes` and no package suppressions, and under ASAN+UBSAN on
-Linux and macOS ARM.
+## Native memory check
 
-Valgrind on R-devel reports:
+Valgrind 3.27.1 with level-2 instrumented R-devel runs a focused check of the
+refactored native paths: binary, continuous and censored fits with both sampler
+conventions, prediction, and all three CV modes. It reports:
 
     definitely lost: 0 bytes in 0 blocks
+    indirectly lost: 0 bytes in 0 blocks
+    possibly lost: 0 bytes in 0 blocks
     ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
 
-GCC UBSAN, GCC ASAN+UBSAN, Clang UBSAN and Clang ASAN+UBSAN on Linux, and
-ASAN+UBSAN on macOS ARM, all pass with no sanitizer diagnostic.
-
-As a control, the archived 0.1.1 tarball still reproduces its exact
-7,200-byte / 60-block leak under these same settings, so the configuration is
-known to detect the defect that led to that archival.
-
-The test suite includes a regression test that exercises fitting, prediction
-and cross-validation under frequent garbage collection, and post-fit
-cross-validation now releases native resources and reports round, fold and
-subgroup context when a Cholesky decomposition or solve fails.
+This focused check does not replace the complete sanitizer and Valgrind suites.
+The previous cross-platform and memory results belong to earlier sources.
+Before submission, run those suites and the four-platform checks on the final
+candidate, resolve the HTML-check tooling note, and update this record with
+that candidate's source identity and results.

@@ -20,3 +20,15 @@ deliberately does not treat raw log-posterior values as likelihood criteria;
 it reports model structure and the number of features passing a common mPIP
 threshold.
 }
+\examples{
+x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
+y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
+fit <- imr(list(assay = x), y, outcome_type = "continuous",
+           forced_prior_scale = 1, draws = 500, burnin = 250, seed = 1)
+sparse <- imr(list(assay = x), y, outcome_type = "continuous",
+              forced_prior_scale = 1, nu = -6,
+              draws = 500, burnin = 250, seed = 1)
+
+# One row per fit: structure, and how many features clear the threshold.
+compare_imr(default = fit, sparser_prior = sparse)
+}

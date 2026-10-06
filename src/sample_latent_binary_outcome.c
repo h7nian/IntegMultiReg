@@ -29,19 +29,8 @@ void sample_binary_latent_response(int model, int n_platforms, int *selected_pla
     for (int i = 0; i < n_selected_platforms; i++)
     {
         int platform_index = selected_platforms[i];
-        int platform_model_index = -1;
-        for (int ss = 0; ss < n_platform_models[platform_index]; ss++)
-        {
-            if (platform_models[platform_index][ss] == model)
-            {
-                platform_model_index = ss;
-                break;
-            }
-        }
-        if (platform_model_index == -1)
-        {
-            Rf_error("Subgroup not found");
-        }
+        int platform_model_index = imr_platform_model_index(
+            model, platform_index, n_platform_models, platform_models);
 
         selected_feature_index[i] = malloc(n_features[platform_index] * sizeof(int));
         if (!selected_feature_index[i])
@@ -51,7 +40,7 @@ void sample_binary_latent_response(int model, int n_platforms, int *selected_pla
         n_selected_features[i] = 0;
         find_indices_not_equal(n_features[platform_index], gamma[platform_index][platform_model_index], 0, selected_feature_index[i], &n_selected_features[i]);
     }
-    int i, j;
+    int i;
     double **design = build_design_matrix(n_covariates, n_selected_platforms, n_selected_features, selected_feature_index, covariates, features, selected_platforms, sample_size);
     int n_subjects = sample_size;
 
@@ -65,11 +54,7 @@ void sample_binary_latent_response(int model, int n_platforms, int *selected_pla
     double tolerance = numerical->tolerance;
     int moment_order = 1;
     double *precision = build_posterior_precision(k_val, n_covariates, n_selected_features[0], n_subjects, slab_scale, covariate_scale, intercept_scale, first_platform_scale, design, numerical);
-    double *precision_copy = malloc((size_t) k_val * k_val * sizeof(double));
-    if (!precision_copy) Rf_error("malloc failed for precision_copy");
-    for (i = 0; i < k_val; i++)
-        for (j = 0; j <= i; j++)
-            precision_copy[i * k_val + j] = precision_copy[j * k_val + i] = precision[i * k_val + j];
+    double *precision_copy = imr_copy_symmetric_matrix(precision, k_val);
     gsl_matrix_view m = gsl_matrix_view_array(precision, k_val, k_val);
     if (gsl_linalg_cholesky_decomp(&m.matrix) != 0)
         imr_record_laplace(numerical, IMR_LAPLACE_LATENT, IMR_LAPLACE_FACTORIZATION_FAILURE);

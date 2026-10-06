@@ -20,6 +20,11 @@ _Bool ****r_list_list_matrix_to_c_bool(int list_length, SEXP list_list_matrix);
 void free_r_list_list_matrix_to_c(
     double ****array, int list_length, SEXP list_list_matrix);
 
+/* Position of a subgroup in one platform's selection/interaction arrays. */
+int imr_platform_model_index(int subgroup, int platform,
+                             const int *n_platform_models,
+                             int *const *platform_models);
+
 /* Regression and distribution helpers. */
 void ridge_predict_only(const double *x, const double *y, int n, int p,
                         double lambda, double *y_hat);
@@ -28,11 +33,10 @@ double r_righttruncnorm(double upper, double mean, double sd);
 
 /* Accuracy metrics and small vector summaries. */
 double norm(int n, double *x);
-double sum(int n, double *x);
 double mean(int n, double *x);
-double var(int n, double *x);
 
-/* Matrix and array helpers. */
+/* Matrix and array helpers. The caller frees the returned symmetric copy. */
+double *imr_copy_symmetric_matrix(const double *lower, int n);
 void mean_array_columns(int n, int n_cols, double **x, double *mean_out);
 _Bool bool_vectors_equal(int n, _Bool *left, _Bool *right);
 

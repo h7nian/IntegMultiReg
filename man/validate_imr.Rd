@@ -16,3 +16,16 @@ validate_imr(object)
 Checks the public structure, dimensions and numerical ranges of a fitted IMR
 object. This is useful after loading a saved fit or before comparing fits.
 }
+\examples{
+x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
+y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
+fit <- imr(list(assay = x), y, outcome_type = "continuous",
+           forced_prior_scale = 1, draws = 500, burnin = 250, seed = 1)
+
+validate_imr(fit)
+
+# A damaged object is rejected rather than used.
+damaged <- fit
+damaged$posterior <- NULL
+try(validate_imr(damaged))
+}

@@ -37,6 +37,39 @@ test_that("cv_imr accepts an explicitly matching fitted method", {
     draws = 80, burnin = 40, min_subgroup_size = 30, seed = 14
   )
   cv <- cv_imr(cv_method = "refit", fit_bms, k = 5, rounds = 1, method = "bms")
+  expect_identical(cv, cv_imr(fit_bms, k = 5, rounds = 1, cv_method = "refit"))
+  expect_error(cv_imr(fit_bms, method = "imr"), "must match the fitted object")
   expect_identical(cv$metric, "AUC")
   expect_true(all(vapply(fit_bms$posterior$interaction_draws, is.null, logical(1))))
+})
+
+test_that("cross-validation results carry a class and print a summary", {
+  f <- fit_bin
+  cv <- cv_imr(f, k = 2, rounds = 1)
+  expect_s3_class(cv, "imr_cv")
+  # the object is still an ordinary list for existing code
+  expect_true(is.list(cv))
+  expect_false(is.null(cv$pooled))
+  expect_false(is.null(cv$control$folds))
+
+  out <- capture.output(print(cv))
+  expect_true(any(grepl("IMR cross-validation", out)))
+  expect_true(any(grepl(cv$metric, out, fixed = TRUE)))
+  expect_true(any(grepl("1 round of 2-fold", out, fixed = TRUE)))
+  # the post-fit settings line appears only for post-fit validation
+  expect_true(any(grepl("model set", out)))
+  capture.output(expect_invisible(print(cv)))
+
+  refit <- cv_imr(f, k = 2, rounds = 1, cv_method = "refit")
+  expect_s3_class(refit, "imr_cv")
+  expect_false(any(grepl("model set", capture.output(print(refit)))))
+})
+
+test_that("the printed scores keep significant digits, not decimal places", {
+  cv <- cv_imr(fit_bin, k = 2, rounds = 1)
+  cv$pooled[] <- 0.000123456
+  out <- capture.output(print(cv))
+  # round() would have shown 0 here; signif() keeps the leading digits
+  expect_true(any(grepl("0.000123", out, fixed = TRUE)))
+  expect_false(any(grepl("^\\s*\\[1,\\]\\s+0\\s*$", out)))
 })

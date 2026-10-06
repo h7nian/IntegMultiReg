@@ -42,6 +42,5 @@ SystemRequirements: GSL (>= 2.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 NeedsCompilation: yes
-Config/roxygen2/version: 8.0.0
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 8.0.0
+RoxygenNote: 7.1.1

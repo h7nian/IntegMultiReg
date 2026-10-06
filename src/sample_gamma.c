@@ -11,6 +11,7 @@
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_sf.h>
 #include "my_header.h"
+#include "utils.h"
 
 /*
  * Update the variable-selection indicators for one availability subgroup.
@@ -38,19 +39,8 @@ void sample_gamma_indicators(
     for (int i = 0; i < n_selected_platforms; i++)
     {
         int platform_index = selected_platforms[i];
-        int platform_model_index = -1;
-        for (int ss = 0; ss < n_platform_models[platform_index]; ss++)
-        {
-            if (platform_models[platform_index][ss] == subgroup)
-            {
-                platform_model_index = ss;
-                break;
-            }
-        }
-        if (platform_model_index == -1)
-        {
-            Rf_error("Subgroup not found");
-        }
+        int platform_model_index = imr_platform_model_index(
+            subgroup, platform_index, n_platform_models, platform_models);
         selected_feature_index[i] = malloc(n_features[platform_index] * sizeof(int));
         if (!selected_feature_index[i])
         {
@@ -66,19 +56,8 @@ void sample_gamma_indicators(
     for (int i = 0; i < n_selected_platforms; i++)
     {
         int platform_index = selected_platforms[i];
-        int platform_model_index = -1;
-        for (int ss = 0; ss < n_platform_models[platform_index]; ss++)
-        {
-            if (platform_models[platform_index][ss] == subgroup)
-            {
-                platform_model_index = ss;
-                break;
-            }
-        }
-        if (platform_model_index == -1)
-        {
-            Rf_error("Subgroup not found");
-        }
+        int platform_model_index = imr_platform_model_index(
+            subgroup, platform_index, n_platform_models, platform_models);
 
         int old_n_selected_features = n_selected_features[i];
         int *old_selected_feature_index = malloc(old_n_selected_features * sizeof(int));

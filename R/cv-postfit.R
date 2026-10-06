@@ -14,7 +14,7 @@
       .Machine$integer.max) {
     .imr_abort("Residual prior shape exceeds the supported post-fit CV range.")
   }
-  grouped <- subgroup_data(dat$outcome, dat$covariates, dat$platforms)
+  grouped <- .imr_subgroup_data(dat$outcome, dat$covariates, dat$platforms)
   response <- grouped[[1L]][model$subgroup_names]
   ids <- unlist(lapply(response, function(x) x[[1L]]), use.names = FALSE)
   subgroup <- rep(model$subgroup_names, model$sample_sizes)
@@ -62,14 +62,15 @@
       }, numeric(1))
     }
   }
-  list(pooled = result$total_cindex, fold_mean = result$subset_cindex,
-       predictions = records,
-       metric = switch(control$outcome_type, right.censored = "C-index",
-                       binary = "AUC", continuous = "MSE"),
-       validation = cv_method,
-       control = .imr_cv_control(settings, object, k, rounds, max_models,
-         do.call(rbind, lapply(seq_len(rounds), function(round) {
-           data.frame(id = ids, round = round, fold = result$folds[, round],
-                      row_order = result$row_order[, round])
-         })), if (is.null(supplied_folds)) "gsl" else "supplied"))
+  structure(class = "imr_cv", list(
+    pooled = result$total_cindex, fold_mean = result$subset_cindex,
+    predictions = records,
+    metric = switch(control$outcome_type, right.censored = "C-index",
+                    binary = "AUC", continuous = "MSE"),
+    validation = cv_method,
+    control = .imr_cv_control(settings, object, k, rounds, max_models,
+      do.call(rbind, lapply(seq_len(rounds), function(round) {
+        data.frame(id = ids, round = round, fold = result$folds[, round],
+                   row_order = result$row_order[, round])
+      })), if (is.null(supplied_folds)) "gsl" else "supplied")))
 }

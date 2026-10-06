@@ -219,7 +219,7 @@ NULL
 #' @export
 summary.imr_posterior <- function(object, level = .95,
                                   parm = c("coefficients", "latent"), ...) {
-  .imr_interval_level(level)
+  .imr_check_interval_level(level)
   parm <- .imr_posterior_parm(parm)
   if (parm == "latent") return(.imr_latent_summary(object, level))
   lapply(object$beta, function(x) {
@@ -279,12 +279,6 @@ print.imr_posterior <- function(x, ...) {
   invisible(x)
 }
 
-.imr_interval_level <- function(level) {
-  .imr_check_numeric_vector(level, "level", length = 1L, positive = TRUE)
-  if (level >= 1) .imr_abort("`level` must be less than one.")
-  invisible(level)
-}
-
 #' Predict Using Coefficient Posterior Draws
 #' @param object An `imr_posterior` object.
 #' @param newdata,platform_names,covariates As in [predict.imr()].
@@ -313,7 +307,7 @@ predict.imr_posterior <- function(object, newdata, platform_names = NULL,
                                   covariates = NULL, type = c("mean", "response"),
                                   level = .95, seed = 1L, ...) {
   type <- match.arg(type)
-  .imr_interval_level(level)
+  .imr_check_interval_level(level)
   seed <- .imr_check_integer_scalar(seed, "seed", min = 0L)
   fit <- object$fit
   inputs <- .imr_prediction_inputs(fit, newdata, platform_names, covariates)

@@ -37,19 +37,8 @@ void initialize_sampler_state(int outcome_type, double **Y, double ***newCC, dou
     for (int l = 0; l < n_model_platforms_c[m]; l++)
     {
       int platform_index = model_platforms_c[m][l];
-      int platform_model_index = -1;
-      for (int ss = 0; ss < n_platform_models_c[platform_index]; ss++)
-      {
-        if (platform_models_c[platform_index][ss] == m)
-        {
-          platform_model_index = ss;
-          break;
-        }
-      }
-      if (platform_model_index == -1)
-      {
-        error("Error: subgroup not found\n");
-      }
+      int platform_model_index = imr_platform_model_index(
+          m, platform_index, n_platform_models_c, platform_models_c);
 
       selected_feature_index[l] = calloc(G[platform_index], sizeof(int));
       find_indices_not_equal(G[platform_index], gamma[platform_index][platform_model_index], 0, selected_feature_index[l], &n_selected_features[l]);
@@ -101,11 +90,7 @@ void initialize_sampler_state(int outcome_type, double **Y, double ***newCC, dou
     int rr = 1;
     int k = 1 + K + total_selected_features;
     double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG, numerical);
-    double *precision_copy = malloc((size_t) k * k * sizeof(double));
-    if (!precision_copy) Rf_error("malloc failed for precision_copy");
-    for (int i = 0; i < k; i++)
-      for (int j = 0; j <= i; j++)
-        precision_copy[i * k + j] = precision_copy[j * k + i] = precision[i * k + j];
+    double *precision_copy = imr_copy_symmetric_matrix(precision, k);
     gsl_matrix_view m11 = gsl_matrix_view_array(precision, k, k);
     if (gsl_linalg_cholesky_decomp(&m11.matrix) != 0)
       imr_record_laplace(numerical, IMR_LAPLACE_INITIAL, IMR_LAPLACE_FACTORIZATION_FAILURE);

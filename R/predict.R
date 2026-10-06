@@ -322,20 +322,7 @@ predict.imr <- function(object, newdata, platform_names = NULL,
   } else {
     cova_test <- lapply(sample_ids, function(x) matrix(numeric(0), nrow = length(x), ncol = 0))
   }
-  x_test <- lapply(x_test, function(subgroup) {
-    lapply(subgroup, function(platform_data) {
-      if (is.data.frame(platform_data) && "id" %in% colnames(platform_data)) {
-        mat <- as.matrix(platform_data[, -1, drop = FALSE])
-      } else if (!is.null(colnames(platform_data)) &&
-        colnames(platform_data)[1] == "id") {
-        mat <- as.matrix(platform_data[, -1, drop = FALSE])
-      } else {
-        mat <- as.matrix(platform_data)
-      }
-      storage.mode(mat) <- "double"
-      return(mat)
-    })
-  })
+  x_test <- .imr_platform_matrices(x_test)
 
   if (!is.null(covariates)) {
     cova_test <- lapply(
@@ -347,13 +334,13 @@ predict.imr <- function(object, newdata, platform_names = NULL,
   norm_mean <- prep$feature_center
   norm_sd <- prep$feature_scale
 
-  x_test <- normalize_nested_list_known_mean_sd(x_test, norm_mean, norm_sd)
+  x_test <- .imr_standardize_platforms(x_test, norm_mean, norm_sd)
 
   mean_cov <- prep$covariate_center
   sd_cov <- prep$covariate_scale
 
   if (!is.null(covariates)) {
-    cova_test <- mapply(normalize_matrix_known_mean_variance,
+    cova_test <- mapply(.imr_standardize_matrix,
       cova_test, mean_cov, sd_cov,
       SIMPLIFY = FALSE
     )

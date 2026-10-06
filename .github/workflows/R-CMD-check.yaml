@@ -36,8 +36,11 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck, any::V8
+          extra-packages: any::rcmdcheck, any::V8, any::roxygen2
           needs: check
+
+      - name: Verify generated documentation exports
+        run: Rscript .github/scripts/verify-documentation.R
 
       - uses: r-lib/actions/check-r-package@v2
         with:
