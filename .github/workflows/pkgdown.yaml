@@ -29,7 +29,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes libgsl-dev
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::pkgdown, local::.
+          extra-packages: any::pkgdown, any::katex, local::.
           needs: website
       - name: Build package documentation
         run: Rscript .github/scripts/build-website.R

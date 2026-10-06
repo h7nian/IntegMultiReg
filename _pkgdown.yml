@@ -2,6 +2,7 @@ url: https://h7nian.github.io/IntegMultiReg/
 
 template:
   bootstrap: 5
+  math-rendering: katex
 
 development:
   mode: unreleased
