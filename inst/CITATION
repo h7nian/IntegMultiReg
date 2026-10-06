@@ -22,5 +22,6 @@ bibentry(
   author   = c(person("Sinian", "Zhang"),
                person("Jianfeng", "Wang"),
                person("Thierry", "Chekouo")),
+  year     = "2026",
   note     = sprintf("R package version %s", meta$Version)
 )

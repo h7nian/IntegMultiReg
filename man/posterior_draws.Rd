@@ -81,37 +81,38 @@ The original sampler uses a Laplace-based integration over coefficients and
 variances while exploring selection states. This function adds conditional
 draws from the coefficient model specified in \code{\link[=imr]{imr()}}. For one subgroup,
 the resulting model-averaged approximation has the form
-\deqn{\widetilde p(b,v\mid D)=\sum_m \widehat w_m\,
-      p(b,v\mid D,\gamma=m).}
-Here \eqn{D} is the observed data and \eqn{\widehat w_m} is the empirical
+\deqn{\widetilde p(b,v\mid\mathcal D)=\sum_m \widehat w_m\,
+      p(b,v\mid\mathcal D,\gamma=m).}{Approximate posterior(b, v | data) = sum_m empirical_weight_m * conditional_posterior(b, v | data, selection_model=m).}
+Here \eqn{\mathcal D}{data} is the observed data and \eqn{\widehat w_m}{empirical_weight_m} is the empirical
 frequency of selection state \eqn{m} in the fitted chain. Whole joint
 selection draws are resampled before extracting subgroup states, preserving
 their dependence across subgroups. Inactive molecular coefficients are zero.
 The conditional Gibbs sampler alternates active coefficients, residual
 variance and, when needed, the augmented responses. Its coefficient update
-has density proportional to \eqn{b_j^2\phi(b_j;\mu_j,v/A_{jj})}, where
-\eqn{A=Z^TZ+\mathrm{diag}(1/\tau_j)} and
-\eqn{\mu_j=((Z^Ty^*)_j-\sum_{k\ne j}A_{jk}b_k)/A_{jj}}.
+has density proportional to \eqn{b_j^2\phi(b_j;\mu_j,v/A_{jj})}{b_j^2 * NormalDensity(b_j; mu_j, v/A_jj)}, where
+\eqn{A=Z^TZ+\mathrm{diag}(1/\tau_j)}{A = transpose(Z) * Z + diag(1/tau_j)} and
+\eqn{\mu_j=((Z^Ty^*)_j-\sum_{k\ne j}A_{jk}b_k)/A_{jj}}{mu_j = ((transpose(Z) * y*)_j - sum over k != j of A_jk * b_k) / A_jj}.
 The design, working response and pMOM scales are defined in \code{\link[=imr]{imr()}}.
 
 The conditional sampling is an additional computation. It inherits the
 selection weights' Laplace approximation and \code{sampler_method} convention;
 it neither recomputes exact model probabilities nor changes an existing
-legacy fit into a paper-sampler fit. \code{prior_indexing = "code2017"} is a
-historical precision discrepancy, which these pMOM conditional draws do not
-reproduce. See the package's Methods and reproducibility guide for that
-distinction.
+legacy fit into a paper-sampler fit. The \code{prior_indexing = "code2017"}
+option preserves a historical precision discrepancy. For a fit using that
+option, selection weights come from the code2017 precision calculation,
+whereas these conditional draws use standard coefficient-block indexing.
+See \href{https://h7nian.github.io/IntegMultiReg/method-coverage.html}{Methods and reproducibility}.
 }
 
 \section{Output size and conditional-chain length}{
 
 \code{draws} is the number of model-averaged rows returned per subgroup. Suppose
-one subgroup-model combination is assigned \eqn{a_m} of those rows and
-\code{chains} is \eqn{C}. Each of its conditional chains retains
-\deqn{n_m=\max\{d_{\min},\lceil a_m/C\rceil\},}
-where \eqn{d_{\min}} is \code{conditional_draws}, after discarding \code{burnin}
+one subgroup-model combination is assigned \eqn{r_m} of those rows and
+\code{chains} is \eqn{J}. Each of its conditional chains retains
+\deqn{n_m=\max\{d_{\min},\lceil r_m/J\rceil\},}{Retained iterations per conditional chain: n_m = max(conditional_draws, ceiling(returned_rows_m / number_of_chains)).}
+where \eqn{d_{\min}}{d_min} is \code{conditional_draws}, after discarding \code{burnin}
 iterations. Diagnostics use the conditional chains before output subsetting;
-\eqn{a_m} rows are then sampled without replacement from the pooled draws for the
+\eqn{r_m} rows are then sampled without replacement from the pooled draws for the
 output. Increasing \code{draws} need not lengthen a low-frequency model's chains.
 Increase \code{conditional_draws}, and if needed \code{burnin}, to investigate a
 conditional-chain warning.
@@ -119,12 +120,14 @@ conditional-chain warning.
 
 \section{Conditional split R-hat}{
 
-Each of the \eqn{C} chains is split into two halves of length
-\eqn{H=\lfloor n_m/2\rfloor}. For these \eqn{M=2C} sequences, with means
-\eqn{\bar a_c}, variances \eqn{s_c^2} and overall mean \eqn{\bar a},
+Each of the \eqn{J} chains is split into two halves of length
+\eqn{H=\lfloor n_m/2\rfloor}{H = floor(n_m/2)}; an odd-length chain omits its middle draw
+from this diagnostic. For a scalar parameter \eqn{q}, the resulting
+\eqn{M=2J} sequences have means \eqn{\bar q_c}{mean_q_c}, variances \eqn{s_c^2}
+and overall mean \eqn{\bar q}{mean_q}. Sums below run over these \eqn{M} sequences:
 \deqn{W=\frac{1}{M}\sum_c s_c^2, \qquad
-      B=\frac{H}{M-1}\sum_c(\bar a_c-\bar a)^2,}
-\deqn{\widehat R=\sqrt{\frac{(H-1)W/H+B/H}{W}}.}
+      B=\frac{H}{M-1}\sum_c(\bar q_c-\bar q)^2,}{W = mean of the M within-sequence variances; B = H * sum_c (mean_q_c - overall_mean_q)^2 / (M - 1).}
+\deqn{\widehat R=\sqrt{\frac{(H-1)W/H+B/H}{W}}.}{Split R-hat = sqrt(((H - 1) * W / H + B / H) / W).}
 \code{diagnostics} records the maximum over active coefficients and residual
 variance for each subgroup-model combination. This is classical split
 R-hat, not the rank-normalized or folded version. An undefined value or a

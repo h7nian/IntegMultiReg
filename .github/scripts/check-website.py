@@ -10,12 +10,9 @@ class Page(HTMLParser):
         super().__init__()
         self.links = []
         self.ids = set()
-        self.math_errors = []
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
-        if "katex-error" in attrs.get("class", "").split():
-            self.math_errors.append(attrs.get("title", "KaTeX failed to render an expression"))
         if "id" in attrs:
             self.ids.add(attrs["id"])
         if tag == "a" and "name" in attrs:
@@ -35,6 +32,8 @@ failures = []
 for source, page in pages.items():
     for link in page.links:
         url = urlsplit(link)
+        if url.scheme == "doi":
+            failures.append((source.relative_to(root), link + " (use https://doi.org/)"))
         if url.scheme or url.netloc or not url.path:
             continue
         path = unquote(url.path)
@@ -54,12 +53,14 @@ for source, page in pages.items():
                 failures.append((source.relative_to(root), link))
 if not pages:
     failures.append((root, "No generated HTML pages"))
+for page_name, source_path in {"method-coverage.html": "inst/METHOD-COVERAGE.md",
+                               "migration.html": "inst/MIGRATION.md"}.items():
+    page = pages.get(root / page_name)
+    if page is not None and not any("/blob/" in link and link.endswith("/" + source_path)
+                                    for link in page.links):
+        failures.append((page_name, "Source link must point to " + source_path))
 for source, link in sorted(set(failures), key=str):
     print("Broken local link:", source, "->", link)
-math_errors = [(source.relative_to(root), error)
-               for source, page in pages.items() for error in page.math_errors]
-for source, error in math_errors:
-    print("Math rendering error:", source, "->", error)
-if failures or math_errors:
+if failures:
     sys.exit(1)
-print("Checked local links, assets and math rendering in", len(pages), "HTML pages.")
+print("Checked local links, assets and DOI URL schemes in", len(pages), "HTML pages.")

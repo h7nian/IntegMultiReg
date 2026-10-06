@@ -350,15 +350,18 @@ upgrade_imr_fit <- function(object) {
 #' summaries for each pair of linked availability subgroups.
 #'
 #' @section Summaries of retained parameters:
-#' For retained values \eqn{a^{(1)},\ldots,a^{(B)}} of a selection indicator
+#' For retained values \eqn{a^{(1)},\ldots,a^{(B)}}{a[1], ..., a[B]} of a selection indicator
 #' or MRF interaction, the reported mean, standard deviation and interval are
 #' \deqn{\bar a=\frac{1}{B}\sum_b a^{(b)}, \qquad
-#'       s_a=\sqrt{\frac{1}{B-1}\sum_b(a^{(b)}-\bar a)^2},}
-#' \deqn{[Q_{(1-L)/2}(a),\ Q_{(1+L)/2}(a)],}
+#'       s_a=\sqrt{\frac{1}{B-1}\sum_b(a^{(b)}-\bar a)^2},}{mean(a) = sum_b a[b] / B; sd(a) = sqrt(sum_b (a[b] - mean(a))^2 / (B - 1)).}
+#' \deqn{[Q_{(1-L)/2}(a),\ Q_{(1+L)/2}(a)],}{Equal-tail interval: [quantile(a, (1 - level)/2), quantile(a, (1 + level)/2)].}
 #' where \eqn{L} is `level` and \eqn{Q} is the empirical quantile computed by
 #' `stats::quantile(type = 8)`. The median is \eqn{Q_{0.5}}.
-#' For a binary selection indicator, the mean is its mPIP and the quantile
-#' interval describes the indicator's posterior distribution. It is not an
+#' For a binary selection indicator, the mean is its mPIP. Type 8 interpolates
+#' between ordered draws and can produce fractional interval endpoints even
+#' though the indicator only takes values zero and one. These are interpolated
+#' empirical quantiles, not exact credible sets on the indicator's support.
+#' The interval is not an
 #' interval for the Monte Carlo error of the estimated mPIP. BMS has no sampled
 #' MRF interactions and therefore returns empty theta tables.
 #'
@@ -491,7 +494,7 @@ confint.imr <- function(object, parm = c("all", "selection", "theta"),
 #'
 #' @section Descriptive comparison:
 #' The selected-feature count is
-#' \deqn{N_{\mathrm{selected}}(t)=\sum_l |\mathcal A_l(t)|,}
+#' \deqn{N_{\mathrm{selected}}(t)=\sum_l |\mathcal A_l(t)|,}{Selected-feature count = sum over platforms of the number of features passing the common threshold.}
 #' using the strict maximum-subgroup mPIP threshold set defined in
 #' [summary.imr()]. Counts are by platform-feature pair. Other columns describe
 #' the fitted method, dimensions and retained sampling budget.

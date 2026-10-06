@@ -24,11 +24,11 @@ posterior inclusion probabilities, mPIP) of a fitted model.
 
 For platform \eqn{l}, subgroup \eqn{s} and feature \eqn{j}, the returned
 entry is the retained-chain average of its binary selection indicator:
-\deqn{\widehat\pi_{lsj} = \frac{1}{B}\sum_{b=1}^{B}\gamma_{lsj}^{(b)}.}
+\deqn{\widehat\pi_{lsj} = \frac{1}{B}\sum_{b=1}^{B}\gamma_{lsj}^{(b)}.}{mPIP_lsj = sum_b gamma_lsj[b] / B.}
 Here \eqn{B} excludes burn-in. This estimates a marginal inclusion
 probability under the fitted sampler and its approximations. It is not a
-regression coefficient; \code{coef()} on an \link{imr_posterior_methods} object instead
-returns coefficient posterior means. Use \code{\link[=posterior_summary]{posterior_summary()}} for
+regression coefficient; \code{coef()} on an \code{imr_posterior} object instead
+returns coefficient posterior means (see \link{imr_posterior_methods}). Use \code{\link[=posterior_summary]{posterior_summary()}} for
 selection-indicator and interaction summaries, or \code{\link[=posterior_draws]{posterior_draws()}} for
 coefficient uncertainty.
 }

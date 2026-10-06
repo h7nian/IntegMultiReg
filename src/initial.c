@@ -95,7 +95,7 @@ void initialize_sampler_state(int outcome_type, double **Y, double ***newCC, dou
     if (gsl_linalg_cholesky_decomp(&m11.matrix) != 0)
       imr_record_laplace(numerical, IMR_LAPLACE_INITIAL, IMR_LAPLACE_FACTORIZATION_FAILURE);
     double *beta_mode = malloc(k * sizeof(double));
-    log_likelihood[m] = log_likelihood_nonlocal(k, K, n_selected_features[0], N, alpha, psi, Y[m], PG, precision_copy, &m11.matrix, beta_mode, rr, h[m], h1, h0, hg, maxiter, stop, 0, numerical, IMR_LAPLACE_INITIAL);
+    log_likelihood[m] = log_likelihood_nonlocal(k, K, n_selected_features[0], N, alpha, psi, Y[m], PG, precision_copy, &m11.matrix, beta_mode, rr, h[m], h1, h0, hg, maxiter, stop, numerical, IMR_LAPLACE_INITIAL);
     free(precision);
     free(precision_copy);
     free(beta_mode);

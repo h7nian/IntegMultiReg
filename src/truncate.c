@@ -17,8 +17,10 @@
  * Update latent event times for censored observations in one subgroup.
  *
  * For right-censored outcomes the latent time must exceed the observed
- * censoring time.  The proposal samples from a bounded exponential tail and is
- * accepted with the corresponding proposal-density correction.
+ * censoring time. The historical proposal uses an exponential tail bounded
+ * above by IMR_SURVIVAL_LATENT_UPPER (1000.5 on the working response scale),
+ * with a proposal-density correction. The fitting entry point checks that
+ * each censored time and its initial latent value lie below this bound.
  */
 void sample_censored_latent_response(int model, int n_platforms, int *selected_platforms, int n_selected_platforms, int *n_features, int sample_size,
                   double *latent_y, double *observed_y, double **covariates, double ***features, _Bool ***gamma, double *quadratic_form, double *log_likelihood,
@@ -55,7 +57,6 @@ void sample_censored_latent_response(int model, int n_platforms, int *selected_p
       total_selected_features += n_selected_features[p];
     }
     int k_val = 1 + n_covariates + total_selected_features;
-    double ymax = 1000;
     int max_iter = numerical->latent_max_iter;
     double tolerance = numerical->tolerance;
     int moment_order = 1;
@@ -74,14 +75,14 @@ void sample_censored_latent_response(int model, int n_platforms, int *selected_p
       censoring_time = observed_y[subject_index];
       double u1 = gsl_ran_flat(rng, 0, 1);
       double old_tail_scale = latent_y[subject_index] - censoring_time;
-      double old_tail_ratio = (ymax + 0.5 - censoring_time) / old_tail_scale;
+      double old_tail_ratio = (IMR_SURVIVAL_LATENT_UPPER - censoring_time) / old_tail_scale;
       double proposed_y = censoring_time - old_tail_scale * log(1 - u1 * (1 - exp(-old_tail_ratio)));
       double new_tail_scale = proposed_y - censoring_time;
-      double new_tail_ratio = (ymax + 0.5 - censoring_time) / new_tail_scale;
+      double new_tail_ratio = (IMR_SURVIVAL_LATENT_UPPER - censoring_time) / new_tail_scale;
       ynew[subject_index] = proposed_y;
       double *beta_mode = malloc(k_val * sizeof(double));
       double new_log_likelihood = log_likelihood_nonlocal(k_val, n_covariates, n_selected_features[0], n_subjects, alpha, psi, ynew, design, precision_copy,
-                                        &m.matrix, beta_mode, moment_order, slab_scale, covariate_scale, intercept_scale, first_platform_scale, max_iter, tolerance, 0, numerical, IMR_LAPLACE_LATENT);
+                                        &m.matrix, beta_mode, moment_order, slab_scale, covariate_scale, intercept_scale, first_platform_scale, max_iter, tolerance, numerical, IMR_LAPLACE_LATENT);
       free(beta_mode);
       double accept_u = gsl_ran_flat(rng, 0, 1);
       double log_accept_ratio = new_log_likelihood - *log_likelihood + log(old_tail_scale) +

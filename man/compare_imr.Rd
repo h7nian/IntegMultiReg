@@ -23,7 +23,7 @@ threshold.
 \section{Descriptive comparison}{
 
 The selected-feature count is
-\deqn{N_{\mathrm{selected}}(t)=\sum_l |\mathcal A_l(t)|,}
+\deqn{N_{\mathrm{selected}}(t)=\sum_l |\mathcal A_l(t)|,}{Selected-feature count = sum over platforms of the number of features passing the common threshold.}
 using the strict maximum-subgroup mPIP threshold set defined in
 \code{\link[=summary.imr]{summary.imr()}}. Counts are by platform-feature pair. Other columns describe
 the fitted method, dimensions and retained sampling budget.

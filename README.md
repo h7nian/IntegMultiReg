@@ -1,5 +1,8 @@
 # IntegMultiReg
 
+[![R-CMD-check](https://github.com/h7nian/IntegMultiReg/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/h7nian/IntegMultiReg/actions/workflows/R-CMD-check.yaml)
+[![Package website](https://github.com/h7nian/IntegMultiReg/actions/workflows/pkgdown.yaml/badge.svg)](https://h7nian.github.io/IntegMultiReg/)
+
 **Integrative Bayesian Multiple Regression for Multi-Platform Biomarkers.**
 
 `IntegMultiReg` implements the integrative multi-regression (IMR) model of
@@ -9,13 +12,10 @@ time-to-event outcomes to continuous (Gaussian) and binary (probit) outcomes.
 Given several molecular platforms measured on overlapping but partially missing
 sets of subjects, IMR partitions subjects into the availability subgroups of a
 Venn diagram, fits one regression per subgroup, and shares information across
-availability subgroups through
-
-* **non-local (product moment) priors** on the regression coefficients, and
-* a **Markov random field (MRF) prior** on the variable-selection indicators,
-
-so that subjects can contribute even when some platforms are missing and
-biomarkers can be selected across availability subgroups.
+availability subgroups through a **Markov random field (MRF) prior** on the
+variable-selection indicators. Each regression uses **non-local product-moment
+priors** on its active coefficients. Subjects can therefore contribute when
+some platforms are missing.
 
 Read the [getting started guide](https://h7nian.github.io/IntegMultiReg/articles/IntegMultiReg.html)
 or browse the [function reference](https://h7nian.github.io/IntegMultiReg/reference/index.html).
@@ -29,6 +29,7 @@ installed first:
 
 * macOS: `brew install gsl`
 * Debian/Ubuntu: `sudo apt-get install libgsl-dev`
+* Fedora/RHEL: `sudo dnf install gsl-devel`
 * Windows: GSL is provided by Rtools.
 
 To follow the version 0.2.0 examples on this site, install from GitHub:
@@ -38,8 +39,10 @@ install.packages("remotes")
 remotes::install_github("h7nian/IntegMultiReg")
 ```
 
-The CRAN release can be installed separately. Its interface may differ from
-these development-version examples:
+The CRAN release, 0.1.3, uses the earlier API. The 0.2.0 examples on this
+site require the GitHub version. See the
+[migration guide](https://h7nian.github.io/IntegMultiReg/migration.html)
+when updating existing code. To install the CRAN release:
 
 ```r
 install.packages("IntegMultiReg")
@@ -50,12 +53,6 @@ Alternatively, install a local source tarball:
 ```r
 install.packages("IntegMultiReg_0.2.0.tar.gz", repos = NULL, type = "source")
 ```
-
-The CRAN checking tools `checkbashisms` and `qpdf` are not runtime
-dependencies. Package users do not need them. Maintainers running
-`R CMD check --as-cran` locally can install them with
-`brew install checkbashisms qpdf` on macOS or
-`sudo apt-get install devscripts qpdf` on Debian/Ubuntu.
 
 ## Quick start
 
@@ -168,6 +165,13 @@ not estimated by averaging exponentiated draws. With `type = "mean"` the interva
 summarizes conditional mean time, whereas `type = "response"` includes future
 outcome variability. The censoring process for future observations is not modeled.
 
+## Inspect numerical computation
+
+`fit$control$laplace_diagnostics` records fitting-stage calls, iteration-limit
+hits and numerical failures by subgroup. Review these with the selection-chain
+diagnostics. The counters neither establish MCMC convergence nor cover later
+prediction-stage optimization.
+
 ## Cross-validation algorithms
 
 `cv_imr(fit, cv_method = "legacy")` is the default. It restores the 0.1.0
@@ -221,11 +225,6 @@ or a package-qualified function name; the global workspace is not exported.
 
 ### Compare prespecified covariate formulas
 
-`fit$control$laplace_diagnostics` records fitting-stage calls, iteration-limit
-hits and numerical failures by subgroup. Review these with the selection-chain
-diagnostics. The counters neither establish MCMC convergence nor cover later
-prediction-stage optimization.
-
 A runnable example compares two formulas on identical subject/fold assignments,
 then uses nested cross-validation to evaluate formula selection using only
 inner training data. Clinical terms remain forced within each candidate model.
@@ -242,43 +241,7 @@ comparison$nested_summary
 The full example uses synthetic data, writes fold-level audit records and is
 repeated in CI. Use `quick = TRUE` only for a smoke run.
 
-## Source layout and development checks
+## Development
 
-The public API uses `snake_case` names and S3 methods. Internal R functions use
-`.imr_`; `%||%` is the internal null-default operator. Fitting options remain
-explicit arguments, grouped by purpose in `?imr`. Their resolved values are
-stored in the fitted object's `control` component.
-
-| Responsibility | Source |
-| --- | --- |
-| Validated data and subject identifiers | `R/imr-data.R` |
-| Fit dispatch and sampler inputs | `R/fit.R` |
-| Formula response and design matrices | `R/formula.R` |
-| Subject alignment and matrix scaling | `R/preprocessing.R` |
-| Prediction and new-data routing | `R/predict.R` |
-| CV settings, refit/post-fit algorithms and workers | `R/cv*.R` |
-| Fit printing, summaries and feature rankings | `R/methods.R` |
-| Fit validation, migration and posterior summaries | `R/diagnostics.R` |
-| Plotting and shared appearance settings | `R/plots.R`, `R/plot-theme.R` |
-| Conditional coefficient and latent-response sampling | `R/posterior-draws.R`, `R/posterior-kernel.R` |
-| Explicit R-to-C argument conversion | `R/native-adapters.R` |
-| Native sampler, prediction and CV | `src/` |
-
-Native calls list their arguments explicitly so reviewers can compare each call
-with its registered C signature. The independent reference calculations in the
-tests deliberately retain their own implementations; sharing the production
-calculation would remove the comparison they are intended to make.
-
-After editing roxygen comments, regenerate the documentation with
-`roxygen2::roxygenise()` and inspect the `NAMESPACE` and `man/` changes. Run
-`Rscript .github/scripts/verify-documentation.R` to check that the source
-annotations reproduce the recorded exports. This catches an internal helper
-accidentally inserted between a public function and its documentation.
-
-Install the candidate with `R CMD INSTALL --install-tests .`, then run
-`Rscript .github/scripts/verify-tests.R`. This checks the installed package and
-fails on test errors, failed expectations, warnings or skips. Build the source
-package and run `R CMD check --as-cran` on that tarball. Record the source
-revision or snapshot hash with each result; a previous candidate's CI run does
-not validate later changes. The short help examples demonstrate the interface;
-their MCMC budgets are not evidence of convergence.
+See [CONTRIBUTING](https://github.com/h7nian/IntegMultiReg/blob/main/CONTRIBUTING.md)
+for source organization, documentation generation and local validation.

@@ -44,11 +44,11 @@
 #' @section Statistical definition:
 #' For platform \eqn{l}, subgroup \eqn{s} and feature \eqn{j}, the returned
 #' entry is the retained-chain average of its binary selection indicator:
-#' \deqn{\widehat\pi_{lsj} = \frac{1}{B}\sum_{b=1}^{B}\gamma_{lsj}^{(b)}.}
+#' \deqn{\widehat\pi_{lsj} = \frac{1}{B}\sum_{b=1}^{B}\gamma_{lsj}^{(b)}.}{mPIP_lsj = sum_b gamma_lsj[b] / B.}
 #' Here \eqn{B} excludes burn-in. This estimates a marginal inclusion
 #' probability under the fitted sampler and its approximations. It is not a
-#' regression coefficient; `coef()` on an [imr_posterior_methods] object instead
-#' returns coefficient posterior means. Use [posterior_summary()] for
+#' regression coefficient; `coef()` on an `imr_posterior` object instead
+#' returns coefficient posterior means (see [imr_posterior_methods]). Use [posterior_summary()] for
 #' selection-indicator and interaction summaries, or [posterior_draws()] for
 #' coefficient uncertainty.
 #'
@@ -174,11 +174,11 @@ print.imr <- function(x, threshold = 0.5, rank = FALSE, top = 5, ...) {
 #' subgroup), ranked by their maximum inclusion probability.
 #'
 #' @section Selection and ranking:
-#' Let \eqn{\widehat\pi_{lsj}} denote the subgroup mPIP defined in [coef.imr()].
+#' Let \eqn{\widehat\pi_{lsj}}{mPIP_lsj} denote the subgroup mPIP defined in [coef.imr()].
 #' For each platform-feature pair, the ranking score and selected set are
 #' \deqn{r_{lj}=\max_{s\in\mathcal S_l}\widehat\pi_{lsj}, \qquad
-#'       \mathcal A_l(t)=\{j:r_{lj}>t\},}
-#' where \eqn{\mathcal S_l} contains subgroups with platform \eqn{l}, and
+#'       \mathcal A_l(t)=\{j:r_{lj}>t\},}{r_lj = maximum subgroup mPIP for feature j on platform l; A_l(t) contains features with r_lj > t.}
+#' where \eqn{\mathcal S_l}{S_l} contains subgroups with platform \eqn{l}, and
 #' \eqn{t} is `threshold`. The inequality is strict. Rows are sorted by
 #' \eqn{r_{lj}}; the reported subgroup is the first maximizing row in the fitted
 #' order. This maximum is a ranking score, not the posterior probability of

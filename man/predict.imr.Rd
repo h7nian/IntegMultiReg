@@ -69,25 +69,28 @@ historical response scale.
 }
 \section{Ranked-model point prediction}{
 
-The retained joint selection states are collapsed to distinct models and
-ranked by their recomputed approximate log-posterior scores. The calculation
+The retained joint selection states are scanned in reverse iteration order
+until the chain is exhausted or \code{100 * max_models} distinct states have
+been collected. These states are ranked by recomputed approximate
+log-posterior scores. The calculation
 uses the full-fit latent-response means and mean MRF interactions. Let
-\eqn{\mathcal M} be the retained set of at most \code{max_models} states and
-\eqn{\ell_m} their scores. The prediction weights are
+\eqn{\mathcal M}{M} be the retained set of at most \code{max_models} states and
+\eqn{\ell_m}{ell_m} their scores. The prediction weights are
 \deqn{w_m=\frac{\exp(\ell_m-\ell_{\max})}
-                 {\sum_{h\in\mathcal M}\exp(\ell_h-\ell_{\max})}.}
+                 {\sum_{h\in\mathcal M}\exp(\ell_h-\ell_{\max})}.}{w_m = exp(ell_m - ell_max) / sum_h exp(ell_h - ell_max), over retained models.}
 They are normalized scores of the ranked distinct states, rather than their
-empirical MCMC visit frequencies. Let \eqn{\widehat b_{s,m}} be the
-coefficient-mode estimate from the model's Laplace calculation, and let
+empirical MCMC visit frequencies. Let \eqn{\widehat b_{s,m}}{approximate_beta_s,m} be the
+approximate coefficient mode from the iteration-limited coordinate-ascent
+calculation, and let
 \eqn{z} be the new subject's transformed design row. Then
-\deqn{\widehat y=\sum_{m\in\mathcal M}w_m z^T\widehat b_{s,m}}
+\deqn{\widehat y=\sum_{m\in\mathcal M}w_m z^T\widehat b_{s,m}}{predicted working response = sum_m w_m * z-transpose * approximate_beta_s,m.}
 for continuous and working-scale survival responses. Binary predictions
 apply the probit link within each model:
 \deqn{\widehat p=\sum_{m\in\mathcal M}w_m
-      \Phi(z^T\widehat b_{s,m}).}
+      \Phi(z^T\widehat b_{s,m}).}{predicted event probability = sum_m w_m * Phi(z-transpose * approximate_beta_s,m).}
 The binary point-prediction path uses the unit-variance probit approximation;
 it does not average the conditional variance draws from \code{\link[=posterior_draws]{posterior_draws()}}.
-For a default survival fit, \eqn{\widehat y} is on the log-time scale.
+For a default survival fit, \eqn{\widehat y}{predicted working response} is on the log-time scale.
 
 These are plug-in point predictions. For coefficient uncertainty and
 predictive intervals, use \code{\link[=posterior_draws]{posterior_draws()}} followed by

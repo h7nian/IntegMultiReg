@@ -29,3 +29,4 @@ bitstring, with the platform order and eligibility rules defined in
 imputed molecular feature matrix. Use the object's named \code{platforms},
 \code{outcome} and \code{covariates} components for the underlying data.
 }
+

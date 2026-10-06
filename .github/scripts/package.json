@@ -1,0 +1,10 @@
+{
+  "name": "integmultireg-website-checks",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Validate the TeX expressions emitted by pkgdown",
+  "devDependencies": {
+    "katex": "0.16.11",
+    "parse5": "6.0.1"
+  }
+}

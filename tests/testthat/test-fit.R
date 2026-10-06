@@ -8,6 +8,20 @@ test_that("the fitted object has the expected class and structure", {
   expect_equal(length(fit_bin$posterior$inclusion_probabilities), 3L)
 })
 
+test_that("verbose short chains report completed iterations without changing draws", {
+  x <- data.frame(id = 1:14, x = seq(-1, 1, length.out = 14))
+  y <- data.frame(id = x$id, y = 1 + x$x + sin(x$id) / 3)
+  run <- function(verbose) imr(list(assay = x), y,
+    outcome_type = "continuous", min_subgroup_size = 2,
+    draws = 4, burnin = 2, seed = 19, verbose = verbose)
+  output <- capture.output(loud <- run(TRUE))
+  progress <- output[grepl("Nbr of MCMC samples =", output, fixed = TRUE)]
+  expect_identical(progress, paste("Nbr of MCMC samples =", 1:6))
+  quiet_output <- capture.output(quiet <- run(FALSE))
+  expect_length(quiet_output, 0L)
+  expect_identical(loud$posterior, quiet$posterior)
+})
+
 test_that("subgroup structure matches the simulated availability patterns", {
   expect_setequal(fit_bin$model$subgroup_names, c("011", "100", "101", "111"))
   expect_equal(as.integer(fit_bin$model$sample_sizes[c("011", "100", "101", "111")]),

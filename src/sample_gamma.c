@@ -158,7 +158,7 @@ void sample_gamma_indicators(
                 alpha, psi, latent_y, proposed_design, precision_copy,
                 &precision_view.matrix, beta_mode, moment_order, slab_scale,
                 covariate_scale, intercept_scale, first_platform_scale,
-                max_iter, tolerance, 0, numerical, IMR_LAPLACE_SELECTION);
+                max_iter, tolerance, numerical, IMR_LAPLACE_SELECTION);
             free(precision);
             free(precision_copy);
             free(beta_mode);

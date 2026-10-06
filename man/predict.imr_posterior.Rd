@@ -37,7 +37,8 @@ and \code{upper}. The point prediction is the Monte Carlo mean except for
 log-time survival fits, where it is the median.
 }
 \description{
-Predict Using Coefficient Posterior Draws
+Compute point summaries and equal-tail intervals for new subjects from
+stored coefficient and variance draws, optionally including outcome noise.
 }
 \details{
 Log-time survival fits return time-scale results: for \code{"mean"},
@@ -55,20 +56,20 @@ inverse-gamma variance mixture, so a sample mean is not reported.
 
 For a new subject, let \eqn{z} be the design row transformed with the
 training subgroup's centers, scales and formula encoding. For each stored
-posterior draw, form \eqn{\eta^{(d)}=z^Tb^{(d)}} and use its paired
+posterior draw, form \eqn{\eta^{(d)}=z^Tb^{(d)}}{eta[d] = transpose(z) * beta[d]} and use its paired
 variance \eqn{v^{(d)}}.
 
-For a continuous response, \code{type = "mean"} summarizes \eqn{\eta^{(d)}}.
+For a continuous response, \code{type = "mean"} summarizes \eqn{\eta^{(d)}}{eta[d]}.
 \code{type = "response"} instead generates
-\eqn{Y_{\mathrm{new}}^{(d)}\sim N(\eta^{(d)},v^{(d)})}.
+\eqn{Y_{\mathrm{new}}^{(d)}\sim N(\eta^{(d)},v^{(d)})}{Y_new[d] ~ N(eta[d], v[d])}.
 For a binary response, the mean draws are event probabilities
-\deqn{p^{(d)}=\Phi\{\eta^{(d)}/\sqrt{v^{(d)}}\},}
-and response draws are \eqn{\mathrm{Bernoulli}(p^{(d)})}.
+\deqn{p^{(d)}=\Phi\{\eta^{(d)}/\sqrt{v^{(d)}}\},}{p[d] = Phi(eta[d] / sqrt(v[d])).}
+and response draws are \eqn{\mathrm{Bernoulli}(p^{(d)})}{Bernoulli(p[d])}.
 For default log-time survival fits, the corresponding time-scale quantities
 are
 \deqn{m^{(d)}=\exp\{\eta^{(d)}+v^{(d)}/2\}, \qquad
-      T_{\mathrm{new}}^{(d)}=\exp\{\eta^{(d)}+\epsilon^{(d)}\},}
-where \eqn{\epsilon^{(d)}\sim N(0,v^{(d)})}. The first expression is the
+      T_{\mathrm{new}}^{(d)}=\exp\{\eta^{(d)}+\epsilon^{(d)}\},}{Conditional mean time m[d] = exp(eta[d] + v[d]/2); new time T[d] = exp(eta[d] + error[d]).}
+where \eqn{\epsilon^{(d)}\sim N(0,v^{(d)})}{error[d] ~ N(0, v[d])}. The first expression is the
 conditional log-normal mean at a parameter draw, not the median survival
 time at that draw. Identity-scale survival fits use the normal working
 response without exponentiation.
@@ -81,3 +82,4 @@ variation; mean intervals describe parameter and model uncertainty. These
 draw-based summaries inherit the approximation in \code{\link[=posterior_draws]{posterior_draws()}} and
 can differ from the ranked-model plug-in predictions in \code{\link[=predict.imr]{predict.imr()}}.
 }
+

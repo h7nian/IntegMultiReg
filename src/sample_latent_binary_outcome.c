@@ -67,9 +67,8 @@ void sample_binary_latent_response(int model, int n_platforms, int *selected_pla
 
         /*
          * Propose a latent value constrained by the observed binary response.
-         * Following Chekouo et al. (2016), the exponential proposal uses scale
-         * 1 / |y_old|.  GSL parameterizes exponentials by their mean, so the
-         * reciprocal is passed here.
+         * Following Chekouo et al. (2016), the exponential proposal has rate
+         * |y_old| and mean 1 / |y_old|. GSL takes the mean as its argument.
          */
         if (observed_y[i] == 1)
             ynew[i] = gsl_ran_exponential(rng, 1.0 / latent_y[i]);
@@ -78,7 +77,7 @@ void sample_binary_latent_response(int model, int n_platforms, int *selected_pla
 
         double *beta_mode = malloc(k_val * sizeof(double));
         double new_log_likelihood = log_likelihood_nonlocal(k_val, n_covariates, n_selected_features[0], n_subjects, alpha, psi, ynew, design, precision_copy,
-                                          &m.matrix, beta_mode, moment_order, slab_scale, covariate_scale, intercept_scale, first_platform_scale, max_iter, tolerance, 0, numerical, IMR_LAPLACE_LATENT);
+                                          &m.matrix, beta_mode, moment_order, slab_scale, covariate_scale, intercept_scale, first_platform_scale, max_iter, tolerance, numerical, IMR_LAPLACE_LATENT);
         free(beta_mode);
         double accept_u = gsl_ran_flat(rng, 0, 1);
         double log_accept_ratio = new_log_likelihood - *log_likelihood + log(ynew[i] / latent_y[i]);

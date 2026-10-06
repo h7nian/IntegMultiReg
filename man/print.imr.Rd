@@ -37,3 +37,4 @@ highest-ranking features even if some are below \code{threshold}; the threshold
 controls the counts, not the displayed ranking. Printing does not rerun
 sampling or change the stored inclusion probabilities.
 }
+

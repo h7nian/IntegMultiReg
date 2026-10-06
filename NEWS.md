@@ -1,5 +1,13 @@
 # IntegMultiReg 0.2.0
 
+* Report progress for short verbose chains and always include the final
+  iteration. Reject censored working times that cannot fit below the
+  historical latent-proposal bound, before allocating native workspaces.
+  Remove the unused positive-coefficient branch from the internal mode solver.
+* Correct formula conventions, guide source links and citation metadata;
+  add plain-text equation alternatives and an executable uncertainty example.
+  Website CI now parses TeX with KaTeX, including failure on invalid formulas.
+
 * Explain the model, inclusion probabilities, posterior summaries, prediction
   and cross-validation with equations in the function reference. Separate
   selection/interaction uncertainty from coefficient/predictive uncertainty

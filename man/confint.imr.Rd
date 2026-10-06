@@ -31,3 +31,4 @@ the posterior mean, standard deviation and equal-tail quantiles. Calling
 are obtained by \code{confint(posterior_draws(fit))}; see
 \link{imr_posterior_methods} for the different parameter set.
 }
+

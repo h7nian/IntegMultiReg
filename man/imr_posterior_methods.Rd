@@ -35,18 +35,19 @@ its argument invisibly. Effects are on subgroup-standardized predictor
 scales. Intervals include zero-mass from inactive selection models.
 }
 \description{
-Summarize Coefficient and Latent-Response Draws
+Extract posterior means, spreads and intervals from an \code{imr_posterior}
+object without running additional sampling.
 }
 \section{Posterior summaries}{
 
-For \eqn{D} stored draws of coefficient \eqn{b_j}, \code{coef()} returns
-\deqn{\bar b_j=\frac{1}{D}\sum_{d=1}^{D}b_j^{(d)}.}
+For \eqn{S} stored draws of coefficient \eqn{b_j}, \code{coef()} returns
+\deqn{\bar b_j=\frac{1}{S}\sum_{d=1}^{S}b_j^{(d)}.}{Posterior mean of coefficient j = sum_d beta_j[d] / S.}
 \code{summary()} and \code{confint()} report this mean, the sample standard deviation,
 the median, an equal-tail interval
 \eqn{[Q_{(1-L)/2}(b_j),Q_{(1+L)/2}(b_j)]}, and
-\deqn{\widehat{\Pr}(b_j\ne0\mid D_{\mathrm{obs}})=
-      \frac{1}{D}\sum_{d=1}^{D}I(b_j^{(d)}\ne0).}
-Here \eqn{L} is \code{level}, \eqn{D_{\mathrm{obs}}} denotes the observed data,
+\deqn{\widehat{\Pr}(b_j\ne0\mid\mathcal D)=
+      \frac{1}{S}\sum_{d=1}^{S}I(b_j^{(d)}\ne0).}{Estimated probability that coefficient j is nonzero = sum_d I(beta_j[d] != 0) / S.}
+Here \eqn{L} is \code{level}, \eqn{\mathcal D}{data} denotes the observed data,
 and quantiles use \code{stats::quantile(type = 7)}. The interval includes the
 point mass at zero from inactive models. \code{confint()} reuses \code{summary()};
 neither method runs further MCMC. \code{print()} reports the stored approximation
@@ -60,3 +61,4 @@ log-time bound. For binary fits the latent normal value is below or above
 zero according to the observed class. These latent summaries are conditional
 on observed outcomes; they are not predictions for new subjects.
 }
+
