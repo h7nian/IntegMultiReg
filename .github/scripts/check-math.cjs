@@ -46,7 +46,19 @@ function walk(dir) {
   fs.readdirSync(dir).forEach(name => {
     const file = path.join(dir, name);
     if (fs.statSync(file).isDirectory()) walk(file);
-    else if (name.endsWith('.html')) visit(parse5.parse(fs.readFileSync(file, 'utf8')), file);
+    else if (name.endsWith('.html')) {
+      const before = expressions;
+      visit(parse5.parse(fs.readFileSync(file, 'utf8')), file);
+      const rd = path.join(__dirname, '..', '..', 'man', name.replace(/\.html$/, '.Rd'));
+      if (fs.existsSync(rd)) {
+        const expected = (fs.readFileSync(rd, 'utf8').match(/\\(?:eqn|deqn)\{/g) || []).length;
+        if (expressions - before < expected) {
+          console.error(path.relative(root, file) + ': missing rendered TeX (' +
+                        (expressions - before) + ' found; ' + expected + ' documented).');
+          failures++;
+        }
+      }
+    }
   });
 }
 walk(root);

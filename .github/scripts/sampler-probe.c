@@ -48,7 +48,7 @@ SEXP review_loglik(SEXP x, SEXP y, SEXP h0R, SEXP hR, SEXP alphaR, SEXP psiR) {
   gsl_linalg_cholesky_decomp(&m.matrix);
   double *beta = malloc(k*sizeof(double));
   double ll = log_likelihood_nonlocal(k, 0, p, n, asReal(alphaR), asReal(psiR), REAL(y), design,
-    copy, &m.matrix, beta, 1, h, h0, h0, h, 40, 1e-3, 0, &numerical, IMR_LAPLACE_PREDICTION);
+    copy, &m.matrix, beta, 1, h, h0, h0, h, 40, 1e-3, &numerical, IMR_LAPLACE_PREDICTION);
   for (int i = 0; i < n; i++) free(design[i]);
   free(design); free(precision); free(copy); free(beta);
   return ScalarReal(ll);

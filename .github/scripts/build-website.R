@@ -22,7 +22,8 @@ build_website <- function() {
     old <- xml2::xml_attr(source, "href")
     xml2::xml_attr(source, "href") <- paste0(
       substr(old, 1L, nchar(old) - nchar(temporary)), guides[[temporary]])
-    xml2::xml_text(xml2::xml_find_first(source, ".//code")) <- guides[[temporary]]
+    label <- xml2::xml_find_first(source, ".//code")
+    xml2::xml_text(label) <- guides[[temporary]]
     xml2::write_html(html, page)
   }
   required <- c("index.html", "reference/index.html", "reference/cv_imr.html",
