@@ -1,11 +1,9 @@
 ^data-raw$
-^paper$
 ^\.vscode$
 ^\.github$
 ^\.DS_Store$
 ^.*\.Rproj$
 ^\.Rproj\.user$
-^README\.Rmd$
 ^config\.log$
 ^config\.status$
 ^autom4te\.cache$
@@ -14,4 +12,3 @@
 ^src/symbols\.rds$
 ^src/Makevars$
 ^cran-comments\.md$
-^src/Makevars 2$
