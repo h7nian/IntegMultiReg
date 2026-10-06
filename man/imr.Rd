@@ -288,6 +288,9 @@ fit
 Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). "A Bayesian Integrative
 Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
 \emph{Biometrics}, \strong{73}(2), 615--624. \doi{10.1111/biom.12587}
+
+\href{https://academic.oup.com/biometrics/article/73/2/615/7537638}{Read paper} |
+\href{https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf}{Publisher PDF}.
 }
 \seealso{
 \code{\link[=predict.imr]{predict.imr()}}, \code{\link[=cv_imr]{cv_imr()}}, \code{\link[=summary.imr]{summary.imr()}}, \code{\link[=plot.imr]{plot.imr()}}

@@ -189,6 +189,10 @@
 #' package-qualified function name. The caller's global workspace is not
 #' exported to workers. `workers = 1L` retains ordinary formula evaluation.
 #'
+#' @references
+#' Chekouo et al. (2017), Section 4.1, equations 6--7. \doi{10.1111/biom.12587}.
+#' [Read paper](https://academic.oup.com/biometrics/article/73/2/615/7537638) |
+#' [Publisher PDF](https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf).
 #' @seealso [imr()], [predict.imr()]
 #'
 #' @examples

@@ -244,6 +244,11 @@ cv <- cv_imr(fit, k = 5, rounds = 2, cv_method = "legacy")
 cv$pooled
 }
 }
+\references{
+Chekouo et al. (2017), Section 4.1, equations 6--7. \doi{10.1111/biom.12587}.
+\href{https://academic.oup.com/biometrics/article/73/2/615/7537638}{Read paper} |
+\href{https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf}{Publisher PDF}.
+}
 \seealso{
 \code{\link[=imr]{imr()}}, \code{\link[=predict.imr]{predict.imr()}}
 }

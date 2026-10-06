@@ -104,6 +104,8 @@
 #'   `confint()`, `coef()` and `predict()` on this object.
 #' @references
 #' Chekouo et al. (2017). \doi{10.1111/biom.12587}, Section 3.1 and Web Appendix C.
+#' [Read paper](https://academic.oup.com/biometrics/article/73/2/615/7537638) |
+#' [Publisher PDF](https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf).
 #' @export
 #' @examples
 #' \donttest{

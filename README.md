@@ -124,6 +124,9 @@ Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). "A Bayesian Integrative
 Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
 *Biometrics*, **73**(2), 615–624. <https://doi.org/10.1111/biom.12587>
 
+[Read paper](https://academic.oup.com/biometrics/article/73/2/615/7537638) ·
+[Publisher PDF](https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf)
+
 When using `kircIMR`, please also acknowledge TCGA, the National Cancer
 Institute Genomic Data Commons, and UCSC Xena as the public data sources.
 
