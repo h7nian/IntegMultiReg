@@ -28,7 +28,7 @@ test_that("internal cache controls cannot exceed the memory bound", {
   expect_error(call(32, 65L), "cache controls")
 })
 
-test_that("payload budgets and collisions preserve both post-fit methods", {
+test_that("payload budgets and collisions preserve both reweighting state collections", {
   for (outcome_type in c("continuous", "binary", "right.censored")) {
     fit <- fit_demo(outcome_type, total = 20, burn = 10, seed = 71)
     # Fitting explicitly seeds R; this test checks the subsequent CV calls.

@@ -38,7 +38,7 @@ test_that("an min_subgroup_size that excludes every subgroup is an error", {
   )
 })
 
-test_that("outcome_type and method are matched against their choices", {
+test_that("outcome_type and model_variant are matched against their choices", {
   expect_error(
     imr(simIMR$platforms, simIMR$outcome.binary,
       outcome_type = "poisson", draws = 50, burnin = 25),
