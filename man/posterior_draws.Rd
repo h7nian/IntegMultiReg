@@ -101,9 +101,9 @@ The design, working response and pMOM scales are defined in \code{\link[=imr]{im
 The conditional sampling is an additional computation. It inherits the
 selection weights' Laplace approximation and \code{sampler_method} convention;
 it neither recomputes exact model probabilities nor changes an existing
-legacy fit into a paper-sampler fit. The \code{prior_indexing = "code2017"}
+legacy fit into a corrected-sampler fit. The \code{prior_indexing = "original"}
 option preserves a historical precision discrepancy. For a fit using that
-option, selection weights come from the code2017 precision calculation,
+option, selection weights come from the original precision calculation,
 whereas these conditional draws use standard coefficient-block indexing.
 See \href{https://h7nian.github.io/IntegMultiReg/method-coverage.html}{Methods and reproducibility}.
 }

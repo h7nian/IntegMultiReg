@@ -1,16 +1,16 @@
 test_that("legacy is the explicit and implicit default", {
   implicit <- cv_imr(fit_bin, k = 2, rounds = 1, max_models = 4)
   explicit <- cv_imr(fit_bin, k = 2, rounds = 1, max_models = 4,
-                     cv_method = "legacy")
+                     cv_method = "postfit_original")
   expect_identical(implicit, explicit)
-  expect_identical(implicit$validation, "legacy")
+  expect_identical(implicit$validation, "postfit_original")
   expect_error(cv_imr(fit_bin, cv_method = "unknown"), "should be one of")
 })
 
 test_that("all CV modes return complete reproducible subject records", {
   set.seed(271)
   state <- .Random.seed
-  for (mode in c("legacy", "importance", "refit")) {
+  for (mode in c("postfit_original", "importance", "refit")) {
     first <- cv_imr(fit_bin, k = 3, rounds = 2, max_models = 3, cv_method = mode)
     second <- cv_imr(fit_bin, k = 3, rounds = 2, max_models = 3, cv_method = mode)
     expect_identical(first, second)
@@ -81,7 +81,7 @@ test_that("post-fit modes support zero burn-in and one retained draw", {
   fit <- imr(list(assay = data.frame(id = ids, marker = sin(ids))),
              data.frame(id = ids, y = cos(ids)), outcome_type = "continuous",
              draws = 1, burnin = 0, seed = 11, min_subgroup_size = 0)
-  for (mode in c("legacy", "importance")) {
+  for (mode in c("postfit_original", "importance")) {
     result <- cv_imr(fit, k = 2, rounds = 1, cv_method = mode)
     expect_true(all(is.finite(result$pooled)))
   }

@@ -9,7 +9,7 @@
                                         tasks = NULL, predictions = NULL,
                                         settings = NULL, folds = NULL, row_order = NULL) {
   if (is.null(settings)) settings <- .imr_cv_settings(
-    if (importance) "importance" else "legacy")
+    if (importance) "importance" else "postfit_original")
   # Internal controls exercise bounded-cache and collision paths in tests.
   # They never change which draws contribute to the statistical calculation.
   cache_bytes <- .imr_check_integer_scalar(cache_bytes, "cache_bytes", min = 0)
@@ -67,7 +67,7 @@
                                  platform_subgroups, subgroup_platforms,
                                  sample_sizes, n_features, n_covariates,
                                  features, response, outcome_type, covariates,
-                                 draws, burnin, verbose, sampler_method = "legacy",
+                                 draws, burnin, verbose, sampler_method = "original",
                                  numerical = .imr_numerical_control(), initial = NULL) {
   .imr_quietly(verbose, .Call(
     "imr_fit",
@@ -83,7 +83,7 @@
     as.integer(match(outcome_type,
                      c("right.censored", "binary", "continuous"))),
     covariates, as.integer(draws), as.integer(burnin),
-    as.integer(match(sampler_method, c("legacy", "paper")) - 1L),
+    as.integer(match(sampler_method, c("original", "corrected")) - 1L),
     .imr_native_numerical_control(numerical), initial,
     PACKAGE = "IntegMultiReg"
   ))
@@ -126,6 +126,6 @@
 }
 
 .imr_native_numerical_control <- function(control) {
-  as.double(c(control$prior_indexing == "code2017", control$laplace_max_iter,
+  as.double(c(control$prior_indexing == "original", control$laplace_max_iter,
               control$laplace_tolerance))
 }

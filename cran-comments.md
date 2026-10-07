@@ -18,9 +18,9 @@ at are:
 * `cv_imr()` gains `cv_method`, and independent `ridge`, `model_set`,
   `df_method`, `score_method`, `folds` and `fold_rng` arguments. The previous
   behaviour is the default.
-* `sampler_method = "paper"` adds the symmetric MRF conditional, the boundary
+* `sampler_method = "corrected"` adds the symmetric MRF conditional, the boundary
   Hastings correction and the corrected Gamma log-density rate sign. The
-  default `"legacy"` retains the historical updates.
+  default `"original"` retains the historical updates.
 * Fits use a named four-section schema; `upgrade_imr_fit()` converts a
   structurally complete 0.1.x fit explicitly rather than automatically.
 * `posterior_draws(latent = TRUE)` retains the augmented response draws for

@@ -56,23 +56,28 @@ install.packages("IntegMultiReg_0.2.0.tar.gz", repos = NULL, type = "source")
 
 ## Quick start
 
-The compatibility default is `sampler_method = "legacy"`. Use
-`sampler_method = "paper"` for the stated posterior updates. For training-fold
+The compatibility default is `sampler_method = "original"`. Use
+`sampler_method = "corrected"` for the stated posterior updates. For training-fold
 preprocessing and fitting, select `cv_method = "refit"` explicitly.
 
 ```r
 library(IntegMultiReg)
 data("simIMR")
 
-fit <- imr(
-  x = simIMR$platforms,
+analysis <- imr_data(
+  platforms = simIMR$platforms,
   outcome = simIMR$outcome.binary,
   covariates = simIMR$covariates,
-  outcome_type = "binary",
-  nu = c(-4, -3, -4),
+  outcome_type = "binary"
+)
+analysis
+stopifnot(validate_imr_data(analysis))
+
+fit <- imr(
+  analysis, nu = c(-4, -3, -4),
   draws = 2000, burnin = 1000,
   min_subgroup_size = 30,
-  seed = 1, sampler_method = "paper"
+  seed = 1, sampler_method = "corrected"
 )
 
 fit                       # short summary
@@ -80,7 +85,8 @@ summary(fit)              # selected biomarkers per platform
 coef(fit)                 # per-platform mPIP matrices
 plot(fit, type = "selection")
 plot_top_features(fit)    # ranked biomarker bar chart
-predict(fit, newdata = simIMR$platforms[1:2], covariates = simIMR$covariates)
+new_data <- imr_data(simIMR$platforms[1:2], covariates = simIMR$covariates)
+predict(fit, newdata = new_data)
 cv_imr(fit, k = 3, rounds = 1, cv_method = "refit")
 ```
 
@@ -109,7 +115,7 @@ kirc_fit <- imr(
   nu = c(-4, -3, -4),
   draws = 4000, burnin = 1000,
   min_subgroup_size = 30,
-  seed = 1
+  seed = 1, sampler_method = "corrected"
 )
 ```
 
@@ -174,7 +180,7 @@ prediction-stage optimization.
 
 ## Cross-validation algorithms
 
-`cv_imr(fit, cv_method = "legacy")` is the default. It restores the 0.1.0
+`cv_imr(fit, cv_method = "postfit_original")` is the default. It restores the 0.1.0
 post-fit algorithm using ranked distinct selection models and historical
 scoring. Historical numerical reproduction also requires the original fit.
 
@@ -233,13 +239,17 @@ causal confounder selection.
 
 ```r
 source(system.file("examples", "compare-covariates.R", package = "IntegMultiReg"))
-comparison <- run_covariate_comparison()
+comparison <- run_covariate_comparison(sampler_method = "corrected")
 comparison$paired_summary
 comparison$nested_summary
 ```
 
-The full example uses synthetic data, writes fold-level audit records and is
-repeated in CI. Use `quick = TRUE` only for a smoke run.
+Follow the [worked guide](https://h7nian.github.io/IntegMultiReg/articles/covariate-comparison.html)
+for paired folds, inner selection and outer evaluation. The full example uses
+synthetic data, writes fold and seed records, and is repeated in CI. Use
+`quick = TRUE` only for a smoke run. The script's `"original"` default preserves
+the archived manuscript example; the call above explicitly selects `"corrected"`
+and produces a separate teaching result.
 
 ## Development
 

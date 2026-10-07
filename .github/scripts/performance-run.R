@@ -83,7 +83,7 @@ for (repeat_index in 1:2) {
   measure(paste0("predict-", repeat_index), predict(fit, data$platforms,
     covariates = if (interface == "formula") clinical else data$covariates))
 }
-for (cv_method in c("legacy", "refit", "importance")) {
+for (cv_method in c("postfit_original", "refit", "importance")) {
   cv_args <- list(object = fit, k = 5L, rounds = 2L, cv_method = cv_method)
   if ("workers" %in% names(formals(cv_imr))) cv_args$workers <- workers
   else if (workers != 1L) stop("Installed version does not implement workers")

@@ -3,7 +3,7 @@
 #' @description
 #' `cv_imr()` evaluates predictive accuracy of a model fitted with [imr()] using
 #' repeated \eqn{K}-fold splits. `cv_method` selects historical post-fit
-#' validation (`"legacy"`, the default), training-fold refitting (`"refit"`),
+#' validation (`"postfit_original"`, the default), training-fold refitting (`"refit"`),
 #' or a paper-derived importance average over retained draws (`"importance"`).
 #' Fit a separate object with `method = "bms"` for a no-borrowing comparison.
 #' The accuracy measure depends on the outcome type: the concordance index
@@ -34,7 +34,7 @@
 #' the probit link before averaging for binary outcomes. `model_set = "draws"`
 #' retains every state occurrence; `model_set = "ranked_unique"` uses at most
 #' `max_models` ranked distinct states. These are the respective defaults for
-#' importance and legacy modes, but `model_set` can override either default.
+#' `"importance"` and `"postfit_original"` modes, but `model_set` can override either default.
 #' Importance mode's default empirical reweighting is motivated by equations
 #' 6--7 of Chekouo et al. (2017). Both post-fit calculations are distinct from
 #' training-fold refitting.
@@ -58,7 +58,7 @@
 #' Larger predicted working survival times mean longer survival. AUC is
 #' undefined for a single class, and C is undefined without comparable pairs;
 #' these return `NA`. The historical AUC/concordance tie rules selected by
-#' `score_method = "legacy"` are not represented by the two standard formulas.
+#' `score_method = "original"` are not represented by the two standard formulas.
 #'
 #' @section Pooled scores and fold means:
 #' Each output row is one validation round. If \eqn{A} is the chosen scoring
@@ -85,7 +85,7 @@
 #'   Bayesian model averaging with `model_set = "ranked_unique"` and for refit
 #'   prediction (default `100`). Must be positive. `model_set = "draws"` uses
 #'   every retained draw, including repeated states, and ignores this limit.
-#' @param cv_method Validation algorithm: `"legacy"` (default), `"refit"`,
+#' @param cv_method Validation preset: `"postfit_original"` (default), `"refit"`,
 #'   or `"importance"`. This is independent of the fitted IMR/BMS `method`.
 #' @param verbose Logical; if `TRUE`, print fold progress and sampler
 #'   diagnostics.  Defaults to `FALSE`.
@@ -96,14 +96,14 @@
 #'   `NULL` uses `0.001`; `0` requests the unpenalized estimate in the paper and
 #'   original code. A singular solve stops with fold and subgroup context; no
 #'   penalty or generalized inverse is silently substituted. Not used by refit.
-#' @param model_set Post-fit states to average: `"ranked_unique"` (legacy
+#' @param model_set Post-fit states to average: `"ranked_unique"` (`"postfit_original"`
 #'   default) ranks distinct states and keeps at most `max_models`; `"draws"`
 #'   (importance default) retains empirical multiplicities and draw order.
-#' @param df_method Predictive-density degrees of freedom: `"legacy_integer"`
-#'   (legacy default) truncates `2 * shape + n_train` to an integer;
+#' @param df_method Predictive-density degrees of freedom: `"integer"`
+#'   (`"postfit_original"` default) truncates `2 * shape + n_train` to an integer;
 #'   `"fractional"` (importance default) keeps its numeric value. Post-fit only.
 #' @param score_method Metric convention, independent of predictions:
-#'   `"legacy"` (legacy default) retains historical AUC/concordance rules;
+#'   `"original"` (`"postfit_original"` default) retains historical AUC/concordance rules;
 #'   `"standard"` (refit and importance default) uses current tie and comparable
 #'   pair rules. MSE has the same definition in both. `NULL` selects the default.
 #' @param folds Optional data frame with `id`, `round`, and `fold`. Every
@@ -165,8 +165,8 @@
 #' Mode names provide defaults. `ridge`, `model_set`, `df_method`, and
 #' `score_method` can be chosen independently. Explicit post-fit-only arguments
 #' are rejected in refit mode. The original released CV code combines `ridge = 0`,
-#' `model_set = "ranked_unique"`, `df_method = "legacy_integer"`,
-#' `score_method = "legacy"` and `max_models = 100`. Paper equations 6--7 use
+#' `model_set = "ranked_unique"`, `df_method = "integer"`,
+#' `score_method = "original"` and `max_models = 100`. Paper equations 6--7 use
 #' `ridge = 0`, `model_set = "draws"` and `df_method = "fractional"`.
 #' Neither combination alone reproduces a historical experiment: sampler,
 #' numerical controls, data, initial states and random stream also matter.
@@ -209,14 +209,14 @@
 #'   nu = c(-4, -3, -4), draws = 200, burnin = 100,
 #'   min_subgroup_size = 5, seed = 1
 #' )
-#' cv <- cv_imr(fit, k = 5, rounds = 2, cv_method = "legacy")
+#' cv <- cv_imr(fit, k = 5, rounds = 2, cv_method = "postfit_original")
 #' cv$pooled
 #' }
 #' @export
 cv_imr <- function(object, k = 5, rounds = 2,
                    method = NULL,
                    max_models = 100, verbose = FALSE,
-                   cv_method = c("legacy", "refit", "importance"),
+                   cv_method = c("postfit_original", "refit", "importance"),
                    workers = 1L, ridge = NULL, model_set = NULL,
                    df_method = NULL, score_method = NULL, folds = NULL,
                    fold_rng = NULL) {
@@ -429,7 +429,7 @@ print.imr_cv <- function(x, digits = 3, ...) {
       train_platforms[[p]] <- dat$platforms[[p]]
   }
   refit_control <- list(outcome_type = control$outcome_type, method = control$method,
-    sampler_method = control$sampler_method %||% "legacy",
+    sampler_method = control$sampler_method %||% "original",
     standardize = control$standardize %||% TRUE, initial = control$initial,
     min_subgroup_size = 0L, nu = priors$nu,
     forced_prior_scale = priors$forced_scale,
@@ -456,7 +456,7 @@ print.imr_cv <- function(x, digits = 3, ...) {
   if (!length(prediction)) return(NA_real_)
   y <- outcome[[2L]]
   if (type == "continuous") return(mean((prediction - y)^2))
-  if (score_method == "legacy") return(.imr_call_cv_legacy_score(type, prediction, outcome))
+  if (score_method == "original") return(.imr_call_cv_legacy_score(type, prediction, outcome))
   if (type == "binary") {
     positive <- sum(y == 1)
     negative <- sum(y == 0)

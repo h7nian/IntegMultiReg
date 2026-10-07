@@ -7,25 +7,25 @@ express separate computational decisions through the same fit and CV engines.
 
 | Decision | Paper-oriented setting | Released-code setting | Package default |
 |---|---|---|---|
-| Selection update | `sampler_method="paper"` | `"legacy"` | `"legacy"` |
-| Prior precision block boundary | `prior_indexing="standard"` | `"code2017"` | `"standard"` |
+| Selection update | `sampler_method="corrected"` | `"original"` | `"original"` |
+| Prior precision block boundary | `prior_indexing="standard"` | `"original"` | `"standard"` |
 | Laplace iteration caps: initial/selection/latent/prediction | 25/40/25/40 (numerical choice) | 25/40/25/25 | 25/40/25/40 |
 | CV states | `model_set="draws"` | `"ranked_unique"`, maximum 100 | depends on CV mode |
 | CV coefficient penalty | `ridge=0` | `ridge=0` | 0.001 |
-| Predictive df | `df_method="fractional"` | `"legacy_integer"` | depends on CV mode |
-| Scoring | state the desired tie convention | `score_method="legacy"` | depends on CV mode |
+| Predictive df | `df_method="fractional"` | `"integer"` | depends on CV mode |
+| Scoring | state the desired tie convention | `score_method="original"` | depends on CV mode |
 | Post-fit fold random stream | no mathematical requirement | `fold_rng="continue"` | `"reset"` |
 | Historical partition replay | `folds` with `row_order` | same | generated from fit seed |
 | Specified chain starting points | `initial` selection/interaction matrices | historical starting values unavailable | original random selection start and fixed interactions |
 
 The symmetric MRF has conditional log-odds `nu + 2 * sum(theta * gamma)`.
-The legacy selection update uses a factor of one and omits the Hastings ratio
+The original selection update uses a factor of one and omits the Hastings ratio
 when a flip crosses a boundary between empty/full and interior states. Its
 stationary distribution is therefore different from the stated posterior.
-The paper sampler includes these corrections and a corrected Gamma rate sign
-in the diagnostic log density. Legacy behavior remains explicit and testable.
+The corrected sampler includes these corrections and a corrected Gamma rate sign
+in the diagnostic log density. Original behavior remains explicit and testable.
 
-`prior_indexing="code2017"` preserves an index-boundary discrepancy in the
+`prior_indexing="original"` preserves an index-boundary discrepancy in the
 released precision calculation; it is a historical computational option, not
 an alternative coherent prior. Conditional uncertainty from `posterior_draws()`
 uses the stated pMOM priors; it inherits selection weights from the fitted
@@ -34,14 +34,14 @@ sampler but does not reproduce this historical precision discrepancy.
 ## Examples with ordinary argument lists
 
 ```r
-paper_fit_args <- list(sampler_method = "paper", prior_indexing = "standard")
-code_fit_args <- list(sampler_method = "legacy", prior_indexing = "code2017",
+paper_fit_args <- list(sampler_method = "corrected", prior_indexing = "standard")
+code_fit_args <- list(sampler_method = "original", prior_indexing = "original",
   laplace_max_iter = c(initial = 25, selection = 40, latent = 25, prediction = 25))
 paper_cv_args <- list(cv_method = "importance", ridge = 0,
   model_set = "draws", df_method = "fractional", score_method = "standard")
-code_cv_args <- list(cv_method = "legacy", ridge = 0,
+code_cv_args <- list(cv_method = "postfit_original", ridge = 0,
   model_set = "ranked_unique", max_models = 100,
-  df_method = "legacy_integer", score_method = "legacy", fold_rng = "continue")
+  df_method = "integer", score_method = "original", fold_rng = "continue")
 # fit <- do.call(imr, c(list(x = platforms, outcome = outcome), paper_fit_args))
 # cv <- do.call(cv_imr, c(list(object = fit), paper_cv_args))
 # replay <- cv_imr(fit, folds = cv$control$folds, ridge = 0,

@@ -7,20 +7,24 @@
 upgrade_imr_fit(object)
 }
 \arguments{
-\item{object}{A fitted \code{imr} object created by IntegMultiReg 0.1.x.}
+\item{object}{A fitted \code{imr} object created by an earlier IntegMultiReg version.}
 }
 \value{
 A validated schema-version-2 \code{imr} object.
 }
 \description{
-Convert a structurally complete 0.1.x \code{imr} object to the named schema used
-by version 0.2.0. Corrupted or incomplete objects must be refitted.
+Convert a structurally complete 0.1.x \code{imr} object to the current named
+schema, or update convention names in an earlier 0.2.0 fit. Corrupted or
+incomplete objects must be refitted.
 }
 \section{What conversion preserves}{
 
 The conversion reorganizes an existing fit into the current named schema and
 then validates it. It does not refit the model, regenerate random draws or
-replace historical sampler behavior with the paper convention. Statistical
+replace original sampler behavior with the corrected convention. Stored
+\code{"paper"} and \code{"legacy"} sampler labels become \code{"corrected"} and \code{"original"};
+the \code{"code2017"} prior-indexing label becomes \code{"original"}. The recorded
+original call is preserved as provenance. Statistical
 interpretation remains tied to the original fit's outcome scale and
 computational settings. \code{\link[=imr]{imr()}} documents those conventions; missing data or
 insufficient response-scale information can require refitting before later

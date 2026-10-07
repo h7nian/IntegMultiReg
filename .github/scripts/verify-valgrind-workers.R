@@ -16,7 +16,7 @@ for (type in names(outcomes)) {
     fit <- imr(list(assay = platform), outcomes[[type]], outcome_type = type,
                method = method, draws = 5, burnin = 2,
                min_subgroup_size = 0, seed = 3)
-    for (mode in c("legacy", "refit", "importance")) {
+    for (mode in c("postfit_original", "refit", "importance")) {
       set.seed(912)
       rng <- .Random.seed
       connections <- showConnections(all = TRUE)

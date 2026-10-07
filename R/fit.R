@@ -50,7 +50,7 @@
 #' parameterized by a density proportional to
 #' \deqn{v_s^{-a-1}\exp(-b/v_s).}{v_s^(-a - 1) * exp(-b/v_s).}
 #'
-#' The `code2017` indexing option preserves a historical precision boundary:
+#' The `original` indexing option preserves a historical precision boundary:
 #' when clinical covariates are present, the last one receives molecular
 #' precision. It does not implement the standard scale assignment above.
 #'
@@ -64,7 +64,7 @@
 #' For BMS, these interactions are zero. The prior conditional log-odds is
 #' \deqn{\nu_l+2\sum_{h\ne s}\theta_{l,sh}\gamma_{l,hj}.}{nu_l + 2 * sum over h != s of theta_l,sh * gamma_l,hj.}
 #'
-#' This factor of two is used by `sampler_method = "paper"`. The legacy update uses a factor of
+#' This factor of two is used by `sampler_method = "corrected"`. The legacy update uses a factor of
 #' one and omits the Hastings correction at empty/full model boundaries.
 #' These equations describe the stated model, not a claim that the legacy
 #' transition targets the same posterior.
@@ -141,13 +141,13 @@
 #'   `"log"` (default) logs the supplied positive event/censoring times, as in
 #'   the original AFT model. `"identity"` reproduces historical package analyses
 #'   and does not fit a log-time AFT model. Ignored for other outcome types.
-#' @param sampler_method Selection-update convention. `"legacy"` (default)
-#'   retains the existing package and 2017 code updates. `"paper"` uses the
+#' @param sampler_method Selection-update convention. `"original"` (default)
+#'   retains the existing package and 2017 code updates. `"corrected"` uses the
 #'   symmetric MRF conditional log-odds, the boundary flip/swap Hastings
 #'   correction, and the negative Gamma rate term in the log-posterior trace.
 #'   This is a computational convention, separate from IMR/BMS `method`.
 #' @param prior_indexing `"standard"` (default) assigns prior precision by
-#'   coefficient block. `"code2017"` reproduces the strict index boundaries
+#'   coefficient block. `"original"` reproduces the strict index boundaries
 #'   in the released C code; in particular, the last forced covariate receives
 #'   molecular precision when covariates are present. Use for historical
 #'   comparisons, not as a different scientific prior specification.
@@ -198,8 +198,8 @@
 #' log-odds contribution is `nu + 2 * sum(theta * neighboring_indicators)`.
 #' The released code used a factor of one and omitted the proposal ratio when
 #' a flip moved between an empty/full model and an interior model. These
-#' conventions remain available as `sampler_method = "legacy"`; they are not
-#' mathematically equivalent to the stated MRF posterior. The `"paper"` option
+#' conventions remain available as `sampler_method = "original"`; they are not
+#' mathematically equivalent to the stated MRF posterior. The `"corrected"` option
 #' corrects these updates without changing defaults. Exact historical table
 #' reproduction additionally depends on data, preprocessing, initialization,
 #' random-number consumption and validation settings.
@@ -270,8 +270,8 @@ imr.list <- function(x, outcome, covariates = NULL,
                      draws = 2000L, burnin = 1000L, seed = NULL,
                      verbose = FALSE,
                      survival_scale = c("log", "identity"),
-                     sampler_method = c("legacy", "paper"),
-                     prior_indexing = c("standard", "code2017"),
+                     sampler_method = c("original", "corrected"),
+                     prior_indexing = c("standard", "original"),
                      laplace_max_iter = c(initial = 25L, selection = 40L,
                                           latent = 25L, prediction = 40L),
                      laplace_tolerance = 1e-3, standardize = TRUE, initial = NULL, ...) {

@@ -20,15 +20,15 @@
     if (is.null(ridge)) ridge <- 0.001
     ridge <- .imr_check_numeric_vector(ridge, "ridge", length = 1L,
                                         nonnegative = TRUE)
-    model_set <- choice(model_set %||% if (cv_method == "legacy")
+    model_set <- choice(model_set %||% if (cv_method == "postfit_original")
       "ranked_unique" else "draws", c("draws", "ranked_unique"), "model_set")
-    df_method <- choice(df_method %||% if (cv_method == "legacy")
-      "legacy_integer" else "fractional",
-      c("fractional", "legacy_integer"), "df_method")
+    df_method <- choice(df_method %||% if (cv_method == "postfit_original")
+      "integer" else "fractional",
+      c("fractional", "integer"), "df_method")
     fold_rng <- choice(fold_rng %||% "reset", c("reset", "continue"), "fold_rng")
   }
-  score_method <- choice(score_method %||% if (cv_method == "legacy")
-    "legacy" else "standard", c("standard", "legacy"), "score_method")
+  score_method <- choice(score_method %||% if (cv_method == "postfit_original")
+    "original" else "standard", c("standard", "original"), "score_method")
   list(ridge = ridge, model_set = model_set, df_method = df_method,
        score_method = score_method, fold_rng = fold_rng)
 }
@@ -108,7 +108,7 @@
   c(settings, list(k = k, rounds = rounds,
     max_models = if (identical(settings$model_set, "draws")) NULL else max_models,
     seed = object$control$seed,
-    sampler_method = object$control$sampler_method %||% "legacy",
+    sampler_method = object$control$sampler_method %||% "original",
     initial = object$control$initial,
     standardize = object$control$standardize %||% TRUE,
     numerical = .imr_fit_numerical_control(object$control), folds = folds, fold_source = fold_source,

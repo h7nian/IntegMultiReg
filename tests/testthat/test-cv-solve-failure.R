@@ -13,7 +13,7 @@ test_that("zero ridge rejects exact singularity and positive ridge recovers", {
   expect_true(validate_imr(fit))
   set.seed(731)
   rng <- .Random.seed
-  for (mode in c("legacy", "importance")) {
+  for (mode in c("postfit_original", "importance")) {
     for (cache_bytes in c(0, 256, 4096, 128 * 1024^2)) {
       settings <- IntegMultiReg:::.imr_cv_settings(mode, ridge = 0)
       expect_error(IntegMultiReg:::.imr_call_cv_postfit_native(
@@ -80,7 +80,7 @@ test_that("post-fit solve failures stop cleanly without partial results", {
   # (including the native sanitizer suite) also exercise three workers.
   limited <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))
   worker_counts <- if (nzchar(limited) && limited != "false") 1:2 else 1:3
-  for (mode in c("legacy", "importance")) {
+  for (mode in c("postfit_original", "importance")) {
     expected <- cv_imr(fit, k = 2L, rounds = 2L, cv_method = mode)
     for (workers in worker_counts) {
       connections <- rownames(showConnections(all = TRUE))

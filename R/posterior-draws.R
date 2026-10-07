@@ -28,9 +28,9 @@
 #' The conditional sampling is an additional computation. It inherits the
 #' selection weights' Laplace approximation and `sampler_method` convention;
 #' it neither recomputes exact model probabilities nor changes an existing
-#' legacy fit into a paper-sampler fit. The `prior_indexing = "code2017"`
+#' legacy fit into a corrected-sampler fit. The `prior_indexing = "original"`
 #' option preserves a historical precision discrepancy. For a fit using that
-#' option, selection weights come from the code2017 precision calculation,
+#' option, selection weights come from the original precision calculation,
 #' whereas these conditional draws use standard coefficient-block indexing.
 #' See [Methods and reproducibility](https://h7nian.github.io/IntegMultiReg/method-coverage.html).
 #'

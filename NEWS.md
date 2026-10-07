@@ -1,5 +1,15 @@
 # IntegMultiReg 0.2.0
 
+* Name sampling conventions `corrected` and `original`, original post-fit CV
+  `postfit_original`, predictive df `integer` or `fractional`, and original
+  precision/scoring conventions `original`. Explicit historical settings retain
+  their numerical behavior. `upgrade_imr_fit()` converts retired labels in saved
+  fits without changing their posterior draws. See the migration table.
+* Lead the tutorial with validated data objects, formula fitting and prediction,
+  and paired refit CV. Add a worked nested covariate-selection guide. Teaching
+  examples explicitly use the corrected sampler; archived example results retain
+  their stated original convention.
+
 * Report progress for short verbose chains and always include the final
   iteration. Reject censored working times that cannot fit below the
   historical latent-proposal bound, before allocating native workspaces.
@@ -50,8 +60,8 @@
   fields are preserved. A new `control` field records effective options and
   fold membership/order for replay; the continued GSL stream is available for
   new fits. Explicit inapplicable arguments are rejected.
-* Add `sampler_method = "paper"` for the symmetric MRF conditional, boundary
-  Hastings correction and Gamma log-density rate sign. The default `"legacy"`
+* Add `sampler_method = "corrected"` for the symmetric MRF conditional, boundary
+  Hastings correction and Gamma log-density rate sign. The default `"original"`
   retains historical updates, whose invariant distribution differs from the
   paper's target. New independent transition and native-density checks cover
   the correction; default regression references are unchanged.
@@ -76,8 +86,8 @@
   and a bounded auxiliary cache; every draw still contributes in its original
   order. This does not change the sampler, legacy default or scoring definitions.
 
-* Add `cv_method = c("legacy", "refit", "importance")`, defaulting to
-  `"legacy"`. The legacy mode preserves historical post-fit computation;
+* Add `cv_method = c("postfit_original", "refit", "importance")`, defaulting to
+  `"postfit_original"`. This mode preserves historical post-fit computation;
   `"refit"` retains the 0.1.4 workflow. The paper-derived importance mode
   retains empirical MCMC state multiplicities and fractional predictive degrees
   of freedom. Both post-fit modes condition on full-fit latent summaries.

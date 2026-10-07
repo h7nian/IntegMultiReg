@@ -10,7 +10,7 @@ test_that("parallel post-fit batches preserve complete results and caller RNG", 
                  covariates = simIMR$covariates, outcome_type = outcome_type,
                  method = method, draws = 12, burnin = 6,
                  min_subgroup_size = 30, seed = 53)
-      for (mode in c("legacy", "importance")) {
+      for (mode in c("postfit_original", "importance")) {
         reference <- cv_imr(fit, k = 3L, rounds = 2L, max_models = 4L, cv_method = mode)
         for (workers in worker_counts) {
           set.seed(931)
@@ -33,7 +33,7 @@ test_that("post-fit worker failures report assigned folds and close connections"
   expect_error(IntegMultiReg:::.imr_cv_map(list(1L, 2L),
     IntegMultiReg:::.imr_cv_postfit_task, 2L, object = fit_bin,
     k = 2L, rounds = 1L, max_models = 4L, verbose = FALSE,
-    settings = IntegMultiReg:::.imr_cv_settings("legacy"),
+    settings = IntegMultiReg:::.imr_cv_settings("postfit_original"),
     partitions = list(folds = NULL, row_order = NULL),
     folds = damaged, row_order = plan$row_order), "round 1/fold [12].*planned partitions")
   expect_identical(showConnections(all = TRUE), connections)

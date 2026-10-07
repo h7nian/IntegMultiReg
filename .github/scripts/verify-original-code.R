@@ -40,7 +40,7 @@ fit <- imr(list(assay = data.frame(id, a = sin(id), b = cos(id / 3))),
 states <- rbind(c(0L, 0L), c(1L, 0L), c(1L, 0L), c(1L, 1L), c(0L, 0L), c(1L, 0L))
 fit$posterior$selection_draws <- lapply(seq_len(nrow(states)), function(i) list(matrix(states[i, ], 1)))
 result <- cv_imr(fit, k = 2, rounds = 2, cv_method = "importance", ridge = 0,
-                 df_method = "legacy_integer", score_method = "legacy")
+                 df_method = "integer", score_method = "original")
 comparisons <- list()
 for (round in 1:2) for (fold in 1:2) {
   rows <- result$control$folds[result$control$folds$round == round, ]

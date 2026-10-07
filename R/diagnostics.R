@@ -77,8 +77,8 @@ validate_imr <- function(object) {
   if (!is.null(control$standardize)) .imr_check_flag(control$standardize, "standardize")
   if (!is.null(control$sampler_method) &&
       (!is.character(control$sampler_method) || length(control$sampler_method) != 1L ||
-       is.na(control$sampler_method) || !control$sampler_method %in% c("legacy", "paper")))
-    .imr_abort("The fit has an invalid `sampler_method`.")
+       is.na(control$sampler_method) || !control$sampler_method %in% c("original", "corrected")))
+    .imr_abort("The fit has an invalid `sampler_method`; use `upgrade_imr_fit()` for a saved fit with retired convention names.")
   if (!is.list(control$priors) ||
       !all(c("nu", "molecular_scale", "forced_scale", "residual", "interaction") %in%
            names(control$priors)) || !is.list(control$mcmc)) {
@@ -236,19 +236,23 @@ validate_imr <- function(object) {
 
 #' Upgrade a Legacy IMR Fit
 #'
-#' Convert a structurally complete 0.1.x `imr` object to the named schema used
-#' by version 0.2.0. Corrupted or incomplete objects must be refitted.
+#' Convert a structurally complete 0.1.x `imr` object to the current named
+#' schema, or update convention names in an earlier 0.2.0 fit. Corrupted or
+#' incomplete objects must be refitted.
 #'
 #' @section What conversion preserves:
 #' The conversion reorganizes an existing fit into the current named schema and
 #' then validates it. It does not refit the model, regenerate random draws or
-#' replace historical sampler behavior with the paper convention. Statistical
+#' replace original sampler behavior with the corrected convention. Stored
+#' `"paper"` and `"legacy"` sampler labels become `"corrected"` and `"original"`;
+#' the `"code2017"` prior-indexing label becomes `"original"`. The recorded
+#' original call is preserved as provenance. Statistical
 #' interpretation remains tied to the original fit's outcome scale and
 #' computational settings. [imr()] documents those conventions; missing data or
 #' insufficient response-scale information can require refitting before later
 #' operations are available.
 #'
-#' @param object A fitted `imr` object created by IntegMultiReg 0.1.x.
+#' @param object A fitted `imr` object created by an earlier IntegMultiReg version.
 #' @return A validated schema-version-2 `imr` object.
 #' @examples
 #' x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
@@ -265,6 +269,15 @@ upgrade_imr_fit <- function(object) {
     .imr_abort("`object` must be a legacy `imr` fit.")
   }
   if (identical(object$schema_version, 2L)) {
+    if (identical(object$control$sampler_method, "paper")) {
+      object$control$sampler_method <- "corrected"
+    } else if (identical(object$control$sampler_method, "legacy")) {
+      object$control$sampler_method <- "original"
+    }
+    if (is.list(object$control$numerical) &&
+        identical(object$control$numerical$prior_indexing, "code2017")) {
+      object$control$numerical$prior_indexing <- "original"
+    }
     validate_imr(object)
     return(object)
   }

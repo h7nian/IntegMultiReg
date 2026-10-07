@@ -2,10 +2,13 @@ source("inst/examples/compare-covariates.R")
 out <- file.path(Sys.getenv("RUNNER_TEMP", tempdir()), "covariate-comparison-evidence")
 set.seed(12679)
 rng <- .Random.seed
-first <- run_covariate_comparison(file.path(out, "first"))
+first <- run_covariate_comparison(file.path(out, "first"), sampler_method = "corrected")
 stopifnot(identical(.Random.seed, rng))
-second <- run_covariate_comparison(file.path(out, "repeat"))
+second <- run_covariate_comparison(file.path(out, "repeat"), sampler_method = "corrected")
 stopifnot(identical(.Random.seed, rng))
+stopifnot(identical(first$settings$sampler_method, "corrected"),
+          identical(first$paired_cv_controls[[2]]$folds,
+                    first$paired_cv_controls[[1]]$folds))
 files <- list.files(file.path(out, "first"), pattern = "[.]csv$")
 stopifnot(length(files) == 8L)
 for (file in files) {

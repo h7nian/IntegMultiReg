@@ -1,8 +1,12 @@
 # Reproducible predictive comparison and selection of prespecified formulas.
-# Rscript IntegMultiReg-covariate-comparison.R [--quick] [--out-dir DIRECTORY]
+# Rscript compare-covariates.R [--quick] [--out-dir DIRECTORY]
 # Uses only public IntegMultiReg APIs. Synthetic covariate names are illustrative,
 # not measurements from a clinical study. This is prediction, not confounder selection.
-run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = FALSE) {
+# The legacy default preserves the archived manuscript example. Current tutorials
+# explicitly request sampler_method = "corrected"; their numerical results differ.
+run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = FALSE,
+                                    sampler_method = c("original", "corrected")) {
+  sampler_method <- match.arg(sampler_method)
   stopifnot(is.logical(quick), length(quick) == 1L, !is.na(quick))
   if (utils::packageVersion("IntegMultiReg") != "0.2.0") stop("Requires IntegMultiReg 0.2.0")
   had_rng <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
@@ -29,11 +33,15 @@ run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = F
   fit_candidate <- function(formula, ids, seed) IntegMultiReg::imr(
     formula, data = clinical[match(ids, clinical$id), , drop = FALSE],
     platforms = assays(ids), outcome_type = "continuous", min_subgroup_size = 0,
-    nu = c(-4, -3, -4), draws = draws[1], burnin = draws[2], seed = seed)
+    nu = c(-4, -3, -4), draws = draws[1], burnin = draws[2], seed = seed,
+    sampler_method = sampler_method)
   fit_set <- function(ids, seed) lapply(formulas, fit_candidate, ids = ids, seed = seed)
   evaluate <- function(fits, rounds) {
-    cv <- lapply(fits, IntegMultiReg::cv_imr, k = k, rounds = rounds,
-                 cv_method = "refit")
+    first <- IntegMultiReg::cv_imr(fits[[1]], k = k, rounds = rounds,
+                                   cv_method = "refit")
+    cv <- c(list(first), lapply(fits[-1], IntegMultiReg::cv_imr,
+      k = k, rounds = rounds, cv_method = "refit", folds = first$control$folds))
+    names(cv) <- names(fits)
     keys <- lapply(cv, function(x) x$predictions[, c("round", "id", "subgroup", "fold")])
     # Identical seeds alone are not evidence of paired folds: check the actual assignments.
     stopifnot(identical(keys[[1]], keys[[2]]))
@@ -59,11 +67,12 @@ run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = F
     outer[idx[sample.int(length(idx))]] <- rep(seq_len(k), length.out = length(idx))
   }
   prediction <- rep(NA_real_, nrow(cohort))
-  selections <- inner_records <- vector("list", k)
+  selections <- inner_records <- inner_controls <- vector("list", k)
   for (fold in seq_len(k)) {
     heldout <- which(outer == fold); train <- which(outer != fold)
     candidate_fits <- fit_set(cohort$id[train], 92000L + fold)
     inner <- evaluate(candidate_fits, 1L)
+    inner_controls[[fold]] <- lapply(inner, `[[`, "control")
     scores <- vapply(inner, function(x) unname(x$pooled[1, "all"]), 0)
     stopifnot(all(is.finite(scores)))
     chosen <- which.min(scores)  # deterministic candidate-order tie break
@@ -91,8 +100,12 @@ run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = F
     nested_summary = nested_summary, selected_by_fold = do.call(rbind, selections),
     nested_inner_folds = do.call(rbind, inner_records),
     outer_predictions = data.frame(cohort, outer_fold = outer, observed = clinical$y, prediction),
+    paired_cv_controls = lapply(cv, `[[`, "control"),
+    nested_cv_controls = inner_controls,
     settings = list(quick = quick, draws = draws[1], burnin = draws[2], k = k, rounds = rounds,
-      formulas = formulas, version = as.character(utils::packageVersion("IntegMultiReg"))))
+      formulas = formulas, sampler_method = sampler_method,
+      fit_seed = 24019L, outer_seed = 81043L, inner_fit_seeds = 92000L + seq_len(k),
+      version = as.character(utils::packageVersion("IntegMultiReg"))))
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
   for (name in names(result)[vapply(result, is.data.frame, TRUE)])
     utils::write.csv(result[[name]], file.path(out_dir, paste0(name, ".csv")), row.names = FALSE)

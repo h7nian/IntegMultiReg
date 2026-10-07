@@ -55,7 +55,7 @@ test_that("legacy metrics reproduce the 0.1.0 native implementation", {
                draws = 40, burnin = 20, min_subgroup_size = 30,
                seed = 271, nu = c(-4, -3, -4))
     result <- cv_imr(fit, k = 3, rounds = 2, max_models = 10,
-                     cv_method = "legacy")
+                     cv_method = "postfit_original")
     expect_equal(unname(result$pooled), reference[[name]]$total_cindex,
                  tolerance = 1e-8, info = name)
     expect_equal(unname(result$fold_mean), reference[[name]]$subset_cindex,

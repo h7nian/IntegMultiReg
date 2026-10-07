@@ -11,7 +11,7 @@ cv_imr(
   method = NULL,
   max_models = 100,
   verbose = FALSE,
-  cv_method = c("legacy", "refit", "importance"),
+  cv_method = c("postfit_original", "refit", "importance"),
   workers = 1L,
   ridge = NULL,
   model_set = NULL,
@@ -45,7 +45,7 @@ every retained draw, including repeated states, and ignores this limit.}
 \item{verbose}{Logical; if \code{TRUE}, print fold progress and sampler
 diagnostics.  Defaults to \code{FALSE}.}
 
-\item{cv_method}{Validation algorithm: \code{"legacy"} (default), \code{"refit"},
+\item{cv_method}{Validation preset: \code{"postfit_original"} (default), \code{"refit"},
 or \code{"importance"}. This is independent of the fitted IMR/BMS \code{method}.}
 
 \item{workers}{Positive integer number of PSOCK worker processes (default
@@ -57,16 +57,16 @@ processes are used; no automatic CPU detection is performed.}
 original code. A singular solve stops with fold and subgroup context; no
 penalty or generalized inverse is silently substituted. Not used by refit.}
 
-\item{model_set}{Post-fit states to average: \code{"ranked_unique"} (legacy
+\item{model_set}{Post-fit states to average: \code{"ranked_unique"} (\code{"postfit_original"}
 default) ranks distinct states and keeps at most \code{max_models}; \code{"draws"}
 (importance default) retains empirical multiplicities and draw order.}
 
-\item{df_method}{Predictive-density degrees of freedom: \code{"legacy_integer"}
-(legacy default) truncates \code{2 * shape + n_train} to an integer;
+\item{df_method}{Predictive-density degrees of freedom: \code{"integer"}
+(\code{"postfit_original"} default) truncates \code{2 * shape + n_train} to an integer;
 \code{"fractional"} (importance default) keeps its numeric value. Post-fit only.}
 
 \item{score_method}{Metric convention, independent of predictions:
-\code{"legacy"} (legacy default) retains historical AUC/concordance rules;
+\code{"original"} (\code{"postfit_original"} default) retains historical AUC/concordance rules;
 \code{"standard"} (refit and importance default) uses current tie and comparable
 pair rules. MSE has the same definition in both. \code{NULL} selects the default.}
 
@@ -107,7 +107,7 @@ Undefined AUCs (single class) and C-indices (no comparable pairs) are \code{NA}.
 \description{
 \code{cv_imr()} evaluates predictive accuracy of a model fitted with \code{\link[=imr]{imr()}} using
 repeated \eqn{K}-fold splits. \code{cv_method} selects historical post-fit
-validation (\code{"legacy"}, the default), training-fold refitting (\code{"refit"}),
+validation (\code{"postfit_original"}, the default), training-fold refitting (\code{"refit"}),
 or a paper-derived importance average over retained draws (\code{"importance"}).
 Fit a separate object with \code{method = "bms"} for a no-borrowing comparison.
 The accuracy measure depends on the outcome type: the concordance index
@@ -141,8 +141,8 @@ Binary and continuous outcomes extend the survival procedure.
 Mode names provide defaults. \code{ridge}, \code{model_set}, \code{df_method}, and
 \code{score_method} can be chosen independently. Explicit post-fit-only arguments
 are rejected in refit mode. The original released CV code combines \code{ridge = 0},
-\code{model_set = "ranked_unique"}, \code{df_method = "legacy_integer"},
-\code{score_method = "legacy"} and \code{max_models = 100}. Paper equations 6--7 use
+\code{model_set = "ranked_unique"}, \code{df_method = "integer"},
+\code{score_method = "original"} and \code{max_models = 100}. Paper equations 6--7 use
 \code{ridge = 0}, \code{model_set = "draws"} and \code{df_method = "fractional"}.
 Neither combination alone reproduces a historical experiment: sampler,
 numerical controls, data, initial states and random stream also matter.
@@ -195,7 +195,7 @@ Predictions average the fold model predictions with these weights, applying
 the probit link before averaging for binary outcomes. \code{model_set = "draws"}
 retains every state occurrence; \code{model_set = "ranked_unique"} uses at most
 \code{max_models} ranked distinct states. These are the respective defaults for
-importance and legacy modes, but \code{model_set} can override either default.
+\code{"importance"} and \code{"postfit_original"} modes, but \code{model_set} can override either default.
 Importance mode's default empirical reweighting is motivated by equations
 6--7 of Chekouo et al. (2017). Both post-fit calculations are distinct from
 training-fold refitting.
@@ -221,7 +221,7 @@ The standard C-index is
 Larger predicted working survival times mean longer survival. AUC is
 undefined for a single class, and C is undefined without comparable pairs;
 these return \code{NA}. The historical AUC/concordance tie rules selected by
-\code{score_method = "legacy"} are not represented by the two standard formulas.
+\code{score_method = "original"} are not represented by the two standard formulas.
 }
 
 \section{Pooled scores and fold means}{
@@ -245,7 +245,7 @@ fit <- imr(
   nu = c(-4, -3, -4), draws = 200, burnin = 100,
   min_subgroup_size = 5, seed = 1
 )
-cv <- cv_imr(fit, k = 5, rounds = 2, cv_method = "legacy")
+cv <- cv_imr(fit, k = 5, rounds = 2, cv_method = "postfit_original")
 cv$pooled
 }
 }

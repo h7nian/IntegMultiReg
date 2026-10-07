@@ -7,7 +7,7 @@ test_that("numerical conventions are validated and travel with the fit", {
     laplace_max_iter = c(initial = 25, selection = 40, latent = 25, prediction = 40),
     laplace_tolerance = .001)))
   expect_identical(baseline$posterior, explicit$posterior)
-  historical <- do.call(imr, c(args, list(prior_indexing = "code2017",
+  historical <- do.call(imr, c(args, list(prior_indexing = "original",
     laplace_max_iter = c(initial = 25, selection = 40, latent = 25, prediction = 25))))
   expect_false(identical(historical$posterior, baseline$posterior))
   expect_true(validate_imr(historical))
@@ -18,7 +18,7 @@ test_that("numerical conventions are validated and travel with the fit", {
   ids <- historical$preprocessing$input_data$availability$id
   refit <- IntegMultiReg:::.imr_cv_refit(historical, ids, seed = 53)
   expect_identical(refit$control$numerical, historical$control$numerical)
-  for (mode in c("legacy", "importance", "refit")) {
+  for (mode in c("postfit_original", "importance", "refit")) {
     cv <- cv_imr(historical, k = 2, rounds = 1, cv_method = mode)
     expect_identical(cv$control$numerical, historical$control$numerical)
   }

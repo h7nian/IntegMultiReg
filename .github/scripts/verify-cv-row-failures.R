@@ -35,7 +35,7 @@ verify_failures <- function() {
       second[[1L]][1L] <- 1L
       fit$posterior$selection_draws <- rep(list(first), 8L)
       fit$posterior$selection_draws[6L] <- list(second)
-      for (cv_method in c("legacy", "importance")) {
+      for (cv_method in c("postfit_original", "importance")) {
         for (workers in 1:2) {
           run <- function() cv_imr(fit, k = 2L, rounds = 1L,
             cv_method = cv_method, workers = workers)

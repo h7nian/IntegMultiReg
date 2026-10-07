@@ -12,7 +12,7 @@ test_that("tiny positive interaction starts cannot create zero theta states", {
     diag(z) <- 0
     z
   }))
-  for (method in c("legacy", "paper")) {
+  for (method in c("original", "corrected")) {
     fit <- run(sampler_method = method, initial = initial)
     expect_true(validate_imr(fit))
     expect_true(all(fit$posterior$interaction_draws[[1]] > 0))

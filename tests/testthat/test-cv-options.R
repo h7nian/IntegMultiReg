@@ -3,14 +3,14 @@ test_that("CV options are independent and retain mode defaults", {
   fields <- c("pooled", "fold_mean", "predictions", "metric")
   defaults <- cv_imr(fit, k = 3, rounds = 2)
   explicit <- cv_imr(fit, k = 3, rounds = 2, ridge = .001,
-    model_set = "ranked_unique", df_method = "legacy_integer", score_method = "legacy")
+    model_set = "ranked_unique", df_method = "integer", score_method = "original")
   expect_identical(explicit, defaults)
   importance <- cv_imr(fit, k = 3, rounds = 2, cv_method = "importance")
-  mixed <- cv_imr(fit, k = 3, rounds = 2, cv_method = "legacy",
+  mixed <- cv_imr(fit, k = 3, rounds = 2, cv_method = "postfit_original",
     model_set = "draws", df_method = "fractional", score_method = "standard")
   expect_identical(mixed[fields], importance[fields])
   historical_score <- cv_imr(fit, k = 3, rounds = 2, cv_method = "importance",
-    score_method = "legacy")
+    score_method = "original")
   expect_identical(historical_score$predictions, importance$predictions)
   expect_null(importance$control$max_models)
   expect_identical(importance$control$model_set, "draws")
@@ -19,7 +19,7 @@ test_that("CV options are independent and retain mode defaults", {
 test_that("saved post-fit membership and row order replay every prediction", {
   for (type in c("continuous", "binary", "right.censored")) {
     fit <- fit_demo(type, total = 12, burn = 6, seed = 53)
-    for (mode in c("legacy", "importance")) {
+    for (mode in c("postfit_original", "importance")) {
       original <- cv_imr(fit, k = 3, rounds = 2, cv_method = mode)
       folds <- original$control$folds
       folds <- folds[rev(seq_len(nrow(folds))), ]
@@ -47,7 +47,7 @@ test_that("ridge and predictive degrees of freedom match independent linear alge
   first[[1]][1, 1] <- 1L
   both[[1]][] <- 1L
   fit$posterior$selection_draws <- list(empty, first, first, both, empty, first)
-  for (ridge in c(0, .001, .3)) for (df_method in c("fractional", "legacy_integer")) {
+  for (ridge in c(0, .001, .3)) for (df_method in c("fractional", "integer")) {
     result <- cv_imr(fit, k = 2, rounds = 1, cv_method = "importance",
                      ridge = ridge, df_method = df_method)
     records <- result$predictions
@@ -66,7 +66,7 @@ test_that("ridge and predictive degrees of freedom match independent linear alge
         train_sse <- sum((observed[train] - design[train, , drop = FALSE] %*% beta)^2)
         test_sse <- sum((observed[test] - eta[, draw])^2)
         df <- 2 * .37 + length(train)
-        if (df_method == "legacy_integer") df <- trunc(df)
+        if (df_method == "integer") df <- trunc(df)
         scale <- (.21 + train_sse) / df
         log_weight[draw] <- length(test) / 2 * log(scale) +
           (2 * .37 + length(id)) / 2 * log1p(test_sse / (df * scale))
@@ -81,11 +81,11 @@ test_that("ridge and predictive degrees of freedom match independent linear alge
 
 test_that("explicit options work through parallel and bounded-cache paths", {
   fit <- fit_demo("binary", total = 12, burn = 6, seed = 53)
-  settings <- IntegMultiReg:::.imr_cv_settings("legacy", ridge = .2,
-    model_set = "draws", df_method = "legacy_integer", score_method = "standard")
+  settings <- IntegMultiReg:::.imr_cv_settings("postfit_original", ridge = .2,
+    model_set = "draws", df_method = "integer", score_method = "standard")
   result <- cv_imr(fit, k = 2, rounds = 1, ridge = .2, model_set = "draws",
-                   df_method = "legacy_integer", score_method = "standard")
-  replay <- cv_imr(fit, ridge = .2, model_set = "draws", df_method = "legacy_integer",
+                   df_method = "integer", score_method = "standard")
+  replay <- cv_imr(fit, ridge = .2, model_set = "draws", df_method = "integer",
     score_method = "standard", folds = result$control$folds, workers = 2)
   expect_identical(replay[1:5], result[1:5])
   for (bytes in c(0, 256, 128 * 1024^2)) {
@@ -94,7 +94,7 @@ test_that("explicit options work through parallel and bounded-cache paths", {
     expect_identical(as.vector(native$predictions), result$predictions$prediction)
   }
   refit <- cv_imr(fit, cv_method = "refit", folds = result$control$folds,
-    max_models = 4, score_method = "legacy")
+    max_models = 4, score_method = "original")
   expect_identical(refit$predictions[c("id", "round", "fold")],
     cv_imr(fit, cv_method = "refit", folds = result$control$folds,
       max_models = 4)$predictions[c("id", "round", "fold")])
