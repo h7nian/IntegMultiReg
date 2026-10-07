@@ -10,6 +10,64 @@
 #' (C-index) for right-censored outcomes, the area under the ROC curve (AUC) for
 #' binary outcomes, and the mean squared error (MSE) for continuous outcomes.
 #'
+#' @section Refit and post-fit calculations:
+#' For refit validation, a subject \eqn{i} in fold \eqn{f} receives
+#' \deqn{\widehat y_i^{\mathrm{CV}}=
+#'       \widehat g_{-f}(x_i),}{CV prediction for subject i in fold f = prediction from the model fitted without fold f.}
+#' where \eqn{\widehat g_{-f}}{g_hat_minus_f} is fitted using only the training subjects.
+#' Each fold reruns [imr()] and [predict.imr()] on training data, including
+#' preprocessing, selection sampling and ranked-model prediction weights;
+#' the point-prediction rule is described in [predict.imr()].
+#'
+#' The two post-fit modes instead reuse full-fit selection states, transformed
+#' predictors and augmented-response means. Within each state, their fold
+#' coefficient estimate is
+#' \deqn{\widehat b_m=(Z_{-f,m}^{T}Z_{-f,m}+\lambda I)^{-1}
+#'                      Z_{-f,m}^{T}\bar y_{-f}^{*},}{beta_m = inverse(transpose(Z_train,m) * Z_train,m + ridge * I) * transpose(Z_train,m) * mean_working_y_train.}
+#' where \eqn{\lambda}{lambda} is `ridge` and the diagonal penalty includes the
+#' intercept. An unpenalized singular system is an error. If \eqn{a_m} is the
+#' implemented inverse predictive-density log score for the held-out working
+#' responses, the normalized fold weights are
+#' \deqn{w_m=\frac{\exp(a_m-a_{\max})}
+#'                  {\sum_h\exp(a_h-a_{\max})}.}{w_m = exp(a_m - a_max) / sum_h exp(a_h - a_max).}
+#' Predictions average the fold model predictions with these weights, applying
+#' the probit link before averaging for binary outcomes. `model_set = "draws"`
+#' retains every state occurrence; `model_set = "ranked_unique"` uses at most
+#' `max_models` ranked distinct states. These are the respective defaults for
+#' importance and legacy modes, but `model_set` can override either default.
+#' Importance mode's default empirical reweighting is motivated by equations
+#' 6--7 of Chekouo et al. (2017). Both post-fit calculations are distinct from
+#' training-fold refitting.
+#'
+#' @section Accuracy measures:
+#' For a scored set of \eqn{n} subjects, continuous-outcome error is
+#' \deqn{\mathrm{MSE}=\frac{1}{n}\sum_i(y_i-\widehat y_i)^2.}{MSE = sum_i (y_i - prediction_i)^2 / n.}
+#' With `score_method = "standard"`, binary AUC is
+#' \deqn{\mathrm{AUC}=\frac{1}{n_1n_0}
+#'       \sum_{i:y_i=1}\sum_{j:y_j=0}
+#'       \{I(\widehat p_i>\widehat p_j)+\frac{1}{2} I(\widehat p_i=\widehat p_j)\}.}{AUC = sum over positive-negative pairs of [I(p_positive > p_negative) + 0.5 * I(equal predictions)], divided by n_positive * n_negative.}
+#' Here \eqn{n_1} and \eqn{n_0} are the class counts. For survival, let
+#' \eqn{\mathcal C}{C} contain each comparable pair once, ordered with its event
+#' subject \eqn{i} first. A pair is comparable if \eqn{t_i<t_j}, or if
+#' \eqn{t_i=t_j} and subject \eqn{j} is censored. Two tied events are excluded.
+#' The standard C-index is
+#' \deqn{C=\frac{1}{|\mathcal C|}\sum_{(i,j)\in\mathcal C}
+#'       \{I(\widehat y_i<\widehat y_j)+\frac{1}{2} I(\widehat y_i=\widehat y_j)\}.}{C-index = sum over comparable event-first pairs of [I(prediction_event < prediction_other) + 0.5 * I(equal predictions)], divided by the number of comparable pairs.}
+#' Larger predicted working survival times mean longer survival. AUC is
+#' undefined for a single class, and C is undefined without comparable pairs;
+#' these return `NA`. The historical AUC/concordance tie rules selected by
+#' `score_method = "legacy"` are not represented by the two standard formulas.
+#'
+#' @section Pooled scores and fold means:
+#' Each output row is one validation round. If \eqn{A} is the chosen scoring
+#' function and \eqn{D_f} contains fold \eqn{f}'s outcomes and predictions,
+#' \deqn{A_{\mathrm{pooled}}=A\Bigl(\bigcup_{f=1}^{K}D_f\Bigr), \qquad
+#'       A_{\mathrm{fold\ mean}}=\frac{1}{K}\sum_{f=1}^{K}A(D_f).}{Pooled score = score of all folds combined; fold mean = sum of the K individual fold scores / K.}
+#' The pooled score uses all subject predictions together. The fold mean gives
+#' equal weight to folds; an undefined fold makes the fold mean `NA`. These
+#' quantities can differ, especially for AUC and concordance. Both are reported
+#' per availability subgroup and overall; rounds remain separate rows.
+#'
 #' @param object A fitted object of class `"imr"` returned by [imr()].
 #' @param k Integer number of cross-validation folds per round (default `5`).
 #'   Must be at least `2`, and each availability subgroup must contain at least
@@ -134,6 +192,10 @@
 #' package-qualified function name. The caller's global workspace is not
 #' exported to workers. `workers = 1L` retains ordinary formula evaluation.
 #'
+#' @references
+#' Chekouo et al. (2017), Section 4.1, equations 6--7. \doi{10.1111/biom.12587}.
+#' [Read paper](https://academic.oup.com/biometrics/article/73/2/615/7537638) |
+#' [Publisher PDF](https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf).
 #' @seealso [imr()], [predict.imr()]
 #'
 #' @examples
@@ -211,6 +273,16 @@ cv_imr <- function(object, k = 5, rounds = 2,
 }
 
 #' Print Method for IMR Cross-Validation Results
+#'
+#' @section Interpreting the scores:
+#' The display reads the stored `pooled` and `fold_mean` matrices and reports
+#' the validation algorithm and fold design. For post-fit modes it also shows
+#' the resolved penalty, model set, degrees-of-freedom and scoring choices.
+#' `max_models` is not printed; refit scoring overrides are not printed either.
+#' Consult `x$control` for all recorded settings. [cv_imr()] defines the
+#' scoring formulas and explains why a pooled score can differ from the mean
+#' fold score. `digits` changes significant digits in the display only;
+#' stored values and subject-level predictions retain full precision.
 #'
 #' @param x An `imr_cv` object returned by [cv_imr()].
 #' @param digits Number of significant digits for the reported scores.

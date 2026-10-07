@@ -101,6 +101,30 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         INTEGER(sampler_method_R)[0] > IMR_SAMPLER_PAPER)
         Rf_error("Invalid sampler method");
     int sampler_method = INTEGER(sampler_method_R)[0];
+    /* Reject unsupported censored working times before allocating workspaces.
+     * Observed events are not subject to the latent-proposal upper bound. */
+    if (asInteger(type_outcome) == IMR_OUTCOME_SURVIVAL) {
+        if (TYPEOF(newYY_list) != VECSXP)
+            Rf_error("Invalid survival response list");
+        for (R_xlen_t g = 0; g < XLENGTH(newYY_list); ++g) {
+            SEXP response = VECTOR_ELT(newYY_list, g);
+            SEXP dim = getAttrib(response, R_DimSymbol);
+            if (TYPEOF(response) != REALSXP || TYPEOF(dim) != INTSXP ||
+                XLENGTH(dim) != 2 || INTEGER(dim)[1] != 2)
+                Rf_error("Invalid survival response matrix");
+            int n = INTEGER(dim)[0];
+            if (n < 1 || XLENGTH(response) != 2 * (R_xlen_t)n)
+                Rf_error("Invalid survival response dimensions");
+            for (int i = 0; i < n; ++i) {
+                if (REAL(response)[i + (R_xlen_t)n] != 0) continue;
+                double lower = REAL(response)[i];
+                double initial = lower + IMR_SURVIVAL_INITIAL_INCREMENT;
+                if (!R_FINITE(lower) || !R_FINITE(initial) || initial <= lower ||
+                    initial >= IMR_SURVIVAL_LATENT_UPPER)
+                    Rf_error("Censored working times must leave room for the 0.01 initialization below 1000.5; use survival_scale = 'log' for large raw times");
+            }
+        }
+    }
     /* Reject malformed explicit starts before allocating native workspaces. */
     if (initial_R != R_NilValue) {
         int np = asInteger(n_platforms_R);
@@ -150,12 +174,12 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     /* platform_models_R maps each platform to the subgroups using it;
      * model_platforms_R is the inverse mapping from subgroup to platforms. */
 
-    double h0 = REAL(h0_R)[0]; // scaling factor
+    double h0 = REAL(h0_R)[0]; // pMOM scale for forced coefficients
     double h11 = REAL(hh_R)[0];
-    double alpha = REAL(alpha_R)[0];   // weight of prior beliefs
-    double psi = REAL(psi_R)[0];       // control var of prior distributions
-    double alpha0 = REAL(alpha0_R)[0]; // prior
-    double beta0 = REAL(beta0_R)[0];   // prior scaling factor
+    double alpha = REAL(alpha_R)[0];   // residual inverse-Gamma shape
+    double psi = REAL(psi_R)[0];       // residual inverse-Gamma rate
+    double alpha0 = REAL(alpha0_R)[0]; // theta Gamma shape
+    double beta0 = REAL(beta0_R)[0];   // theta Gamma rate
 
     long seed = (long)REAL(seed_R)[0];
 
@@ -193,7 +217,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
     int n_platforms = asInteger(n_platforms_R);
     Rprintf("We have %d platforms  in total \n", n_platforms);
 
-    // We read model indices for each plaform
+    // We read model indices for each platform
     int **platform_models_c = malloc(n_platforms * sizeof(int *));
     int *n_platform_models_c = malloc(n_platforms * sizeof(int));
 
@@ -344,7 +368,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
 
             if ((Delta[j] == 0) && (outcome_type == IMR_OUTCOME_SURVIVAL))
             {
-                ylatent[i][j] += 0.01;
+                ylatent[i][j] += IMR_SURVIVAL_INITIAL_INCREMENT;
                 ymean[i][j] = 0;
             }
              if (outcome_type == IMR_OUTCOME_BINARY)
@@ -397,7 +421,6 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
             }
         }
     }
-    // double *nu=calloc(n_platforms,sizeof(double*));
     double *nu = REAL(nu_R);
     for (int l = 0; l < n_platforms; l++)
     {
@@ -456,7 +479,6 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         Rprintf("%.3lf ", mrf[l]);
     }
 
-    // int s, su, su1;
 
     double *log_posterior_sample = dvector(0, n_burnin + n_draws - 1);
     _Bool ****gamma_sample = malloc(n_draws * sizeof(_Bool ***));
@@ -588,10 +610,10 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         log_posterior_sample[s] = log_posterior(log_likelihood, gamma, nu, theta, mrf, alpha0, betaTh, n_subgroups,
                               n_platforms, G, n_platform_models_c, sampler_method);
 
-        // Print status every 10% of the MCMC samples
-        if (s % report_every == 1)
+        // Report completed iterations, including the last one and short chains.
+        if ((s + 1) % report_every == 0 || s + 1 == n_burnin + n_draws)
         {
-            Rprintf("\nNbr of MCMC samples = %d\n", s);
+            Rprintf("\nNbr of MCMC samples = %d\n", s + 1);
             Rprintf("LogPosterior=%f\n", log_posterior_sample[s]);
             for (int l = 0; l < n_platforms; l++)
             {

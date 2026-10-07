@@ -16,3 +16,5 @@
 ^docs$
 ^method-coverage\.md$
 ^migration\.md$
+^pkgdown$
+^CONTRIBUTING\.md$

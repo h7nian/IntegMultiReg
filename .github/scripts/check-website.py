@@ -32,6 +32,8 @@ failures = []
 for source, page in pages.items():
     for link in page.links:
         url = urlsplit(link)
+        if url.scheme == "doi":
+            failures.append((source.relative_to(root), link + " (use https://doi.org/)"))
         if url.scheme or url.netloc or not url.path:
             continue
         path = unquote(url.path)
@@ -51,8 +53,14 @@ for source, page in pages.items():
                 failures.append((source.relative_to(root), link))
 if not pages:
     failures.append((root, "No generated HTML pages"))
+for page_name, source_path in {"method-coverage.html": "inst/METHOD-COVERAGE.md",
+                               "migration.html": "inst/MIGRATION.md"}.items():
+    page = pages.get(root / page_name)
+    if page is not None and not any("/blob/" in link and link.endswith("/" + source_path)
+                                    for link in page.links):
+        failures.append((page_name, "Source link must point to " + source_path))
 for source, link in sorted(set(failures), key=str):
     print("Broken local link:", source, "->", link)
 if failures:
     sys.exit(1)
-print("Checked local links and assets in", len(pages), "HTML pages.")
+print("Checked local links, assets and DOI URL schemes in", len(pages), "HTML pages.")

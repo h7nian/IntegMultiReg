@@ -3,6 +3,60 @@
 #' Augments the retained selection models with conditional coefficient and
 #' variance draws. The fitted sampler and cross-validation results are unchanged.
 #'
+#' @section Relation to the fitted selection model:
+#' The original sampler uses a Laplace-based integration over coefficients and
+#' variances while exploring selection states. This function adds conditional
+#' draws from the coefficient model specified in [imr()]. For one subgroup,
+#' the resulting model-averaged approximation has the form
+#' \deqn{\widetilde p(b,v\mid\mathcal D)=\sum_m \widehat w_m\,
+#'       p(b,v\mid\mathcal D,\gamma=m).}{Approximate posterior(b, v | data) = sum_m empirical_weight_m * conditional_posterior(b, v | data, selection_model=m).}
+#' Here \eqn{\mathcal D}{data} is the observed data and \eqn{\widehat w_m}{empirical_weight_m} is the empirical
+#' frequency of selection state \eqn{m} in the fitted chain. Whole joint
+#' selection draws are resampled before extracting subgroup states, preserving
+#' their dependence across subgroups. Inactive molecular coefficients are zero.
+#' The conditional Gibbs sampler alternates active coefficients, residual
+#' variance and, when needed, the augmented responses. Its coefficient update
+#' has density proportional to \eqn{b_j^2\phi(b_j;\mu_j,v/A_{jj})}{b_j^2 * NormalDensity(b_j; mu_j, v/A_jj)}, where
+#' \eqn{A=Z^TZ+\mathrm{diag}(1/\tau_j)}{A = transpose(Z) * Z + diag(1/tau_j)} and
+#' \eqn{\mu_j=((Z^Ty^*)_j-\sum_{k\ne j}A_{jk}b_k)/A_{jj}}{mu_j = ((transpose(Z) * y*)_j - sum over k != j of A_jk * b_k) / A_jj}.
+#' The design, working response and pMOM scales are defined in [imr()].
+#'
+#' The conditional sampling is an additional computation. It inherits the
+#' selection weights' Laplace approximation and `sampler_method` convention;
+#' it neither recomputes exact model probabilities nor changes an existing
+#' legacy fit into a paper-sampler fit. The `prior_indexing = "code2017"`
+#' option preserves a historical precision discrepancy. For a fit using that
+#' option, selection weights come from the code2017 precision calculation,
+#' whereas these conditional draws use standard coefficient-block indexing.
+#' See [Methods and reproducibility](https://h7nian.github.io/IntegMultiReg/method-coverage.html).
+#'
+#' @section Output size and conditional-chain length:
+#' `draws` is the number of model-averaged rows returned per subgroup. Suppose
+#' one subgroup-model combination is assigned \eqn{r_m} of those rows and
+#' `chains` is \eqn{J}. Each of its conditional chains retains
+#' \deqn{n_m=\max\{d_{\min},\lceil r_m/J\rceil\},}{Retained iterations per conditional chain: n_m = max(conditional_draws, ceiling(returned_rows_m / number_of_chains)).}
+#' where \eqn{d_{\min}}{d_min} is `conditional_draws`, after discarding `burnin`
+#' iterations. Diagnostics use the conditional chains before output subsetting;
+#' \eqn{r_m} rows are then sampled without replacement from the pooled draws for the
+#' output. Increasing `draws` need not lengthen a low-frequency model's chains.
+#' Increase `conditional_draws`, and if needed `burnin`, to investigate a
+#' conditional-chain warning.
+#'
+#' @section Conditional split R-hat:
+#' Each of the \eqn{J} chains is split into two halves of length
+#' \eqn{H=\lfloor n_m/2\rfloor}{H = floor(n_m/2)}; an odd-length chain omits its middle draw
+#' from this diagnostic. For a scalar parameter \eqn{q}, the resulting
+#' \eqn{M=2J} sequences have means \eqn{\bar q_c}{mean_q_c}, variances \eqn{s_c^2}
+#' and overall mean \eqn{\bar q}{mean_q}. Sums below run over these \eqn{M} sequences:
+#' \deqn{W=\frac{1}{M}\sum_c s_c^2, \qquad
+#'       B=\frac{H}{M-1}\sum_c(\bar q_c-\bar q)^2,}{W = mean of the M within-sequence variances; B = H * sum_c (mean_q_c - overall_mean_q)^2 / (M - 1).}
+#' \deqn{\widehat R=\sqrt{\frac{(H-1)W/H+B/H}{W}}.}{Split R-hat = sqrt(((H - 1) * W / H + B / H) / W).}
+#' `diagnostics` records the maximum over active coefficients and residual
+#' variance for each subgroup-model combination. This is classical split
+#' R-hat, not the rank-normalized or folded version. An undefined value or a
+#' value above 1.05 triggers a warning. It does not diagnose the original
+#' selection chain, and passing this check alone does not establish convergence.
+#'
 #' @param object An `imr` fit with stored data and selection draws.
 #' @param draws Number of model-averaged draws to return (default `1000`).
 #' @param burnin Conditional Gibbs burn-in iterations for each distinct
@@ -53,6 +107,8 @@
 #'   `confint()`, `coef()` and `predict()` on this object.
 #' @references
 #' Chekouo et al. (2017). \doi{10.1111/biom.12587}, Section 3.1 and Web Appendix C.
+#' [Read paper](https://academic.oup.com/biometrics/article/73/2/615/7537638) |
+#' [Publisher PDF](https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf).
 #' @export
 #' @examples
 #' \donttest{
@@ -145,7 +201,7 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
   if (keep_latent) names(augmented) <- object$model$subgroup_names
   diagnostics <- do.call(rbind, diagnostics)
   if (any(!is.finite(diagnostics$max_split_rhat) | diagnostics$max_split_rhat > 1.05)) {
-    .imr_warn("Conditional split R-hat exceeds 1.05 or is undefined; inspect `diagnostics` and increase burn-in/draws before using intervals.")
+    .imr_warn("Conditional split R-hat exceeds 1.05 or is undefined; inspect `diagnostics`, increase `conditional_draws` and, if needed, `burnin`, then reassess before interpreting intervals.")
   }
   structure(list(beta = beta, variance = variance,
     latent = if (keep_latent) augmented else NULL,
@@ -200,7 +256,32 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
   } else assign(".Random.seed", state, envir = .GlobalEnv)
 }
 
-#' Summarize Regression Posterior Draws
+#' Summarize Coefficient and Latent-Response Draws
+#'
+#' Extract posterior means, spreads and intervals from an `imr_posterior`
+#' object without running additional sampling.
+#' @section Posterior summaries:
+#' For \eqn{S} stored draws of coefficient \eqn{b_j}, `coef()` returns
+#' \deqn{\bar b_j=\frac{1}{S}\sum_{d=1}^{S}b_j^{(d)}.}{Posterior mean of coefficient j = sum_d beta_j[d] / S.}
+#' `summary()` and `confint()` report this mean, the sample standard deviation,
+#' the median, an equal-tail interval
+#' \eqn{[Q_{(1-L)/2}(b_j),Q_{(1+L)/2}(b_j)]}, and
+#' \deqn{\widehat{\Pr}(b_j\ne0\mid\mathcal D)=
+#'       \frac{1}{S}\sum_{d=1}^{S}I(b_j^{(d)}\ne0).}{Estimated probability that coefficient j is nonzero = sum_d I(beta_j[d] != 0) / S.}
+#' Here \eqn{L} is `level`, \eqn{\mathcal D}{data} denotes the observed data,
+#' and quantiles use `stats::quantile(type = 7)`. The interval includes the
+#' point mass at zero from inactive models. `confint()` reuses `summary()`;
+#' neither method runs further MCMC. `print()` reports the stored approximation
+#' and maximum conditional R-hat described in [posterior_draws()].
+#'
+#' With `parm = "latent"`, the same mean, standard deviation and quantiles are
+#' computed per subject, without a nonzero-probability column. For log-time
+#' survival fits these are log-time summaries: an observed event is constant
+#' across draws, whereas a censored response is sampled above its observed
+#' log-time bound. For binary fits the latent normal value is below or above
+#' zero according to the observed class. These latent summaries are conditional
+#' on observed outcomes; they are not predictions for new subjects.
+#'
 #' @param object,x An `imr_posterior` object returned by [posterior_draws()].
 #' @param level Equal-tail credible level, between zero and one.
 #' @param parm `"coefficients"` for the regression coefficients, or `"latent"`
@@ -280,6 +361,38 @@ print.imr_posterior <- function(x, ...) {
 }
 
 #' Predict Using Coefficient Posterior Draws
+#'
+#' Compute point summaries and equal-tail intervals for new subjects from
+#' stored coefficient and variance draws, optionally including outcome noise.
+#' @section Posterior prediction:
+#' For a new subject, let \eqn{z} be the design row transformed with the
+#' training subgroup's centers, scales and formula encoding. For each stored
+#' posterior draw, form \eqn{\eta^{(d)}=z^Tb^{(d)}}{eta[d] = transpose(z) * beta[d]} and use its paired
+#' variance \eqn{v^{(d)}}.
+#'
+#' For a continuous response, `type = "mean"` summarizes \eqn{\eta^{(d)}}{eta[d]}.
+#' `type = "response"` instead generates
+#' \eqn{Y_{\mathrm{new}}^{(d)}\sim N(\eta^{(d)},v^{(d)})}{Y_new[d] ~ N(eta[d], v[d])}.
+#' For a binary response, the mean draws are event probabilities
+#' \deqn{p^{(d)}=\Phi\{\eta^{(d)}/\sqrt{v^{(d)}}\},}{p[d] = Phi(eta[d] / sqrt(v[d])).}
+#' and response draws are \eqn{\mathrm{Bernoulli}(p^{(d)})}{Bernoulli(p[d])}.
+#' For default log-time survival fits, the corresponding time-scale quantities
+#' are
+#' \deqn{m^{(d)}=\exp\{\eta^{(d)}+v^{(d)}/2\}, \qquad
+#'       T_{\mathrm{new}}^{(d)}=\exp\{\eta^{(d)}+\epsilon^{(d)}\},}{Conditional mean time m[d] = exp(eta[d] + v[d]/2); new time T[d] = exp(eta[d] + error[d]).}
+#' where \eqn{\epsilon^{(d)}\sim N(0,v^{(d)})}{error[d] ~ N(0, v[d])}. The first expression is the
+#' conditional log-normal mean at a parameter draw, not the median survival
+#' time at that draw. Identity-scale survival fits use the normal working
+#' response without exponentiation.
+#'
+#' The interval endpoints are empirical equal-tail quantiles (type 7) of the
+#' chosen quantity. The point summary is its sample mean for continuous and
+#' binary outcomes and its sample median for log-time survival outcomes, whose
+#' posterior mean may not exist. Response intervals include future outcome
+#' variation; mean intervals describe parameter and model uncertainty. These
+#' draw-based summaries inherit the approximation in [posterior_draws()] and
+#' can differ from the ranked-model plug-in predictions in [predict.imr()].
+#'
 #' @param object An `imr_posterior` object.
 #' @param newdata,platform_names,covariates As in [predict.imr()].
 #' @param type `"mean"` returns uncertainty in the conditional response mean

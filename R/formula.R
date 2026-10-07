@@ -1,7 +1,4 @@
 #' @rdname imr
-#' @param formula A model formula passed as `x`.
-#'   The model always includes an intercept: `0`/`-1` and `offset()` terms are
-#'   rejected. The identifier column is excluded when expanding `.`.
 #' @param data A data frame used with the formula interface.
 #' @param platforms A list of platform data frames used with the formula
 #'   interface.

@@ -19,6 +19,18 @@
 \description{
 Print Method for IMR Cross-Validation Results
 }
+\section{Interpreting the scores}{
+
+The display reads the stored \code{pooled} and \code{fold_mean} matrices and reports
+the validation algorithm and fold design. For post-fit modes it also shows
+the resolved penalty, model set, degrees-of-freedom and scoring choices.
+\code{max_models} is not printed; refit scoring overrides are not printed either.
+Consult \code{x$control} for all recorded settings. \code{\link[=cv_imr]{cv_imr()}} defines the
+scoring formulas and explains why a pooled score can differ from the mean
+fold score. \code{digits} changes significant digits in the display only;
+stored values and subject-level predictions retain full precision.
+}
+
 \examples{
 \donttest{
 x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))

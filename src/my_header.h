@@ -10,6 +10,9 @@
 #include "numerical_control.h"
 
 #define IMR_PI 3.1415926535897932384
+/* Historical survival proposal support, on the working response scale. */
+#define IMR_SURVIVAL_LATENT_UPPER 1000.5
+#define IMR_SURVIVAL_INITIAL_INCREMENT 0.01
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
@@ -91,13 +94,12 @@ double log_likelihood_nonlocal(
     double **design, double *precision, const gsl_matrix *chol_precision,
     double *beta_mode, int moment_order, double slab_scale,
     double covariate_scale, double intercept_scale, double first_platform_scale,
-    int max_iter, double tolerance, _Bool positive_beta,
+    int max_iter, double tolerance,
     const imr_numerical_control *numerical, int stage);
 
 int maximize_nonlocal_beta(
     double *xty, double nu, double sigma2, double *precision, int max_iter,
-    double tolerance, double *beta_init, int n_coefficients, int moment_order,
-    _Bool positive_beta);
+    double tolerance, double *beta_init, int n_coefficients, int moment_order);
 
 double log_posterior(
     double *log_likelihood, _Bool ***gamma, double *nu, double ***theta,

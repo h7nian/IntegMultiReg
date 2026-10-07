@@ -9,18 +9,24 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: pkgdown-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
+    concurrency:
+      group: pkgdown-build-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: .github/scripts/package-lock.json
+      - name: Install math validation dependencies
+        run: npm ci --prefix .github/scripts --ignore-scripts
       - uses: r-lib/actions/setup-pandoc@v2
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -29,12 +35,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes libgsl-dev
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::pkgdown, any::katex, local::.
+          extra-packages: any::pkgdown, local::.
           needs: website
       - name: Build package documentation
         run: Rscript .github/scripts/build-website.R
       - name: Check local links and assets
         run: python3 .github/scripts/check-website.py docs
+      - name: Validate mathematical expressions
+        run: node .github/scripts/check-math.cjs docs
       - name: Retain a reviewable website artifact
         uses: actions/upload-artifact@v7
         with:
@@ -48,6 +56,9 @@ jobs:
           path: docs
 
   deploy:
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest

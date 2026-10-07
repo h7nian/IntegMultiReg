@@ -94,6 +94,22 @@ indicator, selected by \code{platform}, \code{subgroup} and \code{feature}.}
 See \code{\link[=plot_top_features]{plot_top_features()}} and \code{\link[=plot_subgroup_sizes]{plot_subgroup_sizes()}} for two further ready
 made displays.
 }
+\section{Statistical interpretation}{
+
+The selection heatmap displays \eqn{\widehat\pi_{lsj}}{mPIP_lsj}, the retained-chain
+indicator average defined in \code{\link[=coef.imr]{coef.imr()}}. The theta heatmap displays
+\eqn{B^{-1}\sum_{b=1}^{B}\theta_{l,sh}^{(b)}}{mean_b theta_l,sh[b]}. An MRF interaction measures
+prior coupling of selection indicators; it is not a correlation between
+measured biomarkers or a regression effect.
+
+\code{theta_trace} and \code{selection_trace} display retained parameter draws in
+iteration order. The log-posterior trace includes burn-in and reflects the
+fitted sampler's density convention. These plots can reveal mixing or drift,
+but a flat trace alone does not establish convergence. They display the
+original selection stage; the separate conditional coefficient-stage
+diagnostic is defined in \code{\link[=posterior_draws]{posterior_draws()}}.
+}
+
 \seealso{
 \code{\link[=imr]{imr()}}, \code{\link[=plot_top_features]{plot_top_features()}}, \code{\link[=plot_subgroup_sizes]{plot_subgroup_sizes()}}
 }

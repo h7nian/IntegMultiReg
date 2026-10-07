@@ -1,0 +1,5 @@
+/* Keep long equations readable without widening the page on small screens. */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+}

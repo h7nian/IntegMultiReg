@@ -18,6 +18,20 @@
 #' See [plot_top_features()] and [plot_subgroup_sizes()] for two further ready
 #' made displays.
 #'
+#' @section Statistical interpretation:
+#' The selection heatmap displays \eqn{\widehat\pi_{lsj}}{mPIP_lsj}, the retained-chain
+#' indicator average defined in [coef.imr()]. The theta heatmap displays
+#' \eqn{B^{-1}\sum_{b=1}^{B}\theta_{l,sh}^{(b)}}{mean_b theta_l,sh[b]}. An MRF interaction measures
+#' prior coupling of selection indicators; it is not a correlation between
+#' measured biomarkers or a regression effect.
+#'
+#' `theta_trace` and `selection_trace` display retained parameter draws in
+#' iteration order. The log-posterior trace includes burn-in and reflects the
+#' fitted sampler's density convention. These plots can reveal mixing or drift,
+#' but a flat trace alone does not establish convergence. They display the
+#' original selection stage; the separate conditional coefficient-stage
+#' diagnostic is defined in [posterior_draws()].
+#'
 #' @param x A fitted object of class `"imr"`.
 #' @param type Character; one of `"selection"` (default), `"theta"`,
 #'   `"trace"`, `"theta_trace"` or `"selection_trace"`.
@@ -270,6 +284,15 @@ plot.imr <- function(x, type = c("selection", "theta", "trace",
 #' across all platforms.  This complements the per-platform heatmap of
 #' `plot(fit, type = "selection")`.
 #'
+#' @section Plotted quantity:
+#' Each bar is the maximum subgroup mPIP for one platform-feature pair,
+#' \eqn{r_{lj}=\max_{s\in\mathcal S_l}\widehat\pi_{lsj}}{r_lj = maximum subgroup mPIP for platform l and feature j} as defined in
+#' [summary.imr()]. Bars are ranked jointly across platforms. This maximum
+#' is the inclusion probability of a maximizing subgroup; it is not a
+#' coefficient effect size or the posterior probability of selection in at
+#' least one subgroup. `reference` adds a
+#' visual guide and does not filter the selected `top` bars.
+#'
 #' @param object A fitted object of class `"imr"` returned by [imr()].
 #' @param top Integer; the number of highest-mPIP features to display
 #'   (default `10`).
@@ -433,6 +456,13 @@ plot_top_features <- function(object, top = 10, base_cex = 1,
 #' Draws a bar chart of the number of subjects in each modelled
 #' availability subgroup (the non-empty regions of the Venn diagram), giving a
 #' quick picture of how the sample is distributed across subgroups.
+#'
+#' @section Counted subjects:
+#' For a retained availability pattern \eqn{s}, the bar height is
+#' \eqn{n_s=\sum_i I(A_i=s)}{n_s = count of subjects with availability pattern s}, where \eqn{A_i} is the subject's platform
+#' availability pattern defined in [imr_data()]. Counts are the observed sample
+#' sizes stored in the fit, after eligibility checks and subgroup filtering.
+#' They are not posterior estimates or imputed numbers of complete cases.
 #'
 #' @param object A fitted object of class `"imr"` returned by [imr()].
 #' @param base_cex Overall text-size multiplier. The `cex_*` arguments default

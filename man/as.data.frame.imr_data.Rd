@@ -21,3 +21,12 @@ The subject-by-platform availability table, including bitstrings.
 \description{
 Convert IMR Data to an Availability Data Frame
 }
+\section{Meaning of the rows}{
+
+Each row describes one eligible subject's observed-platform indicators and
+bitstring, with the platform order and eligibility rules defined in
+\code{\link[=imr_data]{imr_data()}}. This method returns availability metadata, not a merged or
+imputed molecular feature matrix. Use the object's named \code{platforms},
+\code{outcome} and \code{covariates} components for the underlying data.
+}
+

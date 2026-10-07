@@ -32,3 +32,4 @@ data-raw/cache/
 /docs/
 /method-coverage.md
 /migration.md
+node_modules/

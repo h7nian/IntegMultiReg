@@ -7,20 +7,22 @@
 #include <math.h>
 
 /*
- * Joint log-posterior up to constants independent of the current state.
+ * Paper log-posterior or historical diagnostic score, depending on the sampler.
  *
  * Components:
  *   1. subgroup marginal log-likelihoods,
  *   2. platform-specific MRF/sparsity prior for gamma,
- *   3. gamma prior on the MRF interaction parameters theta.
+ *   3. Gamma prior on theta for the paper sampler. The legacy score instead
+ *      adds the rate term and omits log(theta) contributions at or below 1e-3;
+ *      those historical terms do not define a Gamma log density.
  */
 double log_posterior(double *loglik, _Bool ***gamma, double *nu, double ***theta,
-               double *mrf_log_normalizer, double alpha0, double ***betaTh, int nbrsugbroups,
+               double *mrf_log_normalizer, double alpha0, double ***betaTh, int n_subgroups,
                int n_platforms, int *G, int *n_platform_models_c, int sampler_method)
 {
     double logPost = 0;
     int g, m, m1;
-    for (m = 0; m < nbrsugbroups; m++)
+    for (m = 0; m < n_subgroups; m++)
     {
         logPost += loglik[m];
     }

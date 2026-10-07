@@ -16,6 +16,17 @@ A validated schema-version-2 \code{imr} object.
 Convert a structurally complete 0.1.x \code{imr} object to the named schema used
 by version 0.2.0. Corrupted or incomplete objects must be refitted.
 }
+\section{What conversion preserves}{
+
+The conversion reorganizes an existing fit into the current named schema and
+then validates it. It does not refit the model, regenerate random draws or
+replace historical sampler behavior with the paper convention. Statistical
+interpretation remains tied to the original fit's outcome scale and
+computational settings. \code{\link[=imr]{imr()}} documents those conventions; missing data or
+insufficient response-scale information can require refitting before later
+operations are available.
+}
+
 \examples{
 x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
 y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)

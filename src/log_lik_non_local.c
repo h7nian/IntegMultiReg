@@ -87,7 +87,7 @@ double log_likelihood_nonlocal(
     int k, int K, int ng, int N, double alpha, double psi, double *y,
     double **design, double *precision, const gsl_matrix *chol_precision,
     double *beta_mode, int r, double h, double h1, double h0, double hg,
-    int max_iter, double tolerance, _Bool positive_beta,
+    int max_iter, double tolerance,
     const imr_numerical_control *numerical, int stage)
 {
   imr_record_laplace(numerical, stage, IMR_LAPLACE_CALLS);
@@ -100,17 +100,10 @@ double log_likelihood_nonlocal(
     a = 0;
     for (l = 0; l < N; l++)
     {
-      if (positive_beta == 0)
-      {
-        if (i == 0)
-          a += y[l];
-        else
-          a += design[l][i - 1] * y[l];
-      }
+      if (i == 0)
+        a += y[l];
       else
-      { // positive_beta==1 and without constant
-        a += design[l][i] * y[l];
-      }
+        a += design[l][i - 1] * y[l];
     }
     xty[i] = a;
   }
@@ -137,22 +130,12 @@ double log_likelihood_nonlocal(
     yy += pow(y[i], 2);
   }
   s2 = (2 * psi + yy - s2) / nu;
-  if (positive_beta == 0)
+  for (i = 0; i < k; i++)
   {
-    for (i = 0; i < k; i++)
-    {
-      beta_mode[i] = beta_hat[i];
-    }
-  }
-  else
-  {
-    for (i = 0; i < k; i++)
-    {
-      beta_mode[i] = beta_hat[i] * (beta_hat[i] > 0);
-    }
+    beta_mode[i] = beta_hat[i];
   }
   int converged = maximize_nonlocal_beta(xty, nu, s2, precision, max_iter, tolerance,
-                                        beta_mode, k, r, positive_beta);
+                                        beta_mode, k, r);
   if (!converged) imr_record_laplace(numerical, stage, IMR_LAPLACE_LIMIT);
   for (i = 0; i < k; i++)
   {
@@ -164,8 +147,6 @@ double log_likelihood_nonlocal(
     }
   }
   double L1 = gsl_sf_lngamma(nu / 2) + (alpha * log(psi)) + (nu / 2) * log(2);
-  if (positive_beta == 1)
-    L1 += k * log(2);
   double betaAibeta = 0;
   double sumlogbeta = 0;
   double difbetaAibeta = 0;
@@ -203,7 +184,7 @@ double log_likelihood_nonlocal(
  */
 int maximize_nonlocal_beta(
     double *xty, double nu, double s2, double *precision, int max_iter,
-    double tolerance, double *beta_mode, int k, int r, _Bool positive_beta)
+    double tolerance, double *beta_mode, int k, int r)
 {
   int i, m, m1;
   double a = (nu * s2) / (nu - 2);
@@ -229,13 +210,10 @@ int maximize_nonlocal_beta(
       double delta = pow(precision_beta_without_m - xty[m], 2) + (8 * r * a * am);
       double f1 = (-precision_beta_without_m + xty[m] + sqrt(delta)) / (2 * am);
       beta[m] = f1;
-      if (positive_beta == 0)
-      {
-        double f2 = -2 * r * a / (am * f1);
-        double objective_difference = beta_mode[m] * ((f1 - f2) / (f1 * f2)) - log(pow(f1, 2)) + log(pow(f2, 2));
-        if (objective_difference > 0)
-          beta[m] = f2;
-      }
+      double f2 = -2 * r * a / (am * f1);
+      double objective_difference = beta_mode[m] * ((f1 - f2) / (f1 * f2)) - log(pow(f1, 2)) + log(pow(f2, 2));
+      if (objective_difference > 0)
+        beta[m] = f2;
     } // end of m
     double beta_delta[k];
     for (m1 = 0; m1 < k; m1++)

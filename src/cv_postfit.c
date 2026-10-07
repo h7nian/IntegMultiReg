@@ -1,6 +1,7 @@
-/* Historical post-fit CV, adapted from package 0.1.0 (c523483).
- * legacy: ranked distinct full-fit selection models and historical scoring.
- * importance: all retained proposal draws, including their multiplicities.
+/* Historical post-fit CV, adapted from package 0.1.0.
+ * Default presets: legacy uses ranked distinct states and historical scoring;
+ * importance uses retained draws with their multiplicities. Explicit options
+ * can override the state collection and scoring independently.
  * Both deliberately condition on full-fit preprocessing and latent summaries.
  * Keep this compatibility implementation isolated from training-fold refits.
  */

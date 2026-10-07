@@ -24,6 +24,8 @@ test_that("native pMOM draws preserve R RNG kinds and follow-on distributions", 
     "Mersenne-Twister", "Knuth-TAOCP", "Knuth-TAOCP-2002", "L'Ecuyer-CMRG")
   normal_kinds <- c("Inversion", "Box-Muller", "Kinderman-Ramage", "Ahrens-Dieter",
                     "Buggy Kinderman-Ramage")
+  # R 4.1.2 added the Multicarry warnings (R NEWS, PR#18168).
+  multicarry_warns <- getRversion() >= "4.1.2"
   parameters <- list(c(0, 1), c(1, 1), c(-1, 1), c(100, .1), c(-100, .1),
     c(1e300, 1e-300), c(-1e300, 1e300), c(1e-150, 1e150),
     c(-0, .Machine$double.xmin * .Machine$double.eps))
@@ -42,8 +44,8 @@ test_that("native pMOM draws preserve R RNG kinds and follow-on distributions", 
       invokeRestart("muffleWarning")
     })
     expected_warnings <- as.integer(normal == "Buggy Kinderman-Ramage") +
-      as.integer(uniform == "Marsaglia-Multicarry") +
-      as.integer(uniform == "Marsaglia-Multicarry" &&
+      as.integer(multicarry_warns && uniform == "Marsaglia-Multicarry") +
+      as.integer(multicarry_warns && uniform == "Marsaglia-Multicarry" &&
                    normal %in% c("Kinderman-Ramage", "Ahrens-Dieter"))
     expect_length(messages, expected_warnings)
     expect_true(all(grepl("buggy version of Kinderman-Ramage|poor statistical properties|deviations from normality",

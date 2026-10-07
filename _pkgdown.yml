@@ -14,8 +14,10 @@ home:
     Fit Bayesian regression models to partially overlapping molecular platforms,
     inspect posterior uncertainty, and evaluate predictions with cross-validation.
   links:
-  - text: Methodology paper
-    href: https://doi.org/10.1111/biom.12587
+  - text: Read the methodology paper
+    href: https://academic.oup.com/biometrics/article/73/2/615/7537638
+  - text: Paper PDF (publisher)
+    href: https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf
   - text: Methods and reproducibility
     href: method-coverage.html
   - text: Migrating to version 0.2.0
@@ -58,10 +60,14 @@ reference:
   - predict.imr
   - cv_imr
   - print.imr_cv
-- title: Posterior uncertainty
+- title: Selection and interaction uncertainty
+  desc: Summarize retained draws from the fitted selection sampler.
   contents:
   - posterior_summary
   - confint.imr
+- title: Coefficient and predictive uncertainty
+  desc: Run conditional sampling, then summarize the resulting posterior draws or predict.
+  contents:
   - posterior_draws
   - imr_posterior_methods
   - predict.imr_posterior

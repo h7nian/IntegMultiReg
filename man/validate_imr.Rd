@@ -16,6 +16,16 @@ validate_imr(object)
 Checks the public structure, dimensions and numerical ranges of a fitted IMR
 object. This is useful after loading a saved fit or before comparing fits.
 }
+\section{Validation scope}{
+
+Validation checks the fitted-object schema, data dimensions, subgroup/platform
+mappings, parameter ranges and consistency of retained-draw counts. It does
+not rerun MCMC or establish posterior convergence. For statistical inspection,
+use \code{\link[=plot.imr]{plot.imr()}} and \code{\link[=posterior_summary]{posterior_summary()}} for the selection stage and
+\code{\link[=posterior_draws]{posterior_draws()}} for conditional coefficient sampling and its diagnostics.
+The statistical model and computational conventions are described in \code{\link[=imr]{imr()}}.
+}
+
 \examples{
 x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
 y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)

@@ -16,7 +16,10 @@ status <- system2(file.path(R.home("bin"), "R"),
           paste0("PKG_LIBS=", shQuote(system2("gsl-config", "--libs", stdout = TRUE)))),
   stdout = file.path(out, "compile.log"), stderr = file.path(out, "compile.log"))
 setwd(old)
-stopifnot(status == 0L)
+if (status != 0L) {
+  cat(readLines(file.path(out, "compile.log")), sep = "\n")
+  stop("Could not compile the independent sampler probe.", call. = FALSE)
+}
 library(IntegMultiReg)
 dll <- dyn.load(file.path(work, paste0("probe", .Platform$dynlib.ext)))
 probe <- function(name, ...) .Call(name, ..., PACKAGE = dll[["name"]])

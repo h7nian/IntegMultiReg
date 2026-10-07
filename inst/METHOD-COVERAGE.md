@@ -1,6 +1,7 @@
-# Paper, released code, and package conventions
+# Methods and reproducibility
 
-The package preserves its existing defaults. The optional arguments below
+This guide distinguishes the published model, released code and package
+conventions. The package preserves its existing defaults. The optional arguments below
 express separate computational decisions through the same fit and CV engines.
 `cv_method` is a set of defaults; it does not override explicit arguments.
 
@@ -88,15 +89,13 @@ Refit CV reuses the specified start; the values are recorded in fit/CV controls.
 Eight explicitly different starts can support an Appendix F-style diagnostic,
 but the exact historical starts are not supplied by the published supplement.
 
-### Unpenalized original-data limitation found in the larger pilot
+### Unpenalized validation requires full-rank training designs
 
-A 20,000-draw paper-sampler IMR clinical+molecular pilot on the bundled KIRC
-inputs fails unpenalized all-draws CV. In subgroup 011, 22.065% of retained states
-exceed the 64 training rows in five folds, and 28.060% exceed the 62 rows in the
-other five folds. An independently reconstructed failing design has 69 columns,
-64 rows and rank 64. These fractions are dimensional lower bounds; remaining
-designs were not exhaustively rank-tested. A ridge=.001 control completes but
-changes the estimator. Do not silently add a penalty, drop states or replace the
-inverse when claiming the unpenalized paper reference. The separate code2017
-sampler/ranked-model configuration requires its own evidence. Details and saved
-artifacts: `output/memory-scale-20260921/PROGRESS.md` in the research workspace.
+With `ridge = 0`, every evaluated selection state needs a full-column-rank
+training design. A state with more coefficients than training subjects is
+necessarily singular; collinearity can also cause singularity with fewer
+coefficients. The post-fit calculation stops with the affected fold and
+subgroup rather than dropping states or silently changing the inverse.
+A positive ridge penalty can stabilize the solve but changes the estimator.
+Validation of one state collection or numerical convention does not establish
+the behavior of another; report the actual options used.

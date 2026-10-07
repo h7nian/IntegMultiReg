@@ -18,12 +18,72 @@
 #' (`min_subgroup_size`), the *priors* (`nu`, `molecular_prior_scale`, `forced_prior_scale`, `residual_prior`, `interaction_prior`),
 #' the *computation* (`draws`, `burnin`, `seed`) and the *output* (`verbose`).
 #'
+#' @section Outcome models and priors:
+#' Let \eqn{s} index an availability subgroup. Its design matrix \eqn{Z_s}
+#' contains an intercept, the forced clinical covariates and the selected
+#' molecular features. On the working response scale,
+#' \deqn{y_s^* = Z_s b_s + \epsilon_s, \qquad
+#'       \epsilon_s \sim N(0, v_s I).}{y*_s = Z_s b_s + error_s, with error_s ~ N(0, v_s I).}
+#' For continuous outcomes, \eqn{y_s^*} is observed. For binary outcomes,
+#' \eqn{Y_i = I(y_i^*>0)} and the latent normal response is sampled on the
+#' appropriate side of zero. For the default survival model, an event has
+#' \eqn{y_i^*=\log t_i}{y*_i = log(t_i)}; a censored observation has
+#' \eqn{y_i^*>\log t_i}{y*_i > log(t_i)}. The binary prior concentrates \eqn{v_s} near one;
+#' the implemented variance is not fixed exactly at one.
+#'
+#' Every active coefficient has the first-order pMOM density
+#' \deqn{p(b_j\mid v_s) = \frac{b_j^2}{\tau_j v_s}
+#'       \phi(b_j;0,\tau_j v_s),}{p(b_j | v_s) = b_j^2 / (tau_j v_s) * NormalDensity(b_j; 0, tau_j v_s).}
+#' where \eqn{\phi(\cdot;\mu,v)}{phi(. ; mu, v)} is a normal density with variance \eqn{v}.
+#' With `prior_indexing = "standard"`, the scale \eqn{\tau_j}{tau_j} is
+#' `forced_prior_scale` for the intercept and clinical
+#' effects and `molecular_prior_scale` for molecular effects. Inactive molecular
+#' coefficients are exactly zero. The residual prior is
+#' \eqn{v_s\sim\mathrm{IG}(a,b)}{v_s ~ inverse-Gamma(a, b)}, parameterized by a density proportional to
+#' \eqn{v_s^{-a-1}\exp(-b/v_s)}{v_s^(-a - 1) * exp(-b/v_s)}.
+#' The `code2017` indexing option preserves a historical precision boundary:
+#' when clinical covariates are present, the last one receives molecular
+#' precision. It does not implement the standard scale assignment above.
+#'
+#' For feature \eqn{j} on platform \eqn{l}, collect its subgroup selection
+#' indicators in \eqn{\gamma_{lj}}{gamma_lj}. The published MRF prior is
+#' \deqn{p(\gamma_{lj}\mid\nu_l,\Theta_l) \propto
+#'       \exp\{\nu_l\mathbf{1}^{T}\gamma_{lj}
+#'                +\gamma_{lj}^{T}\Theta_l\gamma_{lj}\}.}{p(gamma_lj | nu_l, Theta_l) is proportional to exp(nu_l * sum(gamma_lj) + gamma_lj-transpose * Theta_l * gamma_lj).}
+#' The symmetric matrix \eqn{\Theta_l}{Theta_l} has zero diagonal and positive
+#' off-diagonal interactions with the Gamma shape/rate `interaction_prior`.
+#' For BMS, these interactions are zero. The prior conditional log-odds is
+#' \eqn{\nu_l+2\sum_{h\ne s}\theta_{l,sh}\gamma_{l,hj}}{nu_l + 2 * sum over h != s of theta_l,sh * gamma_l,hj}; this factor of two
+#' is used by `sampler_method = "paper"`. The legacy update uses a factor of
+#' one and omits the Hastings correction at empty/full model boundaries.
+#' These equations describe the stated model, not a claim that the legacy
+#' transition targets the same posterior.
+#'
+#' @section Computation and interpretation:
+#' The selection sampler integrates regression coefficients and variances using
+#' the package's Laplace-based marginal-likelihood calculation. For augmented
+#' outcomes, this calculation uses the current latent responses. The retained
+#' selection and interaction draws are summarized by [coef.imr()] and
+#' [posterior_summary()]. Coefficient samples require the separate conditional
+#' sampling step [posterior_draws()].
+#'
+#' With `standardize = TRUE`, each predictor uses its training subgroup's
+#' \eqn{z_{sij}=(x_{sij}-\bar x_{sj})/s_{sj}}{z_sij = (x_sij - mean_sj) / sd_sj}. For a constant training
+#' column, the stored center is its mean and the stored scale is one; its
+#' transformed training values are zero. A different value in new data is
+#' still centered at that training mean and need not become zero.
+#' [predict.imr()] reuses these subgroup-specific centers and scales;
+#' refit [cv_imr()] estimates them again within each training fold.
+#'
 #' @param x A list of data frames, one per platform.  Each
 #'   data frame must contain an `id` column (the subject identifier, taken to be
 #'   the first column); the remaining columns are finite numeric features
 #'   measured on that platform.  Subject identifiers must be unique within each
 #'   data frame.  The `id` column links subjects across platforms and to the
 #'   outcome and covariate data.
+#'   Alternatively, supply an [imr_data()] object or a model formula as `x`.
+#'   A formula must include an intercept: `0`/`-1` and `offset()` terms are
+#'   rejected. The identifier column is excluded when expanding `.`.
 #' @param outcome A data frame containing an `id` column and the response.  For
 #'   `outcome_type = "right.censored"` it must also contain the event/censoring
 #'   time and a censoring indicator (three columns in total).  For `"binary"`
@@ -107,12 +167,18 @@
 #'   `imr_data` method to the list method. Unused arguments are rejected.
 #'
 #' @details
-#' All feature and covariate data are standardized internally (mean 0, standard
-#' deviation 1); the centring and scaling factors are stored in the returned
+#' With `standardize = TRUE`, nonconstant feature and covariate columns are
+#' centered and scaled within each availability subgroup. The factors are stored in the returned
 #' object so that [predict.imr()] can apply the same transformation to new
 #' subjects.  For right-censored outcomes the latent log-survival times of
 #' censored subjects are imputed within the sampler; for binary outcomes a
 #' probit data-augmentation latent variable is sampled.
+#' With `standardize = FALSE`, the supplied predictor values are used unchanged.
+#' The historical censored-response proposal has an upper working-scale bound
+#' of 1000.5. Its starting value is the censoring time plus 0.01, which must
+#' remain strictly below that bound. Unsupported censored times are rejected
+#' before native workspaces are allocated. Large raw times should use the
+#' default log scale; the bound does not constrain observed event times.
 #'
 #' For the symmetric interaction matrix in the paper, the conditional
 #' log-odds contribution is `nu + 2 * sum(theta * neighboring_indicators)`.
@@ -135,6 +201,9 @@
 #' Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). "A Bayesian Integrative
 #' Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
 #' \emph{Biometrics}, \strong{73}(2), 615--624. \doi{10.1111/biom.12587}
+#'
+#' [Read paper](https://academic.oup.com/biometrics/article/73/2/615/7537638) |
+#' [Publisher PDF](https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf).
 #'
 #' @seealso [predict.imr()], [cv_imr()], [summary.imr()], [plot.imr()]
 #'

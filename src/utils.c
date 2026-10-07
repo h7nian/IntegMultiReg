@@ -40,7 +40,7 @@ double *imr_copy_symmetric_matrix(const double *lower, int n)
 
 /*
  * Ridge regression predictor:
- *   y_hat = X (X^T X + λI)^(-1) X^T y
+ *   y_hat = X (X^T X + lambdaI)^(-1) X^T y
  *
  * Inputs:
  *   X      : pointer to double array (row-major) of size n * p
@@ -67,7 +67,7 @@ void ridge_predict_only(const double *X, const double *y,
     // XtX = X^T * X
     gsl_blas_dgemm(CblasTrans, CblasNoTrans, 1.0, &Xv.matrix, &Xv.matrix, 0.0, XtX);
 
-    // XtX + λI
+    // XtX + lambdaI
     gsl_matrix_memcpy(XtX_lambdaI, XtX);
     for (int i = 0; i < p; i++) {
         double val = gsl_matrix_get(XtX_lambdaI, i, i) + lambda;
@@ -77,7 +77,7 @@ void ridge_predict_only(const double *X, const double *y,
     // Xty = X^T * y
     gsl_blas_dgemv(CblasTrans, 1.0, &Xv.matrix, &yv.vector, 0.0, Xty);
 
-    // Solve (XtX + λI) * beta = Xty
+    // Solve (XtX + lambdaI) * beta = Xty
     int signum;
     gsl_permutation *perm = gsl_permutation_alloc(p);
     gsl_linalg_LU_decomp(XtX_lambdaI, perm, &signum);
@@ -108,7 +108,7 @@ static float generate_normal(const float sigma)
   } while (r2 > 1.0 || r2 == 0);
 
 
-  /* Box-Muller transform */
+  /* Marsaglia polar method; preserve the historical float intermediates. */
   return sigma * y * sqrt(-2.0 * log(r2) / r2);
 }
 
@@ -132,7 +132,6 @@ static double ers_a_inf(double a)
   double x, z, rho;
   do
   {
-    // x = rexp(ainv) + a; /* rexp works with 1/lambda */
     x = rexponential(ainv) + a;
     z= x - a;
     rho = exp(-0.5 * z * z);
@@ -143,13 +142,10 @@ static double ers_a_inf(double a)
 /* Normal rejection sampling (a,inf) */
 static double nrs_a_inf(double a)
 {
-  // double x = -DBL_AX;
   double x = generate_normal(1.0);
-  // double x = gsl_ran_ugaussian(r);
   while (x < a)
   {
     x = generate_normal(1.0);
-    // x = gsl_ran_ugaussian(r);
   }
   return x;
 }
@@ -250,12 +246,12 @@ SEXP c_array_to_r_matrix(double **array, int rows, int cols)
     return matrix;
 }
 
-double **r_list_vector_double_to_c(int listlength, SEXP LictVect)
+double **r_list_vector_double_to_c(int listlength, SEXP list_vector)
 {
     double **ListVect_c = malloc(listlength * sizeof(double *));
     for (int i = 0; i < listlength; i++)
     {
-        SEXP mPM = VECTOR_ELT(LictVect, i);
+        SEXP mPM = VECTOR_ELT(list_vector, i);
         // Instead of getting dims via getAttrib, use the total length
         int sizeM = LENGTH(mPM);
         ListVect_c[i] = malloc(sizeM * sizeof(double));

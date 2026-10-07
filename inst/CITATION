@@ -12,7 +12,8 @@ bibentry(
   volume   = "73",
   number   = "2",
   pages    = "615--624",
-  doi      = "10.1111/biom.12587"
+  doi      = "10.1111/biom.12587",
+  url      = "https://academic.oup.com/biometrics/article/73/2/615/7537638"
 )
 
 bibentry(
@@ -21,5 +22,6 @@ bibentry(
   author   = c(person("Sinian", "Zhang"),
                person("Jianfeng", "Wang"),
                person("Thierry", "Chekouo")),
+  year     = "2026",
   note     = sprintf("R package version %s", meta$Version)
 )

@@ -23,12 +23,36 @@
 #' are provided for the fitted object, together with the stand-alone displays
 #' \code{\link{plot_top_features}} and \code{\link{plot_subgroup_sizes}}.
 #'
+#' @section Statistical reference:
+#' [imr()] defines the outcome models, pMOM coefficient prior, MRF selection
+#' prior and computational conventions. [imr_data()] explains availability
+#' subgroups. [coef.imr()] defines marginal inclusion probabilities, while
+#' [summary.imr()] explains feature ranking and thresholding.
+#'
+#' Uncertainty has two stages. [posterior_summary()] and [confint.imr()]
+#' summarize the selection and interaction draws already stored in a fit.
+#' [posterior_draws()] performs additional conditional coefficient sampling;
+#' its help page gives the model-averaging construction, sampling budgets and
+#' split R-hat diagnostic. [imr_posterior_methods] explains how those draws
+#' become coefficient and latent-response summaries.
+#'
+#' [predict.imr()] describes ranked-model point prediction and
+#' [predict.imr_posterior()] describes prediction from posterior draws.
+#' [cv_imr()] gives the validation algorithms, metric definitions and the
+#' difference between pooled scores and mean fold scores. These pages state
+#' which quantities are exact summaries of stored draws and which inherit
+#' approximation or historical computational choices.
+#'
+#' @details
 #' Jianfeng Wang initiated the R interface that calls the C implementation.
 #'
 #' @references
 #' Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). "A Bayesian Integrative
 #' Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
 #' \emph{Biometrics}, \strong{73}(2), 615--624. \doi{10.1111/biom.12587}
+#'
+#' [Read paper](https://academic.oup.com/biometrics/article/73/2/615/7537638) |
+#' [Publisher PDF](https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf).
 #'
 #' @keywords internal
 #' @useDynLib IntegMultiReg, .registration = TRUE

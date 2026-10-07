@@ -86,6 +86,17 @@ containing that platform; the displayed bars are the largest such scores
 across all platforms.  This complements the per-platform heatmap of
 \code{plot(fit, type = "selection")}.
 }
+\section{Plotted quantity}{
+
+Each bar is the maximum subgroup mPIP for one platform-feature pair,
+\eqn{r_{lj}=\max_{s\in\mathcal S_l}\widehat\pi_{lsj}}{r_lj = maximum subgroup mPIP for platform l and feature j} as defined in
+\code{\link[=summary.imr]{summary.imr()}}. Bars are ranked jointly across platforms. This maximum
+is the inclusion probability of a maximizing subgroup; it is not a
+coefficient effect size or the posterior probability of selection in at
+least one subgroup. \code{reference} adds a
+visual guide and does not filter the selected \code{top} bars.
+}
+
 \examples{
 \donttest{
 data("simIMR", package = "IntegMultiReg")

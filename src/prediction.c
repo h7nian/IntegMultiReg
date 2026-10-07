@@ -68,12 +68,12 @@ SEXP imr_predict(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R,
     PROTECT(max_models_R);
     protect_count++;
 
-    double h0 = REAL(h0_R)[0];         // scaling factor
-    double h11 = REAL(hh_R)[0];         // scaling factor
-    double alpha = REAL(alpha_R)[0];   // weight of prior beliefs
-    double psi = REAL(psi_R)[0];       // control var of prior distributions
-    double alpha0 = REAL(alpha0_R)[0]; // prior
-    double beta0 = REAL(beta0_R)[0];   // prior scaling factor
+    double h0 = REAL(h0_R)[0];         // pMOM scale for forced coefficients
+    double h11 = REAL(hh_R)[0];        // pMOM scale for molecular coefficients
+    double alpha = REAL(alpha_R)[0];   // residual inverse-Gamma shape
+    double psi = REAL(psi_R)[0];       // residual inverse-Gamma rate
+    double alpha0 = REAL(alpha0_R)[0]; // theta Gamma shape
+    double beta0 = REAL(beta0_R)[0];   // theta Gamma rate
     int n_draws = asInteger(draws_R);
     int n_subgroups = asInteger(n_subgroups_R);
     int *G = INTEGER(n_features_R);
