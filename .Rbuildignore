@@ -1,6 +1,7 @@
 ^data-raw$
 ^\.vscode$
 ^\.github$
+^\.git$
 ^\.DS_Store$
 ^.*\.Rproj$
 ^\.Rproj\.user$

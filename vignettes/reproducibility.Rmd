@@ -1,0 +1,88 @@
+---
+title: "Record and replay an analysis"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Record and replay an analysis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+A version label alone does not identify a development build. The tutorials use
+[source commit `641ca7a`](https://github.com/h7nian/IntegMultiReg/tree/641ca7a5bdb5b4004442732c5359ddeffa0e972e),
+which names the sampler conventions `corrected` and `original` and uses
+`postfit_original` for the original post-fit CV preset. The
+[migration guide](../migration.html) maps values used in earlier snapshots.
+
+# Fix the source and environment
+
+```{r install-snapshot, eval = FALSE}
+remotes::install_github(
+  "h7nian/IntegMultiReg", ref = "641ca7a5bdb5b4004442732c5359ddeffa0e972e"
+)
+packageDescription("IntegMultiReg")$RemoteSha
+sessionInfo()
+```
+
+For an analysis installed from a source tarball, retain that exact tarball and
+its SHA-256 checksum alongside the generating scripts. On Linux use
+`sha256sum IntegMultiReg_0.2.0.tar.gz`; on macOS use
+`shasum -a 256 IntegMultiReg_0.2.0.tar.gz`. Also record the R, GSL and compiler
+versions. A fixed seed does not guarantee identical floating-point arithmetic
+across compilers and platforms.
+
+# Keep data, transformations and actual partitions
+
+The [getting started guide](IntegMultiReg.html) creates `analysis`, `fit` and
+`cv` using the corrected sampler and training-fold refits. Save the validated
+inputs and full objects, not just rounded console output:
+
+```{r retain-analysis, eval = FALSE}
+saveRDS(list(data = analysis, fit = fit, cv = cv), "analysis.rds")
+write.csv(cv$control$folds, "folds.csv", row.names = FALSE)
+write.csv(cv$predictions, "out-of-fold-predictions.csv", row.names = FALSE)
+writeLines(capture.output(sessionInfo()), "sessionInfo.txt")
+```
+
+The fit records its priors, preprocessing, sampler convention, chain lengths
+and seed. CV controls record the actual folds and, for refit CV, the fitting
+seeds in `refit_seeds`. For post-fit validation, retain `row_order` as well as
+fold membership because floating-point summation order can affect the result.
+
+Within a matching source and runtime, replay the recorded validation design:
+
+```{r replay-folds, eval = FALSE}
+saved <- readRDS("analysis.rds")
+replay <- cv_imr(
+  saved$fit, cv_method = "refit", folds = saved$cv$control$folds
+)
+stopifnot(identical(replay$predictions, saved$cv$predictions))
+```
+
+For a saved fit with retired convention names, explicitly call
+`upgrade_imr_fit()` before using it. The upgrade changes labels and validates
+the structure; it preserves the original call and posterior draws. For exact
+historical replay, retain the original source and scripts as well.
+
+# Connect reference outputs to the manuscript
+
+Keep a manifest linking each table or figure to its generating script, source
+commit or source-package checksum, input-data checksum, numerical settings,
+actual seeds/folds and unrounded output. Record which cells or figures the
+manuscript and response letter use. Preserve previous references when an
+algorithm changes, and explain the reason for a new numerical target before
+accepting a replacement.
+
+An independent repeat should run into a new directory without updating the
+reference. Compare the saved predictions and scores, not only the printed
+three-decimal table. The [covariate comparison guide](covariate-comparison.html)
+shows how to reconstruct pooled MSE and check that outer test subjects never
+enter inner validation.
+
+# State what was verified
+
+Successful execution and matching output establish computational repeatability
+under the recorded conditions. They do not establish posterior convergence,
+identify the cause of an older unexplained discrepancy, or confirm every
+scientific conclusion of a study. Conditional coefficient-chain diagnostics
+also do not diagnose the original selection chain. Keep the selection-chain
+and ranking-stability limitations with the reported results.

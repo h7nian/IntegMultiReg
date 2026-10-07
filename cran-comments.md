@@ -32,61 +32,54 @@ These are breaking changes. There are no reverse dependencies on CRAN.
 
 ## Checked source
 
-The package remains version 0.2.0. The implementation was validated at
-`f90a7d350f9c68fa745d397594c08ee08a505ded` in
-https://github.com/h7nian/IntegMultiReg/pull/6.
-The subsequent website changes do not alter R/C code, the namespace, data,
-help topics, tests or vignettes. This submission record is excluded from the
-source package by .Rbuildignore.
+The package remains version 0.2.0. The convention-name and tutorial snapshot is
+`641ca7a5bdb5b4004442732c5359ddeffa0e972e`. The README pins that source for the
+examples. Later documentation records the replay procedure and excludes a
+local Git worktree pointer from source builds.
 
-## Test environments and R CMD check
+This snapshot changes public labels and saved-object conversion, and retains
+the previous algorithm defaults. Its native sources, bundled data, namespace
+and dependency declarations are unchanged from `9b552fa7a766ef01507414dc18f351629b2bddbe`.
 
-All thirteen candidate checks completed successfully on October 6, 2026:
+## Current local checks
 
-* Ubuntu R-release and R-devel, Windows R-release, and macOS ARM R-release:
-  each R CMD check log reports `Status: OK` (0 errors, 0 warnings, 0 notes).
-  Linux and macOS also check the PDF manual; Windows checks without it.
-* The installed suite reports 2880 passing expectations on each platform,
-  with zero failures, errors, warnings or skips.
-* Linux GCC UBSAN, GCC ASAN+UBSAN, Clang UBSAN and Clang ASAN+UBSAN pass.
-* The macOS ARM ASAN+UBSAN job passes.
-* Coverage, documentation-export verification and the complete covariate
-  comparison workflow pass.
+* R-devel (2026-09-21 r90579), GCC 11.2.0 and GSL 2.4 on x86_64 Linux:
+  2904 installed expectations pass, with zero failures, warnings or skips.
+* After mapping renamed metadata, 24 fit/prediction configurations and 18 CV
+  results are bit-identical to an independent pre-rename installation.
+* Two complete corrected-sampler covariate comparisons produce eight identical
+  CSVs. Independent checks reconstruct outer MSE and verify that no outer test
+  subject enters an inner fold. Both executed tutorials render successfully.
+* The full local source check passes the tests, examples, rebuilt vignettes and
+  PDF manual. It initially reports missing checkbashisms/tidy/V8 tooling and a
+  bundled Git worktree pointer. Excluding that pointer leaves every other
+  archived file byte-identical. A packaging recheck with checkbashisms passes;
+  the existing website checks validate TeX with KaTeX independently of V8.
+  The CI source checks supply tidy and V8.
 
-The earlier local HTML-tooling note is absent from these CI checks, which
-provide tidy and V8. The local R 4.4.1 run used an older testthat and reported
-2879 expectations; that count is not substituted for the CI result.
+The clean distribution archive has SHA-256
+`e6d214298cac9ae8ea2dbbd8fbd324b47fc1635a1d565849b6b7400dd3c5487e`.
+The validation record distinguishes this packaging-only change from the source
+archive used by the full replication runs; all 147 retained files match.
 
-## Memory checks
+## Earlier computational baseline
 
-The full installed suite and instrumented PSOCK workers pass Valgrind.
-The parent log reports:
+The computational baseline at `fe9ce3b7a286f2cee8f69ac0b8f25456212a79e1`
+passed the cross-platform source checks, GCC/Clang and macOS ARM sanitizer
+checks, and full Valgrind checks. The full-suite artifact contains 177 process
+logs and the separate worker artifact 36, with zero reported errors or
+unfreed definite allocations. These are identified as baseline checks rather
+than relabelled as runs of the later naming revision. Native C sources are
+unchanged by the naming revision.
 
-    definitely lost: 0 bytes in 0 blocks
-    indirectly lost: 0 bytes in 0 blocks
-    possibly lost: 0 bytes in 0 blocks
-    ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+## Numerical reference scope
 
-The retained full-suite artifact contains 177 logs with zero error summaries;
-the dedicated worker artifact contains another 36. These are the current
-candidate's results, not results copied from a previous release.
+The frozen ARM Mac manuscript reference remains unchanged and has its own
+source-package and script checksums. Earlier independent Linux runs agree
+with each other, while binary AUC differs from that Mac reference by up to
+0.002924. The archived reference source itself reproduces this Linux behavior.
+New source revisions and reference environments are recorded separately;
+matching a version label or replacing an expected CSV is not evidence that an
+older discrepancy has been explained.
 
-## Numerical and documentation checks
-
-Independent installations of the pre-refactor and candidate sources give
-identical results across six fits and eighteen CV combinations on the same
-runtime. Native Gamma-density, prior-indexing and stationary-distribution
-checks pass, as does comparison with independently compiled archived-C
-conditional predictions at tolerance 1e-12.
-
-Two independent manuscript-scale predictive runs on Linux give identical
-saved fit/CV objects for all six outcome/model configurations. The eight
-covariate-comparison CSV tables also agree with an independent execution of
-the displayed manuscript commands. The recorded ARM Mac numerical reference
-is preserved: its binary MCMC results are platform-sensitive, and the archived
-source reproduces the current Linux values. No reference table was overwritten
-to claim cross-platform bitwise agreement.
-
-The website is built from maintained documentation, with generated HTML
-excluded from the source package. Local-link, desktop search, math rendering
-and mobile-navigation checks pass at https://h7nian.github.io/IntegMultiReg/.
+This submission record is excluded from the source package by .Rbuildignore.

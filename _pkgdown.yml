@@ -36,6 +36,8 @@ navbar:
       menu:
       - text: Compare covariate formulas
         href: articles/covariate-comparison.html
+      - text: Record and replay an analysis
+        href: articles/reproducibility.html
       - text: Methods and reproducibility
         href: method-coverage.html
       - text: Migrating to version 0.2.0

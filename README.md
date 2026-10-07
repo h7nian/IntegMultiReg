@@ -19,7 +19,9 @@ some platforms are missing.
 
 Read the [getting started guide](https://h7nian.github.io/IntegMultiReg/articles/IntegMultiReg.html)
 or browse the [function reference](https://h7nian.github.io/IntegMultiReg/reference/index.html).
-These pages describe the GitHub development version, 0.2.0.
+These pages describe the GitHub development version, 0.2.0. The
+[reproducibility guide](https://h7nian.github.io/IntegMultiReg/articles/reproducibility.html)
+explains how to retain the source, settings, folds and results for an analysis.
 
 ## Installation
 
@@ -32,11 +34,15 @@ installed first:
 * Fedora/RHEL: `sudo dnf install gsl-devel`
 * Windows: GSL is provided by Rtools.
 
-To follow the version 0.2.0 examples on this site, install from GitHub:
+The tutorial examples use the 0.2.0 source snapshot
+[`641ca7a`](https://github.com/h7nian/IntegMultiReg/tree/641ca7a5bdb5b4004442732c5359ddeffa0e972e).
+Install that commit for a fixed source version:
 
 ```r
 install.packages("remotes")
-remotes::install_github("h7nian/IntegMultiReg")
+remotes::install_github(
+  "h7nian/IntegMultiReg", ref = "641ca7a5bdb5b4004442732c5359ddeffa0e972e"
+)
 ```
 
 The CRAN release, 0.1.3, uses the earlier API. The 0.2.0 examples on this
