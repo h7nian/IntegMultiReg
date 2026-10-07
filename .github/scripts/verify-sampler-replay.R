@@ -6,12 +6,16 @@ source(".github/reference/native-bridge.R")
 verify_replay <- function(source) {
   directory <- file.path(Sys.getenv("RUNNER_TEMP", tempdir()), "sampler-replay-evidence")
   dir.create(directory, recursive = TRUE, showWarnings = FALSE)
+  directory <- normalizePath(directory, winslash = "/", mustWork = TRUE)
   copied <- file.path(directory, "imr_replay_baseline.c")
   stopifnot(file.copy(source, copied, overwrite = TRUE))
   library <- file.path(directory, paste0("imr_replay_baseline", .Platform$dynlib.ext))
-  status <- system2(file.path(R.home("bin"), "R"),
-    c("CMD", "SHLIB", "-o", shQuote(library), shQuote(copied)),
-    stdout = file.path(directory, "compile.log"), stderr = file.path(directory, "compile.log"))
+  # R's generated make rule cannot safely consume Windows backslashes in an
+  # absolute source path. Compile basenames within the scratch directory.
+  previous <- setwd(directory)
+  status <- tryCatch(system2(file.path(R.home("bin"), "R"),
+    c("CMD", "SHLIB", "-o", shQuote(basename(library)), shQuote(basename(copied))),
+    stdout = "compile.log", stderr = "compile.log"), finally = setwd(previous))
   if (status != 0L) stop("Could not compile baseline kernel; see compile.log.")
   dll <- dyn.load(library)
   on.exit(dyn.unload(library), add = TRUE)
