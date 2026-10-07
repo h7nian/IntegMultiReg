@@ -25,7 +25,10 @@ Rscript .github/scripts/performance-repeat.R /absolute/new-output \
 Replace `sim` with the local converted supplementary `.rda` path and use
 `right.censored` for KIRC. Data never need to be uploaded to CI. Set
 `IMR_PERFORMANCE_STAGES=fit` to measure fitting alone; otherwise the worker also
-runs repeated prediction, all three CV modes and short conditional chains.
+runs repeated prediction, refit CV, both reweighting state collections, and short
+conditional chains. `performance-postfit.R` takes `all_draws` or `top_unique`
+as its third argument. Measurements below retain the terminology and source
+identifiers of the historical runs; they are not measurements of new defaults.
 Short conditional-chain diagnostic warnings are deliberately retained in logs.
 
 `performance-compare.R baseline-output candidate-output` enforces exact saved

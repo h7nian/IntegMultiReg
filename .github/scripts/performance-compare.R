@@ -13,7 +13,7 @@ close <- function(x, y, absolute = 1e-10, relative = 1e-8) {
   keep <- is.finite(x)
   stopifnot(all(abs(x[keep] - y[keep]) <= absolute + relative * abs(x[keep])))
 }
-for (method in c("refit", "reweight")) {
+for (method in c("refit", "reweight_all_draws", "reweight_top_unique")) {
   a <- read(args[1L], paste0("cv-", method))
   b <- read(args[2L], paste0("cv-", method))
   stopifnot(identical(names(a), names(b)), identical(a$validation, b$validation),

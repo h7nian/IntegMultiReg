@@ -83,11 +83,13 @@ for (repeat_index in 1:2) {
   measure(paste0("predict-", repeat_index), predict(fit, data$platforms,
     covariates = if (interface == "formula") clinical else data$covariates))
 }
-for (cv_method in c("refit", "reweight")) {
-  cv_args <- list(object = fit, k = 5L, rounds = 2L, cv_method = cv_method)
-  if ("workers" %in% names(formals(cv_imr))) cv_args$workers <- workers
-  else if (workers != 1L) stop("Installed version does not implement workers")
-  measure(paste0("cv-", cv_method), do.call(cv_imr, cv_args))
+configurations <- list(refit = list(cv_method = "refit"),
+  reweight_all_draws = list(cv_method = "reweight", model_set = "all_draws"),
+  reweight_top_unique = list(cv_method = "reweight", model_set = "top_unique"))
+for (configuration in names(configurations)) {
+  cv_args <- c(list(object = fit, k = 5L, rounds = 2L, workers = workers),
+               configurations[[configuration]])
+  measure(paste0("cv-", configuration), do.call(cv_imr, cv_args))
 }
 # These short conditional chains measure execution, not convergence. Keep warnings.
 measure("posterior", sample_regression_posterior(fit, output_draws = 20L, burnin = 20L,
