@@ -1,590 +1,177 @@
-#' Fit the Integrative Bayesian Multi-Platform Regression Model
+#' Fit Joint Integrative Bayesian Regressions
 #'
-#' @description
-#' `imr()` fits the integrative multi-regression (IMR) model of Chekouo et al.
-#' (2017) by Markov chain Monte Carlo (MCMC).
-#' It identifies biomarkers associated with a time-to-event, binary or
-#' continuous outcome while borrowing information across all subjects,
-#' regardless of which platforms each subject has measured.  Subjects are
-#' partitioned into availability subgroups defined by their pattern of platform
-#' availability; one regression is built per subgroup and information is shared
-#' across subgroups through a Markov random field (MRF) prior on the
-#' variable-selection indicators together with non-local priors on the
-#' regression coefficients.  The sampler is implemented in C for efficiency.
+#' Fits a regression in each availability subgroup and samples selection,
+#' regression coefficients, residual variances and sharing parameters jointly.
+#' Use [coef()], [confint()], [summary()] and [predict()] directly on the fit;
+#' [posterior_draws()] extracts its stored samples without further MCMC.
 #'
-#' The arguments are grouped by the orthogonal aspect of the analysis that each
-#' one controls: the *data* (`x`, `outcome`, `covariates`), the
-#' *likelihood* (`outcome_type`), the *model variant* (`model_variant`), subgroup *filtering*
-#' (`min_subgroup_size`), the *priors* (`nu`, `molecular_prior_scale`, `forced_prior_scale`, `residual_prior`, `interaction_prior`),
-#' the *computation* (`draws`, `burnin`, `seed`) and the *output* (`verbose`).
+#' @section Model and computation:
+#' On the working response scale, subgroup s has
+#' \deqn{z_s=X_s\beta_s+\epsilon_s,\quad\epsilon_s\sim N(0,v_s I).}{z_s = X_s beta_s + error_s; error_s ~ Normal(0, v_s I).}
+#' Continuous responses are observed. Binary responses constrain latent values
+#' above/below zero. Survival uses log time by default; right-censored responses
+#' are augmented above their observed censoring bounds.
 #'
-#' @section Outcome models and priors:
-#' Let \eqn{s} index an availability subgroup. Its design matrix \eqn{Z_s}
-#' contains an intercept, the forced clinical covariates and the selected
-#' molecular features. On the working response scale,
-#' \deqn{y_s^* = Z_s b_s + \epsilon_s,}{y*_s = Z_s b_s + error_s,}
-#' \deqn{\epsilon_s \sim N(0, v_s I).}{error_s ~ N(0, v_s I).}
+#' Every active coefficient, including the intercept and clinical effects, has
+#' the first-order product-moment prior
+#' \deqn{p(\beta_j\mid v_s)=\frac{\beta_j^2}{\tau_jv_s}\phi(\beta_j;0,\tau_jv_s).}{p(beta_j | v_s) = beta_j^2 / (tau_j v_s) * NormalDensity(beta_j; 0, tau_j v_s).}
+#' Molecular effects are exactly zero when excluded. Clinical effects are always
+#' active. `forced_scale` and `molecular_scale` specify their respective tau's.
+#' Residual variance has an inverse-gamma shape/rate prior; binary fits anchor
+#' its latent scale near one with shape and rate both equal to 100000.
 #'
-#' For continuous outcomes, \eqn{y_s^*} is observed. For binary outcomes,
-#' \deqn{Y_i = I(y_i^*>0),}{Y_i = I(y*_i > 0),}
-#' and the latent normal response is sampled on the appropriate side of zero.
-#' The binary prior concentrates \eqn{v_s} near one;
-#' the implemented variance is not fixed exactly at one.
+#' IMR shares selection information through the normalized symmetric MRF
+#' \deqn{p(\gamma_{lj}\mid\Theta_l)\propto
+#' \exp\{\nu_l\mathbf 1^T\gamma_{lj}+\gamma_{lj}^T\Theta_l\gamma_{lj}\}.}{p(gamma_lj | Theta_l) is proportional to exp(nu_l * sum(gamma_lj) + transpose(gamma_lj) * Theta_l * gamma_lj).}
+#' BMS sets interactions to zero. The sampler jointly updates a feature's
+#' selection indicators across its subgroups and then its active coefficients,
+#' using exact scalar pMOM Bayes factors. Whole-feature exchanges aid movement
+#' between correlated predictors. Variances and augmented responses use their
+#' full conditionals; interactions use a Metropolis step with the exact MRF
+#' normalizer. This engine does not use a Laplace model score.
 #'
-#' For the default survival model, an observed event has
-#' \deqn{y_i^*=\log t_i,}{y*_i = log(t_i),}
-#' whereas a censored observation has
-#' \deqn{y_i^*>\log t_i.}{y*_i > log(t_i).}
+#' @section Scaling and interpretation:
+#' When `standardize = TRUE`, a predictor in subgroup s becomes
+#' \deqn{z_{sij}=(x_{sij}-\bar x_{sj})/s_{sj}.}{z_sij = (x_sij - training_mean_sj) / training_sd_sj.}
+#' Constant columns retain their training mean and use scale one, so their
+#' training values become zero; different new values need not become zero.
+#' Prediction reuses the stored training transformations. Coefficients refer to
+#' these transformed columns. With `standardize = FALSE`, supplied columns are
+#' retained as given.
 #'
-#' Every active coefficient has the first-order pMOM density
-#' \deqn{p(b_j\mid v_s) = \frac{b_j^2}{\tau_j v_s}
-#'       \phi(b_j;0,\tau_j v_s),}{p(b_j | v_s) = b_j^2 / (tau_j v_s) * NormalDensity(b_j; 0, tau_j v_s).}
-#' where \eqn{\phi(\cdot;\mu,v)}{phi(. ; mu, v)} is a normal density with variance \eqn{v}.
-#' The scale \eqn{\tau_j}{tau_j} is
-#' `forced_prior_scale` for the intercept and clinical
-#' effects and `molecular_prior_scale` for molecular effects. Inactive molecular
-#' coefficients are exactly zero.
+#' Multiple chains and [mcmc_diagnostics()] assess finite-chain exploration.
+#' Constant indicators have undefined R-hat and are reported separately, not
+#' certified as converged. Neither a successful fit nor an R-hat cutoff alone
+#' establishes adequate inference for a particular scientific analysis.
 #'
-#' The residual prior is
-#' \deqn{v_s\sim\mathrm{IG}(a,b),}{v_s ~ inverse-Gamma(a, b),}
-#' parameterized by a density proportional to
-#' \deqn{v_s^{-a-1}\exp(-b/v_s).}{v_s^(-a - 1) * exp(-b/v_s).}
-#'
-#'
-#' For feature \eqn{j} on platform \eqn{l}, collect its subgroup selection
-#' indicators in \eqn{\gamma_{lj}}{gamma_lj}. The published MRF prior is
-#' \deqn{p(\gamma_{lj}\mid\nu_l,\Theta_l) \propto
-#'       \exp\{\nu_l\mathbf{1}^{T}\gamma_{lj}
-#'                +\gamma_{lj}^{T}\Theta_l\gamma_{lj}\}.}{p(gamma_lj | nu_l, Theta_l) is proportional to exp(nu_l * sum(gamma_lj) + gamma_lj-transpose * Theta_l * gamma_lj).}
-#' The symmetric matrix \eqn{\Theta_l}{Theta_l} has zero diagonal and positive
-#' off-diagonal interactions with the Gamma shape/rate `interaction_prior`.
-#' For BMS, these interactions are zero. The prior conditional log-odds is
-#' \deqn{\nu_l+2\sum_{h\ne s}\theta_{l,sh}\gamma_{l,hj}.}{nu_l + 2 * sum over h != s of theta_l,sh * gamma_l,hj.}
-#'
-#' Fitting uses this symmetric-MRF factor of two and the Hastings correction
-#' for flip proposals at empty/full model boundaries. The logged Gamma prior
-#' uses its negative rate term. Historical updates with different targets are
-#' not selectable through the fitting interface; retain their source snapshot
-#' for numerical replay.
-#'
-#' @section Computation and interpretation:
-#' The selection sampler integrates regression coefficients and variances using
-#' the package's Laplace-based marginal-likelihood calculation. For augmented
-#' outcomes, this calculation uses the current latent responses. The retained
-#' selection and interaction draws are summarized by [inclusion_probabilities()] and
-#' [selection_summary()]. Coefficient samples require the separate conditional
-#' sampling step [sample_regression_posterior()].
-#'
-#' With `standardize = TRUE`, each predictor uses its training subgroup's
-#' center and scale:
-#' \deqn{z_{sij}=\frac{x_{sij}-\bar x_{sj}}{s_{sj}}.}{z_sij = (x_sij - mean_sj) / sd_sj.}
-#'
-#' For a constant training column, the stored center is its mean and the stored scale is one; its
-#' transformed training values are zero. A different value in new data is
-#' still centered at that training mean and need not become zero.
-#' [predict.imr()] reuses these subgroup-specific centers and scales;
-#' refit [cv_imr()] estimates them again within each training fold.
-#'
-#' @param x A list of data frames, one per platform.  Each
-#'   data frame must contain an `id` column (the subject identifier, taken to be
-#'   the first column); the remaining columns are finite numeric features
-#'   measured on that platform.  Subject identifiers must be unique within each
-#'   data frame.  The `id` column links subjects across platforms and to the
-#'   outcome and covariate data.
-#'   Alternatively, supply an [imr_data()] object or a model formula as `x`.
-#'   A formula must include an intercept: `0`/`-1` and `offset()` terms are
-#'   rejected. The identifier column is excluded when expanding `.`.
-#' @param outcome A data frame containing an `id` column and the response.  For
-#'   `outcome_type = "right.censored"` it must also contain the event/censoring
-#'   time and a censoring indicator (three columns in total).  For `"binary"`
-#'   the response must be coded 0/1 and for `"continuous"` it is a numeric
-#'   response (two columns in total).  The `id` column must be first and unique.
-#' @param covariates An optional data frame of clinical covariates including an `id`
-#'   column followed by finite numeric covariates.  Covariates are always
-#'   included in every regression (they are not subject to selection).  Defaults
-#'   to `NULL` (no covariates).
-#' @param outcome_type Character string specifying the outcome type, one of
-#'   `"right.censored"` (default), `"binary"` or `"continuous"`.
-#' @param model_variant Model variant: `"imr"` (default) for
-#'   the integrative model that shares information across subgroups via the MRF
-#'   prior, or `"bms"` for the non-integrative Bayesian multi-step variant that
-#'   fits each subgroup independently (MRF interaction parameters set to zero).
-#' @param min_subgroup_size Minimum availability subgroup size for a subgroup to be
-#'   modelled. Subgroups with at most `min_subgroup_size` subjects are dropped. Default is
-#'   `30`.
-#' @param nu A numeric vector of prior log-odds of inclusion, one value per
-#'   platform, controlling the prior sparsity of the selected features.
-#'   Defaults to `rep(-3, length(x))`.
-#' @param molecular_prior_scale Scale of the non-local (product moment) prior on the slab
-#'   regression effects (default `0.087`).
-#' @param forced_prior_scale pMOM prior scale for the always-included intercept and clinical
-#'   coefficients (default `10000`), corresponding to tau_0 in the original
-#'   paper. This is not the marginal prior variance.
-#' @param residual_prior Length-2 numeric vector with the shape and rate of the
-#'   inverse-gamma prior on the response error variance (default
-#'   `c(0.001, 0.001)`).  Ignored when `outcome_type = "binary"`: a probit model
-#'   uses a highly concentrated inverse-gamma prior with shape and rate
-#'   `100000` to approximate unit residual variance for identifiability.
-#' @param interaction_prior Length-2 numeric vector with the shape and rate of the
-#'   gamma prior on the MRF interaction parameters theta, which borrow
-#'   information across subgroups (default `c(40, 10)`).
-#' @param draws Number of post-burn-in MCMC draws to retain (default `2000`).
-#' @param burnin Number of initial MCMC iterations to discard (default `1000`).
-#' @param seed Optional integer seed for the sampler.  If `NULL` (the default) a
-#'   seed is drawn from the current R RNG state, so a run is reproducible
-#'   whenever [set.seed()] is called beforehand or an explicit `seed` is passed.
-#' @param verbose Logical; if `TRUE`, print the sampler's progress and
-#'   diagnostics to the console.  Defaults to `FALSE` (quiet).
-#' @param survival_scale Working response scale for right-censored outcomes.
-#'   `"log"` (default) logs the supplied positive event/censoring times, as in
-#'   the original AFT model. `"identity"` reproduces historical package analyses
-#'   and does not fit a log-time AFT model. Ignored for other outcome types.
-#' @param laplace_max_iter Maximum coefficient-mode iterations, either a
-#'   positive integer for all stages or a named vector in the order `initial`,
-#'   `selection`, `latent`, `prediction`. Defaults are 25, 40, 25, 40. The
-#'   released C code used 25 for prediction; these are not MCMC draw counts.
-#' @param laplace_tolerance Positive relative coefficient-mode convergence
-#'   tolerance (default `0.001`). Numerical controls are stored in the fit and
-#'   reused by prediction and cross-validation, including training-fold refits.
-#'   `control$laplace_diagnostics` records calls, iteration-limit hits, nonfinite
-#'   likelihoods and factorization failures by subgroup for the initial,
-#'   selection and latent fitting stages. These counters do not assess MCMC
-#'   convergence or subsequent prediction-stage optimization.
-#' @param initial Optional named list with `selection` and/or `interaction`.
-#'   Each component is a list of matrices named by platform. Selection matrices
-#'   have subgroup rows and feature columns, with entries zero or one; interaction
-#'   matrices have subgroup rows/columns, positive symmetric off-diagonals and
-#'   zero diagonals (IMR only). Dimnames must match the fitted model order.
-#'   NULL preserves the original random initialization and RNG consumption.
-#'   Supplied selection bypasses its initialization draws. Refit CV reuses the
-#'   specified starting values; missing components retain their defaults.
-#' @param standardize Logical; standardize features and forced covariates
-#'   within availability subgroups (default `TRUE`). Set `FALSE` for inputs
-#'   already transformed by an external historical experiment. Prediction then
-#'   uses those supplied units. Refit CV cannot undo external preprocessing;
-#'   record how the supplied data were constructed.
-#' @param ... Additional fitting arguments passed from the formula or
-#'   `imr_data` method to the list method. Unused arguments are rejected.
-#'
-#' @details
-#' With `standardize = TRUE`, feature and covariate columns are centered
-#' within each availability subgroup. Nonconstant columns are divided by their
-#' sample standard deviations; constant columns use scale one and become zero
-#' in the training data. The factors are stored in the returned
-#' object so that [predict.imr()] can apply the same transformation to new
-#' subjects.  For right-censored outcomes the latent log-survival times of
-#' censored subjects are imputed within the sampler; for binary outcomes a
-#' probit data-augmentation latent variable is sampled.
-#' With `standardize = FALSE`, the supplied predictor values are used unchanged.
-#' The historical censored-response proposal has an upper working-scale bound
-#' of 1000.5. Its starting value is the censoring time plus 0.01, which must
-#' remain strictly below that bound. Unsupported censored times are rejected
-#' before native workspaces are allocated. Large raw times should use the
-#' default log scale; the bound does not constrain observed event times.
-#'
-#' See the [methods and reproducibility guide](https://h7nian.github.io/IntegMultiReg/method-coverage.html)
-#' for the distinction between the stated model and archived implementations.
-#' Upgrading a saved object's structure does not change its sampling target.
-#'
-#' @return An object of class `"imr"` with `schema_version = 3L` and four
-#'   named sections: `control` (outcome, model variant, update rule, priors, MCMC and seed), `model`
-#'   (platform, feature and subgroup metadata), `preprocessing` (validated
-#'   inputs, standardized matrices and formula metadata), and `posterior`
-#'   (inclusion probabilities, interaction draws, latent-response summaries
-#'   and the log-posterior trace).
-#'
-#' @references
-#' Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). "A Bayesian Integrative
-#' Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
-#' \emph{Biometrics}, \strong{73}(2), 615--624. \doi{10.1111/biom.12587}
-#'
-#' [Read paper](https://academic.oup.com/biometrics/article/73/2/615/7537638) |
-#' [Publisher PDF](https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf).
-#'
-#' @seealso [predict.imr()], [cv_imr()], [summary.imr()], [plot.imr()]
-#'
-#' @examples
-#' \donttest{
-#' data("simIMR", package = "IntegMultiReg")
-#' fit <- imr(
-#'   x = simIMR$platforms,
-#'   outcome = simIMR$outcome,
-#'   covariates = simIMR$covariates,
-#'   outcome_type = "binary",
-#'   nu = c(-4, -3, -4),
-#'   draws = 200, burnin = 100,
-#'   min_subgroup_size = 5,
-#'   seed = 1
-#' )
-#' fit
-#' }
+#' @param x An [imr_data()] object, a formula, or a named list of platform data
+#'   frames. Each frame contains unique `id` values and numeric feature columns.
+#' @param outcome Outcome data frame with `id` and response; survival also has
+#'   an event indicator (one for an observed event, zero for right censoring).
+#' @param covariates Optional numeric clinical data frame, including `id`.
+#' @param outcome_type `"continuous"`, `"binary"`, or `"right.censored"`.
+#' @param model_variant `"imr"` shares information; `"bms"` fits independent
+#'   subgroup regressions under the same coefficient and variance priors.
+#' @param priors Statistical settings from [imr_priors()].
+#' @param mcmc Sampling and storage settings from [imr_mcmc()].
+#' @param min_subgroup_size Groups with at most this many subjects are excluded.
+#' @param standardize Center/scale predictors within each training subgroup.
+#' @param survival_scale `"log"` for an AFT model or `"identity"` for a Gaussian
+#'   working-time model. Applies only to survival outcomes.
+#' @param verbose Print progress for each chain.
+#' @param ... Passed by the generic to its method; unsupported arguments fail.
+#' @return An `imr` object with schema version 4, containing controls, model
+#'   metadata, preprocessing, joint posterior arrays and MCMC diagnostics.
+#'   Array dimensions preserve iteration, chain and parameter identities.
+#' @seealso [posterior_draws()], [inclusion_probabilities()], [cv_imr()]
+#' @references Chekouo T, Stingo FC, Doecke JD, Do K-A (2017).
+#'   A Bayesian Integrative Approach for Multi-Platform Genomic Data: A Kidney
+#'   Cancer Case Study. Biometrics, 73(2), 615--624. \doi{10.1111/biom.12587}.
 #' @export
+#' @examples
+#' x <- data.frame(id = 1:40, marker = sin(1:40))
+#' y <- data.frame(id = x$id, y = 1 + x$marker + cos(x$id) / 3)
+#' fit <- imr(list(assay = x), y,
+#'   outcome_type = "continuous",
+#'   priors = imr_priors(forced_scale = 1),
+#'   mcmc = imr_mcmc(draws = 500, burnin = 500, chains = 2, seed = 1)
+#' )
+#' coef(fit)
+#' confint(fit)
 imr <- function(x, ...) UseMethod("imr")
 
 #' @rdname imr
 #' @export
 imr.default <- function(x, ...) {
-  .imr_abort("`x` must be a platform list, formula, or `imr_data` object.")
-}
-
-.imr_new_fit <- function(control, model, preprocessing, posterior) {
-  structure(
-    list(
-      schema_version = 3L,
-      control = control,
-      model = model,
-      preprocessing = preprocessing,
-      posterior = posterior
-    ),
-    class = "imr"
-  )
+  .imr_abort("`x` must be an imr_data object, formula, or platform list.")
 }
 
 #' @rdname imr
 #' @export
 imr.list <- function(x, outcome, covariates = NULL,
                      outcome_type = c("right.censored", "binary", "continuous"),
-                     model_variant = c("imr", "bms"), min_subgroup_size = 30L,
-                     nu = rep(-3, length(x)), molecular_prior_scale = 0.087,
-                     forced_prior_scale = 10000,
-                     residual_prior = c(shape = 0.001, rate = 0.001),
-                     interaction_prior = c(shape = 40, rate = 10),
-                     draws = 2000L, burnin = 1000L, seed = NULL,
-                     verbose = FALSE,
-                     survival_scale = c("log", "identity"),
-                     laplace_max_iter = c(initial = 25L, selection = 40L,
-                                          latent = 25L, prediction = 40L),
-                     laplace_tolerance = 1e-3, standardize = TRUE, initial = NULL, ...) {
+                     model_variant = c("imr", "bms"),
+                     priors = imr_priors(), mcmc = imr_mcmc(),
+                     min_subgroup_size = 30L, standardize = TRUE,
+                     survival_scale = c("log", "identity"), verbose = FALSE, ...) {
   .imr_reject_dots(...)
-  call <- match.call()
   outcome_type <- match.arg(outcome_type)
-  survival_scale <- match.arg(survival_scale)
-  numerical <- .imr_numerical_control("coefficient_blocks",
-                                      laplace_max_iter, laplace_tolerance)
   model_variant <- match.arg(model_variant)
-
-  .imr_check_flag(verbose, "verbose")
+  survival_scale <- match.arg(survival_scale)
   .imr_check_flag(standardize, "standardize")
-  validated <- imr_data(
-    platforms = x,
-    outcome = outcome,
-    covariates = covariates,
-    outcome_type = outcome_type
+  .imr_check_flag(verbose, "verbose")
+  min_subgroup_size <- .imr_check_integer_scalar(min_subgroup_size, "min_subgroup_size", min = 0)
+  priors <- .imr_validate_specification(priors, imr_priors, "imr_priors")
+  mcmc <- .imr_validate_specification(mcmc, imr_mcmc, "imr_mcmc")
+  data <- imr_data(x, outcome, covariates, outcome_type = outcome_type)
+  if (length(priors$nu) == 1L) priors$nu <- rep(priors$nu, length(data$platforms))
+  if (length(priors$nu) != length(data$platforms)) .imr_abort("`priors$nu` needs one value or one per platform.")
+  default_residual <- if (outcome_type == "binary") c(shape = 1e5, rate = 1e5) else c(shape = .001, rate = .001)
+  if (outcome_type == "binary" && !is.null(priors$residual) && !identical(priors$residual, default_residual)) {
+    .imr_abort("Binary latent variance uses the anchored prior c(shape = 1e5, rate = 1e5); leave `residual = NULL` or specify that pair.")
+  }
+  priors$residual <- priors$residual %||% default_residual
+  prepared <- .imr_prepare_fit(data, min_subgroup_size, standardize, survival_scale)
+  control <- list(
+    call = match.call(), outcome_type = outcome_type,
+    model_variant = model_variant, response_scale = if (outcome_type == "right.censored") survival_scale else if (outcome_type == "binary") "probit" else "identity",
+    priors = priors, mcmc = mcmc, rng_kind = RNGkind(),
+    min_subgroup_size = min_subgroup_size, standardize = standardize,
+    inference = "joint_pmom_mrf", package_version = "0.3.0"
   )
-  platforms <- validated$platforms
-  outcome <- validated$outcome
-  covariates <- validated$covariates
-  n_platforms <- length(platforms)
-
-  min_subgroup_size <- .imr_check_integer_scalar(
-    min_subgroup_size, "min_subgroup_size", min = 0
+  spec <- .imr_joint_specification(prepared$model, prepared$preprocessing, control)
+  parameters <- sum(vapply(spec$groups, function(g) ncol(g$design), 1L)) + length(spec$groups) + 1L
+  if (model_variant == "imr") {
+    parameters <- parameters + sum(vapply(
+      spec$platforms,
+      function(p) choose(length(p$groups), 2), 0
+    ))
+  }
+  if (mcmc$keep_latent && outcome_type != "continuous") parameters <- parameters + sum(prepared$model$sample_sizes)
+  expected_bytes <- 8 * as.double(mcmc$draws) * mcmc$chains * parameters
+  if (!is.finite(expected_bytes) || expected_bytes > mcmc$max_draw_memory_mb * 1024^2) {
+    .imr_abort(sprintf("Retained posterior arrays need about %.1f MiB; reduce retained `draws` or raise `mcmc$max_draw_memory_mb`. This excludes temporary fitting memory.", expected_bytes / 1024^2))
+  }
+  control$retained_draw_bytes <- expected_bytes
+  seed <- mcmc$seed
+  if (is.null(seed)) seed <- sample.int(.Machine$integer.max, 1L)
+  saved_rng <- .imr_save_rng()
+  on.exit(.imr_restore_rng(saved_rng), add = TRUE)
+  set.seed(seed)
+  seeds <- matrix(sample.int(.Machine$integer.max, 2L * mcmc$chains, replace = FALSE), nrow = 2L)
+  control$seed <- seed
+  control$chain_seeds <- seeds[1L, ]
+  control$initial_seeds <- seeds[2L, ]
+  tasks <- lapply(seq_len(mcmc$chains), function(i) list(chain = i, seed = seeds[1L, i], initial_seed = seeds[2L, i]))
+  chains <- .imr_map_tasks(tasks, .imr_joint_chain, mcmc$workers,
+    spec = spec, model = prepared$model, control = control, verbose = verbose
   )
-  nu <- .imr_check_numeric_vector(nu, "nu", length = n_platforms)
-  forced_prior_scale <- .imr_check_numeric_vector(
-    forced_prior_scale, "forced_prior_scale", length = 1, positive = TRUE
+  control$initial <- lapply(chains, `[[`, "initial")
+  control$acceptance <- data.frame(
+    chain = seq_len(mcmc$chains),
+    do.call(rbind, lapply(chains, `[[`, "acceptance"))
   )
-  molecular_prior_scale <- .imr_check_numeric_vector(
-    molecular_prior_scale, "molecular_prior_scale", length = 1, positive = TRUE
-  )
-  residual_prior <- .imr_check_named_pair(residual_prior, "residual_prior")
-  interaction_prior <- .imr_check_named_pair(interaction_prior, "interaction_prior")
-  draws <- .imr_check_integer_scalar(draws, "draws", min = 1)
-  burnin <- .imr_check_integer_scalar(burnin, "burnin", min = 0)
-  if (as.double(draws) + as.double(burnin) > .Machine$integer.max) {
-    .imr_abort("The sum of `draws` and `burnin` must not exceed the native integer limit.")
-  }
-  if (!is.null(seed)) {
-    seed <- .imr_check_integer_scalar(seed, "seed", min = 0)
-  }
-
-  ## The sampler draws on both R's RNG and a GSL RNG seeded by `seed`.  With an
-  ## explicit seed we call set.seed() so the run is fully reproducible; when
-  ## `seed` is NULL we instead draw one from the ambient R RNG, so results follow
-  ## the user's own set.seed() like other R modelling functions.
-  if (is.null(seed)) {
-    seed <- sample.int(.Machine$integer.max, 1L)
-  } else {
-    set.seed(seed)
-  }
-
-  ## Record human-readable platform and feature names (the first column of each
-  ## platform is the 'id' and is dropped before modelling).
-  platform_names <- names(platforms)
-  if (is.null(platform_names) || any(platform_names == "")) {
-    platform_names <- paste0("platform", seq_len(n_platforms))
-  }
-  feature_names <- lapply(platforms, function(platform) colnames(platform)[-1])
-
-  dat <- .imr_subgroup_data(outcome, covariates, platforms)
-  # Prepare scalar parameters.
-  h0_c <- as.numeric(forced_prior_scale)
-  hh_c <- as.numeric(molecular_prior_scale)
-  alpha_c <- as.numeric(residual_prior[["shape"]])
-  psi_c <- as.numeric(residual_prior[["rate"]])
-  if (outcome_type == "binary") {
-    # A concentrated inverse-Gamma prior anchors the binary latent scale near
-    # one. This is not a point mass: variance remains part of the model and of
-    # the conditional coefficient sampler.
-    probit_unit_variance <- 1e5
-    alpha_c <- psi_c <- probit_unit_variance
-  }
-  alpha0_c <- as.numeric(interaction_prior[["shape"]])
-  beta0_c <- as.numeric(interaction_prior[["rate"]])
-  seed_c <- as.numeric(seed)
-
-  storage.mode(h0_c) <- "double"
-  storage.mode(hh_c) <- "double"
-  storage.mode(alpha_c) <- "double"
-  storage.mode(psi_c) <- "double"
-  storage.mode(alpha0_c) <- "double"
-  storage.mode(beta0_c) <- "double"
-  storage.mode(seed_c) <- "double"
-
-  #################################################################
-  # Process the platform data and extract subgroup id vectors.
-  #################################################################
-  dat_orig <- dat # Preserve the original data (with "id" columns intact)
-  # For each subgroup, extract the id vector from the first nonempty platform.
-  dat_ids <- lapply(dat_orig[[3]], function(subgroup) {
-    nonempty <- which(sapply(subgroup, function(platform_data) {
-      if (is.data.frame(platform_data) && "id" %in% colnames(platform_data)) {
-        return(nrow(platform_data))
-      } else {
-        return(0)
-      }
-    }) > 0)
-    if (length(nonempty) > 0) {
-      return(subgroup[[nonempty[1]]]$id)
-    } else {
-      return(character(0))
-    }
-  })
-
-  # Now convert the platform data into a list of numeric matrices by dropping
-  # the "id" column.
-  dat[[3]] <- .imr_platform_matrices(dat[[3]])
-
-  n_features <- as.integer(vapply(
-    platforms, function(platform) ncol(platform) - 1L, integer(1)
-  ))
-  # Compute representative row counts for each subgroup.
-  subgroup_rows <- sapply(dat[[3]], function(subgroup) {
-    nonempty <- which(sapply(subgroup, function(mat) nrow(mat)) > 0)
-    if (length(nonempty) > 0) {
-      nrow(subgroup[[nonempty[1]]])
-    } else {
-      0
-    }
-  })
-
-  # Keep only subgroups above the requested minimum size.
-  model_index <- as.integer(which(subgroup_rows > min_subgroup_size))
-  if (length(model_index) == 0) {
-    .imr_abort(
-      "No availability subgroup has more than `min_subgroup_size` subjects; lower it or check the data."
-    )
-  }
-  sample_size <- as.integer(subgroup_rows[model_index])
-
-  # Filter the platform data to include only subgroups meeting the threshold.
-  dat_filtered <- lapply(dat, function(x) x[model_index])
-
-  # Also filter the original id vectors accordingly.
-  subgroup_ids_filtered <- dat_ids[model_index]
-
-  #############################################################
-  # Process the response and covariates using the filtered subgroup ids.
-  #############################################################
-  ### Match ids and drop the id column from the outcome and covariate frames.
-  dat_filtered[[1]] <- lapply(
-    seq_along(dat_filtered[[1]]),
-    function(i) {
-      .imr_match_rows(
-        dat_filtered[[1]][[i]], subgroup_ids_filtered[[i]], "outcome"
-      )[, -1, drop = FALSE]
-    }
-  )
-  if (!is.null(covariates)) {
-    dat_filtered[[2]] <- lapply(
-      seq_along(dat_filtered[[2]]),
-      function(i) {
-        .imr_match_rows(
-          dat_filtered[[2]][[i]], subgroup_ids_filtered[[i]], "covariates"
-        )[, -1, drop = FALSE]
-      }
-    )
-  }
-
-  dat_normalized <- dat_filtered
-
-  platform_preprocessing <- lapply(dat_filtered[[3]], function(platforms) {
-    lapply(platforms, .imr_prepare_matrix, standardize = standardize)
-  })
-  platform_field <- function(field) lapply(platform_preprocessing, function(platforms) {
-    lapply(platforms, `[[`, field)
-  })
-  mean_train <- platform_field("mean")
-  sd_train <- platform_field("sd")
-  dat_normalized[[3]] <- platform_field("normalized")
-  if (!is.null(covariates)) {
-    covariate_preprocessing <- lapply(dat_filtered[[2]], .imr_prepare_matrix,
-                                     standardize = standardize)
-    mean_cov_train <- lapply(covariate_preprocessing, `[[`, "mean")
-    sd_cov_train <- lapply(covariate_preprocessing, `[[`, "sd")
-    dat_normalized[[2]] <- lapply(covariate_preprocessing, `[[`, "normalized")
-  } else {
-    mean_cov_train <- NULL
-    sd_cov_train <- NULL
-  }
-
-  ## outcome: force double storage (the C sampler reads it with REAL())
-  dat_normalized[[1]] <- lapply(dat_filtered[[1]], function(x) {
-    m <- as.matrix(x)
-    storage.mode(m) <- "double"
-    m
-  })
-
-  if (verbose) {
-    cat("Sample sizes for modelled availability subgroups:", sample_size, "\n")
-  }
-
-  ### For each model, list the corresponding platforms involved in the model
-  n_models <- length(model_index)
-
-  subgroup_platforms_c <- sapply(1:n_models, function(x) {
-    as.integer((seq_along(dat_normalized[[3]][[x]]) - 1)[unlist(lapply(
-      seq_along(dat_normalized[[3]][[x]]),
-      function(i) nrow(dat_normalized[[3]][[x]][[i]])
-    )) > 0])
-  }, simplify = FALSE)
-
-  ### For each platform, obtain the model indices where that platform is involved
-  platform_subgroups_c <- lapply(seq_len(n_platforms), function(x) {
-    as.integer((seq(1, n_models) - 1)[unlist(lapply(
-      subgroup_platforms_c,
-      function(y) (x - 1) %in% y
-    ))])
-  })
-  .imr_check_mrf_capacity(platform_subgroups_c)
-
-  n_platform_c <- n_platforms
-  x_filtered <- dat_normalized[[3]]
-  y_list <- dat_normalized[[1]]
-  if (outcome_type == "right.censored" && survival_scale == "log") {
-    y_list <- lapply(y_list, function(y) {
-      y[, 1L] <- log(y[, 1L])
-      y
-    })
-  }
-
-  if (!is.null(covariates)) {
-    n_cov <- ncol(dat_normalized[[2]][[1]])
-  } else {
-    n_cov <- 0
-  }
-  if (n_cov == 0) {
-    cov_list <- lapply(y_list, function(x) {
-      matrix(numeric(0), nrow = nrow(x), ncol = 0)
-    })
-  } else {
-    cov_list <- dat_normalized[[2]]
-  }
-
-  nu_c <- as.double(nu)
-
-  ###########################################
-  # Call the compiled MCMC sampler.
-  ###########################################
-  effective_priors <- list(
-    forced_scale = h0_c, molecular_scale = hh_c,
-    residual = c(shape = alpha_c, rate = psi_c),
-    interaction = c(shape = alpha0_c, rate = beta0_c)
-  )
-  initial <- .imr_initial_state(initial, platform_names,
-    lapply(platform_subgroups_c, function(i) names(x_filtered)[i + 1L]), feature_names, model_variant)
-  results <- .imr_call_fit_native(
-    priors = effective_priors, seed = seed_c, nu = nu_c, model_variant = model_variant,
-    n_platforms = n_platform_c, platform_subgroups = platform_subgroups_c,
-    subgroup_platforms = subgroup_platforms_c, sample_sizes = sample_size,
-    n_features = n_features, n_covariates = n_cov, features = x_filtered,
-    response = y_list, outcome_type = outcome_type, covariates = cov_list,
-    draws = draws, burnin = burnin, verbose = verbose,
-    selection_update = "symmetric_mrf_hastings", numerical = numerical, initial = initial
-  )
-
-  ## Guard against tiny floating-point drift in the running averages so that
-  ## the reported inclusion probabilities are exactly within [0, 1].
-  results$gam_mean <- lapply(results$gam_mean, function(m) {
-    m[m > 1] <- 1
-    m[m < 0] <- 0
-    m
-  })
-
-  subgroup_names <- names(x_filtered)
-  fit <- .imr_new_fit(
-    control = list(
-      call = call, outcome_type = outcome_type,
-      response_scale = if (outcome_type == "right.censored") survival_scale else
-        if (outcome_type == "binary") "probit" else "identity",
-      model_variant = model_variant, selection_update = "symmetric_mrf_hastings", min_subgroup_size = min_subgroup_size,
-      priors = list(nu = nu, molecular_scale = molecular_prior_scale,
-        forced_scale = forced_prior_scale,
-        residual = c(shape = alpha_c, rate = psi_c),
-        interaction = interaction_prior),
-      mcmc = list(draws = draws, burnin = burnin), seed = seed, numerical = numerical,
-      standardize = standardize, initial = initial,
-      laplace_diagnostics = data.frame(
-        subgroup = rep(subgroup_names, each = 3L),
-        stage = rep(c("initial", "selection", "latent"), length(subgroup_names)),
-        stats::setNames(as.data.frame(results$laplace_diagnostics),
-          c("calls", "iteration_limit", "nonfinite", "factorization_failures"))),
-      rng_state = list(generator = "gsl_rand48", endian = .Platform$endian,
-                       state = results$rng_state)
-    ),
-    model = list(
-      n_platforms = n_platforms, platform_names = platform_names,
-      feature_names = feature_names,
-      covariate_names = if (!is.null(covariates)) colnames(covariates)[-1] else character(),
-      subgroup_names = subgroup_names,
-      sample_sizes = stats::setNames(sample_size, subgroup_names),
-      subgroup_platforms = lapply(subgroup_platforms_c, function(index) index + 1L),
-      platform_subgroups = lapply(platform_subgroups_c, function(index) index + 1L)
-    ),
-    preprocessing = list(
-      input_data = validated, features = x_filtered, response = y_list,
-      covariates = cov_list, feature_center = mean_train,
-      feature_scale = sd_train, covariate_center = mean_cov_train,
-      covariate_scale = sd_cov_train, formula = NULL, formula_data = NULL,
-      terms = NULL, contrasts = NULL, xlevels = NULL, id = "id"
-    ),
-    posterior = list(
-      inclusion_probabilities = results$gam_mean,
-      interaction_means = results$theta_mean,
-      latent_response_mean = results$estimate_latent_y,
-      log_posterior = results$log_posterior,
-      selection_draws = results$gam_sample,
-      interaction_draws = results$theta_sample
-    )
-  )
+  names(control$acceptance)[-1L] <- c("swap_proposals", "swap_accepts", "interaction_proposals", "interaction_accepts")
+  fit <- structure(list(
+    schema_version = 4L, control = control,
+    model = prepared$model, preprocessing = prepared$preprocessing,
+    posterior = .imr_combine_chains(chains, prepared$model, prepared$preprocessing, spec, mcmc),
+    diagnostics = NULL
+  ), class = "imr")
   validate_imr_object(fit)
+  if (mcmc$diagnostics) {
+    fit$diagnostics <- .imr_compute_diagnostics(fit)
+    .imr_warn_diagnostics(fit$diagnostics)
+  }
   fit
 }
-
 
 #' @rdname imr
 #' @export
 imr.imr_data <- function(x, ...) {
   validate_imr_data(x)
-  if (is.null(x$outcome)) {
-    .imr_abort("An `imr_data` object used for fitting must contain an outcome.")
-  }
-  fit <- imr.list(
-    x = x$platforms,
-    outcome = x$outcome,
-    covariates = x$covariates,
-    outcome_type = x$outcome_type,
-    ...
-  )
+  if (is.null(x$outcome)) .imr_abort("Fitting requires an outcome in the imr_data object.")
+  fit <- imr.list(x$platforms, x$outcome, x$covariates, outcome_type = x$outcome_type, ...)
   fit$control$call <- match.call()
   fit$preprocessing$input_data <- x
   fit

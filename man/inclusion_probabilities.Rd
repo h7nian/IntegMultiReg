@@ -2,35 +2,33 @@
 % Please edit documentation in R/methods.R
 \name{inclusion_probabilities}
 \alias{inclusion_probabilities}
-\title{Marginal Posterior Inclusion Probabilities of an IMR Fit}
+\title{Extract Posterior Inclusion Probabilities}
 \usage{
 inclusion_probabilities(object)
 }
 \arguments{
-\item{object}{A fitted object of class \code{"imr"}.}
+\item{object}{A joint \code{imr} fit.}
 }
 \value{
-A named list with one matrix per platform.  Rows are the subgroups
-containing that platform (labelled by their availability bitstrings) and
-columns are the platform features.
+A named list of subgroup-by-feature matrices, one per platform.
 }
 \description{
-Extracts the posterior mean variable-selection probabilities (the marginal
-posterior inclusion probabilities, mPIP) of a fitted model.
+Computes the fraction of retained joint draws with a nonzero molecular
+coefficient, separately for each platform and availability subgroup.
+\deqn{\widehat\pi_{lsj}=\frac{1}{BC}\sum_{c=1}^{C}\sum_{b=1}^{B}I(\beta_{lsj}^{(b,c)}\ne0).}{mPIP_lsj = fraction of all retained chain draws in which beta_lsj is nonzero.}
+This is a selection probability; \code{\link[=coef]{coef()}} extracts regression effects.
 }
-\section{Statistical definition}{
-
-For platform \eqn{l}, subgroup \eqn{s} and feature \eqn{j}, the returned
-entry is the retained-chain average of its binary selection indicator:
-\deqn{\widehat\pi_{lsj} = \frac{1}{B}\sum_{b=1}^{B}\gamma_{lsj}^{(b)}.}{mPIP_lsj = sum_b gamma_lsj[b] / B.}
-Here \eqn{B} excludes burn-in. This estimates a marginal inclusion
-probability under the fitted sampler and its approximations. It is not a
-regression coefficient; \code{coef()} on an \code{imr_posterior} object instead
-returns coefficient posterior means (see \link{imr_posterior_methods}). Use \code{\link[=selection_summary]{selection_summary()}} for
-selection-indicator and interaction summaries, or \code{\link[=sample_regression_posterior]{sample_regression_posterior()}} for
-coefficient uncertainty.
-}
-
-\seealso{
-\code{\link[=imr]{imr()}}
+\examples{
+# Short interface example; increase the budget and inspect diagnostics for inference.
+x <- data.frame(id = 1:20, marker = sin(1:20))
+y <- data.frame(id = x$id, y = 1 + x$marker + cos(x$id) / 3)
+fit <- imr(list(assay = x), y,
+  outcome_type = "continuous",
+  min_subgroup_size = 0, priors = imr_priors(forced_scale = 1),
+  mcmc = imr_mcmc(
+    draws = 100, burnin = 100, chains = 2,
+    seed = 1, diagnostics = FALSE
+  )
+)
+inclusion_probabilities(fit)
 }

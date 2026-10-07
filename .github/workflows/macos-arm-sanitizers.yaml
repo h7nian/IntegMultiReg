@@ -38,9 +38,6 @@ jobs:
           xcrun clang --version
           test "$(uname -m)" = "arm64"
 
-      - name: Install system dependencies
-        run: brew install gsl
-
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           # R-devel may advance before the prebuilt pak repository catches up.
@@ -65,42 +62,6 @@ jobs:
           test -f "${asan_runtime}"
           test -f "${ubsan_runtime}"
           echo "SANITIZER_RUNTIME=${asan_runtime}:${ubsan_runtime}" >> "${GITHUB_ENV}"
-
-      - name: Check sampler detailed balance
-        shell: bash
-        run: |
-          clang -O1 -g -fsanitize=address,undefined \
-            -fno-sanitize-recover=undefined -fno-omit-frame-pointer -Isrc \
-            .github/scripts/test-sampler-math.c src/sampler_math.c -lm \
-            -o "${RUNNER_TEMP}/sampler-math-test"
-          "${RUNNER_TEMP}/sampler-math-test"
-
-      - name: Check fold precision kernel and bounded fallback
-        shell: bash
-        run: |
-          clang -O1 -g -fsanitize=address,undefined \
-            -fno-sanitize-recover=undefined -fno-omit-frame-pointer \
-            .github/scripts/test-cv-precision.c src/cv_precision.c \
-            $(pkg-config --cflags --libs gsl) -o "${RUNNER_TEMP}/cv-precision-test"
-          "${RUNNER_TEMP}/cv-precision-test"
-
-      - name: Check prediction-row ownership and allocation failures
-        shell: bash
-        run: |
-          clang -O1 -g -fsanitize=address,undefined \
-            -fno-sanitize-recover=undefined -fno-omit-frame-pointer \
-            .github/scripts/test-cv-prediction-rows.c src/cv_prediction_rows.c \
-            -o "${RUNNER_TEMP}/cv-prediction-rows-test"
-          "${RUNNER_TEMP}/cv-prediction-rows-test"
-
-      - name: Check bounded cache eviction and allocation failures
-        shell: bash
-        run: |
-          clang -O1 -g -fsanitize=address,undefined \
-            -fno-sanitize-recover=undefined -fno-omit-frame-pointer -Isrc \
-            .github/scripts/test-cv-value-cache.c src/cv_value_cache.c \
-            -o "${RUNNER_TEMP}/cv-value-cache-test"
-          "${RUNNER_TEMP}/cv-value-cache-test"
 
       - name: Install instrumented package and tests
         shell: bash
@@ -200,16 +161,14 @@ jobs:
           R_HOME="${r_home}" DYLD_INSERT_LIBRARIES="${SANITIZER_RUNTIME}" \
             R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
             "${r_home}/bin/exec/R" --vanilla --no-save \
-              -f .github/scripts/verify-sampler.R --args "${RUNNER_TEMP}/sampler"
-
-      - name: Check native error cleanup in an isolated fault build
-        shell: bash
-        run: bash .github/scripts/verify-cv-row-failures.sh
+              -f .github/scripts/verify-joint-reference.R
 
       - name: Upload sanitizer logs
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: macos-26-arm64-sanitizer-logs
-          path: ${{ runner.temp }}/sanitizer-*.log
+          path: |
+            ${{ runner.temp }}/sanitizer-*.log
+            ${{ runner.temp }}/joint-reference-evidence
           if-no-files-found: ignore

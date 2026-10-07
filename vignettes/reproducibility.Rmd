@@ -7,91 +7,88 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-A version label alone does not identify a development build. Install the source
-snapshot recorded with an analysis, and retain the corresponding scripts and
-reference outputs. The [migration guide](https://h7nian.github.io/IntegMultiReg/migration.html) maps interfaces used
-in earlier snapshots to the current behavior-based names.
+A version label alone does not identify a development build. Retain the exact
+source revision or built archive, data, scripts and reference outputs. Changing
+the computational target requires a new numerical reference, even when the
+statistical model is unchanged.
 
 # Fix the source and environment
 
-The source snapshot used by the current examples is
-[`be38715b95568854e1a89140381ed4274f3102b2`](https://github.com/h7nian/IntegMultiReg/tree/be38715b95568854e1a89140381ed4274f3102b2). Install that immutable revision:
+Record `packageDescription("IntegMultiReg")$RemoteSha` for a GitHub installation.
+For a source tarball, keep the file and its SHA-256 checksum:
+`sha256sum IntegMultiReg_0.3.0.tar.gz` on Linux or
+`shasum -a 256 IntegMultiReg_0.3.0.tar.gz` on macOS. A rebuilt tarball can differ
+in generated documentation or metadata, so keep the file actually installed.
 
-```{r install-snapshot, eval = FALSE}
-remotes::install_github("h7nian/IntegMultiReg",
-                        ref = "be38715b95568854e1a89140381ed4274f3102b2")
-```
-
-The locally built source archive used for the manuscript replay has SHA-256
-`d86737a6dd51ef7589af941b100969bfaf26e984becd42f1016b0fa3f89400b7`.
-This checksum identifies that exact built tarball, including generated vignettes;
-a separately rebuilt archive or GitHub's automatic source download can have a
-different checksum. Retain the original file when replaying the archived run.
-
-Record the installed `RemoteSha` for a GitHub installation. For a source tarball,
-keep the file and its SHA-256 checksum: `sha256sum IntegMultiReg_0.2.0.tar.gz` on
-Linux, or `shasum -a 256 IntegMultiReg_0.2.0.tar.gz` on macOS. Also record R, GSL
-and compiler versions. Fixed seeds do not guarantee identical floating-point
-arithmetic across compilers and platforms.
-
-```{r record-environment, eval = FALSE}
+```{r record-environment, eval=FALSE}
 packageDescription("IntegMultiReg")$RemoteSha
 sessionInfo()
+RNGkind()
 ```
 
-# Keep data, transformations and actual partitions
+Also record the compiler and system. Fixed seeds do not guarantee identical
+floating-point results across operating systems or compilers. Version 0.3.0
+uses R's RNG and mathematical routines and no longer requires GSL.
 
-The [getting started guide](IntegMultiReg.html) creates `analysis`, `fit` and
-`cv` using the current symmetric-MRF updates and training-fold refits. Save the validated
-inputs and full objects, not just rounded console output:
+# Keep inputs, chains and actual partitions
 
-```{r retain-analysis, eval = FALSE}
-saveRDS(list(data = analysis, fit = fit, cv = cv), "analysis.rds")
+The [getting started guide](IntegMultiReg.html) constructs `analysis`, `fit_age`
+and `cv`. Save full objects rather than rounded console output:
+
+```{r retain-analysis, eval=FALSE}
+saveRDS(list(data = analysis, fit = fit_age, cv = cv), "analysis.rds")
 write.csv(cv$control$folds, "folds.csv", row.names = FALSE)
 write.csv(cv$predictions, "out-of-fold-predictions.csv", row.names = FALSE)
 writeLines(capture.output(sessionInfo()), "sessionInfo.txt")
 ```
 
-The fit records its priors, preprocessing, sampler convention, chain lengths
-and seed. CV controls record the actual folds and, for refit CV, the fitting
-seeds in `refit_seeds`. For post-fit validation, retain `row_order` as well as
-fold membership because floating-point summation order can affect the result.
+The fit records resolved priors, subgroup transformations, chain lengths, RNG
+kind, per-chain sampling and initialization seeds, and starting states. CV
+records actual folds and, for refit CV, fold seeds and per-chain seeds. Workers
+change execution scheduling, not the saved seed plan.
 
-Within a matching source and runtime, replay the recorded validation design:
+Within the same source and runtime, replay the recorded validation design:
 
-```{r replay-folds, eval = FALSE}
+```{r replay-folds, eval=FALSE}
 saved <- readRDS("analysis.rds")
-replay <- cv_imr(
-  saved$fit, cv_method = "refit", folds = saved$cv$control$folds
-)
+do.call(RNGkind, as.list(saved$cv$control$rng_kind))
+replay <- cv_imr(saved$fit, cv_method = "refit",
+  folds = saved$cv$control$folds, seed = saved$cv$control$seed)
 stopifnot(identical(replay$predictions, saved$cv$predictions))
 ```
 
-For a saved fit with retired convention names, explicitly call
-`upgrade_imr_object()` before using it. The upgrade changes labels and validates
-the structure; it preserves the original call and posterior draws. For exact
-historical replay, retain the original source and scripts as well.
+To replay a fit from its saved initialization, use the same data preparation,
+formula, priors and RNG kind. Supply its recorded starts and root seed through
+`imr_mcmc(initial = saved$fit$control$initial, seed = saved$fit$control$seed, ...)`,
+with the original draws, burn-in, chain count and thinning. Initialization and
+sampling have separate streams, so using the recorded starts does not shift
+the sampling stream.
 
-# Connect reference outputs to the manuscript
+# Preserve earlier numerical targets
+
+The previous 0.2.0 manuscript replay used source
+[`be38715b95568854e1a89140381ed4274f3102b2`](https://github.com/h7nian/IntegMultiReg/tree/be38715b95568854e1a89140381ed4274f3102b2)
+and the built archive SHA-256
+`d86737a6dd51ef7589af941b100969bfaf26e984becd42f1016b0fa3f89400b7`.
+That evidence belongs to the previous selection/conditional workflow. It does
+not validate the 0.3.0 joint sampler or supply its reference outputs.
+
+Selection-only saved objects cannot be converted into joint coefficient draws
+by changing labels. Inspect historical fits with their archived package and
+refit the original inputs to obtain a new joint posterior. The
+[migration guide](https://h7nian.github.io/IntegMultiReg/migration.html)
+describes the interface changes.
+
+# Connect outputs to the manuscript
 
 Keep a manifest linking each table or figure to its generating script, source
-commit or source-package checksum, input-data checksum, numerical settings,
-actual seeds/folds and unrounded output. Record which cells or figures the
-manuscript and response letter use. Preserve previous references when an
-algorithm changes, and explain the reason for a new numerical target before
-accepting a replacement.
+commit or archive checksum, data checksum, settings, actual seeds/folds and
+unrounded output. Record which cells the manuscript and response letter use.
+An independent repeat should write to a new directory without updating the
+reference. Compare predictions and scores as well as displayed numbers.
 
-An independent repeat should run into a new directory without updating the
-reference. Compare the saved predictions and scores, not only the printed
-three-decimal table. The [covariate comparison guide](covariate-comparison.html)
-shows how to reconstruct pooled MSE and check that outer test subjects never
-enter inner validation.
-
-# State what was verified
-
-Successful execution and matching output establish computational repeatability
-under the recorded conditions. They do not establish posterior convergence,
-identify the cause of an older unexplained discrepancy, or confirm every
-scientific conclusion of a study. Conditional coefficient-chain diagnostics
-also do not diagnose the original selection chain. Keep the selection-chain
-and ranking-stability limitations with the reported results.
+Repeatability is distinct from statistical accuracy. Keep posterior exploration,
+Monte Carlo precision and ranking-stability limitations with reported results.
+Earlier conditional-chain diagnostics do not diagnose a joint chain. A small
+new-to-old difference cannot by itself establish that an earlier discrepancy
+was sampling fluctuation.

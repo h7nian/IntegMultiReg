@@ -5,9 +5,6 @@
 ^\.DS_Store$
 ^.*\.Rproj$
 ^\.Rproj\.user$
-^config\.log$
-^config\.status$
-^autom4te\.cache$
 ^src/.*\.o$
 ^src/.*\.so$
 ^src/symbols\.rds$

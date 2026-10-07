@@ -33,19 +33,15 @@
 
 # Guards repeated by every method that takes a fitted model.
 .imr_check_fit <- function(object) {
-  if (!inherits(object, "imr")) {
-    .imr_abort("`object` must be an `imr` object returned by `imr()`.")
-  }
-  if (!identical(object$schema_version, 3L)) {
-    .imr_abort("Use `upgrade_imr_object()` before inspecting a saved fit from an earlier schema.")
-  }
+  .imr_validate_fit(object, check_values = FALSE)
   invisible(object)
 }
 
 # Inclusion-probability thresholds are shared by printing and summarising.
 .imr_check_threshold <- function(threshold) {
   threshold <- .imr_check_numeric_vector(
-    threshold, "threshold", length = 1, nonnegative = TRUE
+    threshold, "threshold",
+    length = 1, nonnegative = TRUE
   )
   if (threshold > 1) {
     .imr_abort("`threshold` must be between 0 and 1.")
@@ -84,9 +80,9 @@
                                       positive = FALSE,
                                       nonnegative = FALSE) {
   if (!is.numeric(x) || any(!is.finite(x)) ||
-      (!is.null(length) && length(x) != length) ||
-      (positive && any(x <= 0)) ||
-      (nonnegative && any(x < 0))) {
+    (!is.null(length) && length(x) != length) ||
+    (positive && any(x <= 0)) ||
+    (nonnegative && any(x < 0))) {
     suffix <- if (!is.null(length)) {
       sprintf(" of length %d", length)
     } else {
@@ -99,8 +95,10 @@
     } else {
       ""
     }
-    .imr_abort(sprintf("`%s` must be a finite%s numeric vector%s.",
-                       arg, bound, suffix))
+    .imr_abort(sprintf(
+      "`%s` must be a finite%s numeric vector%s.",
+      arg, bound, suffix
+    ))
   }
   x
 }
@@ -110,7 +108,7 @@
   if (is.null(names(x)) || !identical(names(x), c("shape", "rate"))) {
     .imr_abort(sprintf("`%s` must be named `c(shape = ..., rate = ...)`.", arg))
   }
-  x
+  stats::setNames(as.double(x), c("shape", "rate"))
 }
 
 .imr_check_mrf_capacity <- function(platform_subgroups, max_subgroups = 16L) {
@@ -199,21 +197,6 @@
   out
 }
 
-## Evaluate `code` while optionally discarding everything it writes to the
-## console (including Rprintf output from the compiled sampler).  When
-## `verbose` is TRUE the output is shown; otherwise it is captured and dropped.
-#' @keywords internal
-#' @noRd
-.imr_quietly <- function(verbose, code) {
-  if (isTRUE(verbose)) {
-    return(eval.parent(substitute(code)))
-  }
-  expr <- substitute(code)
-  env <- parent.frame()
-  utils::capture.output(value <- eval(expr, env))
-  value
-}
-
 # Reject ambiguous names before name-based subsetting can silently drop columns.
 .imr_check_column_names <- function(x, arg) {
   nm <- names(x)
@@ -221,10 +204,4 @@
     .imr_abort(sprintf("`%s` must have complete, unique column names.", arg))
   }
   invisible(x)
-}
-
-.imr_check_interval_level <- function(level) {
-  .imr_check_numeric_vector(level, "level", length = 1L, positive = TRUE)
-  if (level >= 1) .imr_abort("`level` must be less than one.")
-  invisible(level)
 }

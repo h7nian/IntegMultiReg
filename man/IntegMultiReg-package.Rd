@@ -4,63 +4,21 @@
 \name{IntegMultiReg-package}
 \alias{IntegMultiReg}
 \alias{IntegMultiReg-package}
-\title{IntegMultiReg: Integrative Bayesian Multiple Regression for Multi-Platform Biomarkers}
+\title{Joint Bayesian Regression for Multi-Platform Biomarkers}
 \description{
-The \pkg{IntegMultiReg} package implements the integrative multi-regression
-(IMR) approach of Chekouo et al. (2017) and extends it from time-to-event
-outcomes to continuous (Gaussian) and binary (probit) outcomes.  Subjects
-are partitioned into availability subgroups according to which platforms
-they have measured, one regression model is built per subgroup, and
-information is shared across availability subgroups through a Markov random
-field prior on the
-variable-selection indicators combined with non-local priors on the
-regression coefficients.
+IntegMultiReg fits availability-subgroup regressions with shared molecular
+selection through a Markov random field and non-local pMOM coefficient priors.
+Continuous, binary and right-censored outcomes use one joint posterior
+sampling engine. Clinical covariates are included in every subgroup model.
 }
 \details{
-The main entry points are:
-\describe{
-\item{\code{\link{imr}}}{Fit the model by MCMC and return an object of
-class \code{"imr"}.}
-\item{\code{\link{predict.imr}}}{Predict outcomes for new subjects.}
-\item{\code{\link{cv_imr}}}{Assess predictive performance by
-cross-validation.}
-}
-Standard methods \code{\link{print.imr}}, \code{\link{summary.imr}},
-\code{\link{coef.imr}}, \code{\link{plot.imr}} and \code{\link{predict.imr}}
-are provided for the fitted object, together with the stand-alone displays
-\code{\link{plot_top_features}} and \code{\link{plot_subgroup_sizes}}.
-
-Jianfeng Wang initiated the R interface that calls the C implementation.
-}
-\section{Statistical reference}{
-
-\code{\link[=imr]{imr()}} defines the outcome models, pMOM coefficient prior, MRF selection
-prior and computational conventions. \code{\link[=imr_data]{imr_data()}} explains availability
-subgroups. \code{\link[=inclusion_probabilities]{inclusion_probabilities()}} defines marginal inclusion probabilities, while
-\code{\link[=summary.imr]{summary.imr()}} explains feature ranking and thresholding.
-
-Uncertainty has two stages. \code{\link[=selection_summary]{selection_summary()}} and \code{\link[=confint.imr]{confint.imr()}}
-summarize the selection and interaction draws already stored in a fit.
-\code{\link[=sample_regression_posterior]{sample_regression_posterior()}} performs additional conditional coefficient sampling;
-its help page gives the model-averaging construction, sampling budgets and
-split R-hat diagnostic. \link{imr_posterior_methods} explains how those draws
-become coefficient and latent-response summaries.
-
-\code{\link[=predict.imr]{predict.imr()}} describes ranked-model point prediction and
-\code{\link[=predict.imr_posterior]{predict.imr_posterior()}} describes prediction from posterior draws.
-\code{\link[=cv_imr]{cv_imr()}} gives the validation algorithms, metric definitions and the
-difference between pooled scores and mean fold scores. These pages state
-which quantities are exact summaries of stored draws and which inherit
-approximation or historical computational choices.
-}
-
-\references{
-Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). "A Bayesian Integrative
-Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
-\emph{Biometrics}, \strong{73}(2), 615--624. \doi{10.1111/biom.12587}
-
-\href{https://academic.oup.com/biometrics/article/73/2/615/7537638}{Read paper} |
-\href{https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf}{Publisher PDF}.
+Start with \code{\link[=imr_data]{imr_data()}} and \code{\link[=imr]{imr()}}. \code{\link[=imr_priors]{imr_priors()}} defines the statistical
+model and \code{\link[=imr_mcmc]{imr_mcmc()}} defines the sampling budget. Standard \code{\link[=coef]{coef()}},
+\code{\link[=confint]{confint()}}, \code{\link[=summary]{summary()}} and \code{\link[=predict]{predict()}} methods use the stored joint draws.
+\code{\link[=inclusion_probabilities]{inclusion_probabilities()}} reports feature selection; \code{\link[=posterior_draws]{posterior_draws()}}
+extracts samples; \code{\link[=mcmc_diagnostics]{mcmc_diagnostics()}} reports their exploration and precision.
+\code{\link[=cv_imr]{cv_imr()}} refits the complete workflow or performs diagnosed posterior
+reweighting. \code{\link[=compare_fit_summaries]{compare_fit_summaries()}} gives descriptive comparisons only.
 }
 \seealso{
 Useful links:

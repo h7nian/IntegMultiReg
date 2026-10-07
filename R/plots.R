@@ -1,16 +1,18 @@
 #' Plot Method for IMR Fits
 #'
 #' @description
-#' Visualizes a fitted `"imr"` object. Five plot types are available:
+#' Visualizes joint posterior summaries and separate chain traces:
 #' \describe{
 #'   \item{`"selection"`}{Heatmap of the marginal posterior inclusion
 #'     probabilities (mPIP), one panel per platform, with features on the
 #'     horizontal axis, availability subgroups on the vertical axis and a small
 #'     intensity legend showing that darker values are closer to 1.}
-#'   \item{`"theta"`}{Heatmap of the posterior mean MRF interaction parameters
+#'   \item{`"interaction"`}{Heatmap of the posterior mean MRF interaction parameters
 #'     between availability subgroups, one panel per platform.}
-#'   \item{`"trace"`}{Trace plot of the log-posterior across MCMC iterations.}
-#'   \item{`"theta_trace"`}{Trace plot for one retained MRF interaction
+#'   \item{`"trace"`}{Joint log-density traces, one line per retained chain.}
+#'   \item{`"coefficient_trace"`}{A regression effect selected by subgroup and parameter.}
+#'   \item{`"variance_trace"`}{Residual variance for a subgroup.}
+#'   \item{`"interaction_trace"`}{Trace plot for one retained MRF interaction
 #'     parameter, selected by `platform` and `parameter`.}
 #'   \item{`"selection_trace"`}{Trace plot for one retained selection
 #'     indicator, selected by `platform`, `subgroup` and `feature`.}
@@ -20,29 +22,28 @@
 #'
 #' @section Statistical interpretation:
 #' The selection heatmap displays \eqn{\widehat\pi_{lsj}}{mPIP_lsj}, the retained-chain
-#' indicator average defined in [inclusion_probabilities()]. The theta heatmap displays
-#' \deqn{\frac{1}{B}\sum_{b=1}^{B}\theta_{l,sh}^{(b)}.}{mean_b theta_l,sh[b].}
+#' indicator average defined in [inclusion_probabilities()]. The interaction heatmap displays
+#' \deqn{\frac{1}{BC}\sum_{c=1}^{C}\sum_{b=1}^{B}\theta_{l,sh}^{(b,c)}.}{Average theta_l,sh over all retained iterations and chains.}
 #'
 #' An MRF interaction measures
 #' prior coupling of selection indicators; it is not a correlation between
 #' measured biomarkers or a regression effect.
 #'
-#' `theta_trace` and `selection_trace` display retained parameter draws in
-#' iteration order. The log-posterior trace includes burn-in and reflects the
-#' fitted sampler's density convention. These plots can reveal mixing or drift,
-#' but a flat trace alone does not establish convergence. They display the
-#' original selection stage; the separate conditional coefficient-stage
-#' diagnostic is defined in [sample_regression_posterior()].
+#' Trace plots retain separate chains and exclude discarded warmup. Joint log
+#' density is an augmented-state diagnostic, not a marginal model score or
+#' a cross-model comparison criterion. Use [mcmc_diagnostics()] for rank-based
+#' diagnostics; a flat trace alone does not establish convergence.
 #'
 #' @param x A fitted object of class `"imr"`.
-#' @param type Character; one of `"selection"` (default), `"theta"`,
-#'   `"trace"`, `"theta_trace"` or `"selection_trace"`.
+#' @param type Character; one of `"selection"` (default), `"interaction"`,
+#'   `"trace"`, `"interaction_trace"`, `"selection_trace"`,
+#'   `"coefficient_trace"` or `"variance_trace"`.
 #' @param platform Optional integer vector selecting which platforms to display
-#'   for the `"selection"` and `"theta"` plots; defaults to all platforms.
-#' @param parameter Positive integer selecting a theta-pair column for
-#'   `type = "theta_trace"`.
+#'   for the `"selection"` and `"interaction"` plots; defaults to all platforms.
+#' @param parameter Positive integer selecting an interaction-pair column for
+#'   `type = "interaction_trace"` or a coefficient for `"coefficient_trace"`.
 #' @param subgroup Positive integer selecting a platform-specific subgroup row
-#'   for `type = "selection_trace"`.
+#'   for `type = "selection_trace"`, or a fitted subgroup for coefficient/variance traces.
 #' @param feature Positive integer selecting a feature column for
 #'   `type = "selection_trace"`.
 #' @param base_cex Overall text-size multiplier. The `cex_*` arguments default
@@ -69,28 +70,34 @@
 #' @return `NULL`, invisibly; called for the side effect of producing a plot.
 #' @seealso [imr()], [plot_top_features()], [plot_subgroup_sizes()]
 #' @export
-plot.imr <- function(x, type = c("selection", "theta", "trace",
-                                 "theta_trace", "selection_trace"),
+plot.imr <- function(x, type = c(
+                       "selection", "interaction", "trace",
+                       "interaction_trace", "selection_trace",
+                       "coefficient_trace", "variance_trace"
+                     ),
                      platform = NULL, base_cex = 1, cex_axis = NULL,
                      cex_lab = NULL, cex_main = NULL, col = NULL,
                      palette = NULL,
                      legend = TRUE, legend_width = 0.28,
                      mar = NULL, mgp = NULL, parameter = 1L,
                      subgroup = 1L, feature = 1L, ...) {
-  if (!inherits(x, "imr")) {
-    .imr_abort("`x` must be an `imr` object returned by `imr()`.")
-  }
+  .imr_check_fit(x)
   type <- match.arg(type)
   dots <- list(...)
   cex_defaults <- if (type == "selection") {
-    list(axis = 1.05, lab = 1.3, main = 1.4,
-         names = 1, legend = 1, values = 1)
+    list(
+      axis = 1.05, lab = 1.3, main = 1.4,
+      names = 1, legend = 1, values = 1
+    )
   } else {
-    list(axis = 0.95, lab = 1.1, main = 1.15,
-         names = 1, legend = 1, values = 1)
+    list(
+      axis = 0.95, lab = 1.1, main = 1.15,
+      names = 1, legend = 1, values = 1
+    )
   }
   sz <- .imr_plot_cex(
-    dots, base_cex = base_cex, cex_axis = cex_axis,
+    dots,
+    base_cex = base_cex, cex_axis = cex_axis,
     cex_lab = cex_lab, cex_main = cex_main,
     defaults = cex_defaults
   )
@@ -100,12 +107,13 @@ plot.imr <- function(x, type = c("selection", "theta", "trace",
   dots <- sz$dots
   .imr_check_flag(legend, "legend")
   legend_width <- .imr_check_numeric_vector(
-    legend_width, "legend_width", length = 1, positive = TRUE
+    legend_width, "legend_width",
+    length = 1, positive = TRUE
   )
   if (!is.null(platform)) {
     if (!is.numeric(platform) || length(platform) == 0L ||
-        any(!is.finite(platform)) || any(platform != as.integer(platform)) ||
-        any(platform < 1L) || any(platform > x$model$n_platforms)) {
+      any(!is.finite(platform)) || any(platform != as.integer(platform)) ||
+      any(platform < 1L) || any(platform > x$model$n_platforms)) {
       .imr_abort(sprintf(
         "`platform` must contain whole-number indices between 1 and %d.",
         x$model$n_platforms
@@ -115,71 +123,70 @@ plot.imr <- function(x, type = c("selection", "theta", "trace",
   }
 
   op <- graphics::par(no.readonly = TRUE)
-  on.exit({
-    if (type == "selection") try(graphics::layout(1), silent = TRUE)
-    try(graphics::par(op), silent = TRUE)
-  }, add = TRUE)
+  on.exit(
+    {
+      if (type == "selection") try(graphics::layout(1), silent = TRUE)
+      try(graphics::par(op), silent = TRUE)
+    },
+    add = TRUE
+  )
 
-  if (type == "trace") {
-    lp <- x$posterior$log_posterior
-    pp <- .imr_plot_par(mar, mgp, default_mar = c(4.8, 4.8, 3, 1))
-    graphics::par(mar = pp$mar, mgp = pp$mgp)
-    trace_col <- if (is.null(col)) .imr_plot_trace_colour() else col
-    do.call(graphics::plot, c(list(
-      x = seq_along(lp), y = lp, type = "l",
-      xlab = "MCMC iteration", ylab = "Log-posterior",
-      main = "Log-posterior trace", cex.axis = cex_axis,
-      cex.lab = cex_lab, cex.main = cex_main, col = trace_col
-    ), dots))
-    graphics::abline(v = x$control$mcmc$burnin, lty = 2, col = "grey50")
-    return(invisible(NULL))
-  }
-
-  if (type %in% c("theta_trace", "selection_trace")) {
-    if (is.null(platform)) platform <- 1L
-    platform <- .imr_check_integer_scalar(
-      platform, "platform", min = 1L, max = x$model$n_platforms
-    )
-    pp <- .imr_plot_par(mar, mgp, default_mar = c(4.8, 4.8, 3, 1))
-    graphics::par(mar = pp$mar, mgp = pp$mgp)
-    trace_col <- if (is.null(col)) .imr_plot_trace_colour() else col
-    if (type == "theta_trace") {
-      samples <- x$posterior$interaction_draws[[platform]]
-      if (is.null(samples) || ncol(samples) == 0L) {
-        .imr_abort("The selected platform has no sampled theta interactions.")
+  if (type %in% c("trace", "interaction_trace", "selection_trace", "coefficient_trace", "variance_trace")) {
+    if (type == "trace") {
+      values <- x$posterior$log_density
+      title <- "Joint log-density trace"
+      ylab <- "Joint log density"
+    } else if (type %in% c("coefficient_trace", "variance_trace")) {
+      subgroup <- .imr_check_integer_scalar(subgroup, "subgroup", min = 1L, max = length(x$model$subgroup_names))
+      if (type == "variance_trace") {
+        values <- x$posterior$variance[, , subgroup]
+        title <- paste("Residual variance:", x$model$subgroup_names[subgroup])
+        ylab <- "Variance"
+      } else {
+        samples <- x$posterior$coefficients[[subgroup]]
+        if (is.character(parameter)) parameter <- match(parameter, dimnames(samples)[[3L]])
+        parameter <- .imr_check_integer_scalar(parameter, "parameter", min = 1L, max = dim(samples)[3L])
+        values <- samples[, , parameter]
+        title <- paste(x$model$subgroup_names[subgroup], dimnames(samples)[[3L]][parameter])
+        ylab <- "Coefficient"
       }
-      parameter <- .imr_check_integer_scalar(
-        parameter, "parameter", min = 1L, max = ncol(samples)
-      )
-      values <- samples[, parameter]
-      title <- sprintf("Theta trace: %s, pair %d",
-                       x$model$platform_names[platform], parameter)
-      ylab <- "Theta"
     } else {
-      template <- .imr_mpip(x, platform)
-      subgroup <- .imr_check_integer_scalar(
-        subgroup, "subgroup", min = 1L, max = nrow(template)
-      )
-      feature <- .imr_check_integer_scalar(
-        feature, "feature", min = 1L, max = ncol(template)
-      )
-      values <- vapply(
-        x$posterior$selection_draws,
-        function(draw) as.numeric(draw[[platform]][subgroup, feature]),
-        numeric(1L)
-      )
-      title <- sprintf(
-        "Selection trace: %s / %s / %s", x$model$platform_names[platform],
-        rownames(template)[subgroup], colnames(template)[feature]
-      )
-      ylab <- "Selection indicator"
+      platform <- .imr_check_integer_scalar(platform %||% 1L, "platform", min = 1L, max = x$model$n_platforms)
+      if (type == "interaction_trace") {
+        samples <- x$posterior$interaction[[platform]]
+        if (!dim(samples)[3L]) .imr_abort("This platform has no interaction draws.")
+        if (is.character(parameter)) parameter <- match(parameter, dimnames(samples)[[3L]])
+        parameter <- .imr_check_integer_scalar(parameter, "parameter", min = 1L, max = dim(samples)[3L])
+        values <- samples[, , parameter]
+        title <- paste("Sharing:", x$model$platform_names[platform], dimnames(samples)[[3L]][parameter])
+        ylab <- "Interaction"
+      } else {
+        template <- .imr_mpip(x, platform)
+        subgroup <- .imr_check_integer_scalar(subgroup, "subgroup", min = 1L, max = nrow(template))
+        feature <- .imr_check_integer_scalar(feature, "feature", min = 1L, max = ncol(template))
+        samples <- posterior_draws(x, parm = "selection")[[platform]]
+        parameter <- (subgroup - 1L) * ncol(template) + feature
+        values <- samples[, , parameter]
+        title <- paste("Selection:", x$model$platform_names[platform], dimnames(samples)[[3L]][parameter])
+        ylab <- "Indicator"
+      }
     }
-    do.call(graphics::plot, c(list(
-      x = seq_along(values), y = values, type = "l",
-      xlab = "Retained MCMC draw", ylab = ylab, main = title,
-      cex.axis = cex_axis, cex.lab = cex_lab, cex.main = cex_main,
-      col = trace_col
+    values <- matrix(values, ncol = x$control$mcmc$chains)
+    pp <- .imr_plot_par(mar, mgp, default_mar = c(4.8, 4.8, 3, 1))
+    graphics::par(mar = pp$mar, mgp = pp$mgp)
+    colours <- if (is.null(col)) grDevices::hcl.colors(ncol(values), "Dark 3") else rep_len(col, ncol(values))
+    iterations <- x$control$mcmc$burnin + seq_len(nrow(values)) * x$control$mcmc$thin
+    do.call(graphics::matplot, c(list(
+      x = iterations, y = values, type = "l", lty = 1,
+      col = colours, xlab = "MCMC iteration (retained draws)", ylab = ylab, main = title,
+      cex.axis = cex_axis, cex.lab = cex_lab, cex.main = cex_main
     ), dots))
+    if (legend && ncol(values) > 1L) {
+      graphics::legend("topright",
+        legend = paste("Chain", seq_len(ncol(values))),
+        col = colours, lty = 1, bty = "n"
+      )
+    }
     return(invisible(NULL))
   }
 
@@ -219,16 +226,29 @@ plot.imr <- function(x, type = c("selection", "theta", "trace",
     if (type == "selection") {
       m <- .imr_mpip(x, l)
       main <- sprintf("mPIP: %s", x$model$platform_names[l])
-      xlab <- "Features"; ylab <- "Availability subgroups"
+      xlab <- "Features"
+      ylab <- "Availability subgroups"
       rlab <- rownames(m)
     } else {
-      m <- x$posterior$interaction_means[[l]]
+      members <- x$model$platform_subgroups[[l]]
+      m <- matrix(0, length(members), length(members))
+      samples <- x$posterior$interaction[[l]]
+      if (dim(samples)[3L]) {
+        pair <- 0L
+        for (j in seq.int(2L, length(members))) {
+          for (i in seq_len(j - 1L)) {
+            pair <- pair + 1L
+            m[i, j] <- m[j, i] <- mean(samples[, , pair])
+          }
+        }
+      }
       rlab <- x$model$subgroup_names[x$model$platform_subgroups[[l]]]
       if (!is.null(rlab) && length(rlab) == nrow(m)) {
         rownames(m) <- colnames(m) <- rlab
       }
-      main <- sprintf("Theta: %s", x$model$platform_names[l])
-      xlab <- "Availability subgroups"; ylab <- "Availability subgroups"
+      main <- sprintf("Sharing: %s", x$model$platform_names[l])
+      xlab <- "Availability subgroups"
+      ylab <- "Availability subgroups"
     }
     graphics::par(mar = panel_par$mar, mgp = panel_par$mgp)
     if (nrow(m) == 0 || ncol(m) == 0) {
@@ -244,18 +264,23 @@ plot.imr <- function(x, type = c("selection", "theta", "trace",
       cex.lab = cex_lab, cex.main = cex_main
     ), dots))
     if (!is.null(colnames(m)) && ncol(m) <= 40) {
-      graphics::axis(1, at = seq_len(ncol(m)), labels = colnames(m),
-                     las = 2, cex.axis = cex_axis)
+      graphics::axis(1,
+        at = seq_len(ncol(m)), labels = colnames(m),
+        las = 2, cex.axis = cex_axis
+      )
     } else {
       graphics::axis(1, cex.axis = cex_axis)
     }
-    graphics::axis(2, at = seq_len(nrow(m)), labels = rlab, las = 2,
-                   cex.axis = cex_axis)
+    graphics::axis(2,
+      at = seq_len(nrow(m)), labels = rlab, las = 2,
+      cex.axis = cex_axis
+    )
     graphics::box()
   }
   if (type == "selection" && legend) {
     legend_par <- .imr_plot_par(
-      NULL, mgp, default_mar = c(5.7, 0.1, 2.9, 3.0),
+      NULL, mgp,
+      default_mar = c(5.7, 0.1, 2.9, 3.0),
       default_mgp = c(3.6, 0.9, 0)
     )
     graphics::par(mar = legend_par$mar, mgp = legend_par$mgp)
@@ -263,12 +288,17 @@ plot.imr <- function(x, type = c("selection", "theta", "trace",
     graphics::plot.window(xlim = c(0, 1), ylim = c(0, 1))
     yb <- seq(0, 1, length.out = length(heat_col) + 1L)
     graphics::rect(0.18, yb[-length(yb)], 0.52, yb[-1L],
-                   col = heat_col, border = NA)
-    graphics::axis(4, at = c(0, 0.25, 0.5, 0.75, 1),
-                   labels = c("0", "0.25", "0.5", "0.75", "1"),
-                   las = 1, cex.axis = cex_axis, tck = -0.18)
-    graphics::mtext("mPIP", side = 3, line = 0.1, at = 0.35,
-                    cex = 0.75 * cex_main)
+      col = heat_col, border = NA
+    )
+    graphics::axis(4,
+      at = c(0, 0.25, 0.5, 0.75, 1),
+      labels = c("0", "0.25", "0.5", "0.75", "1"),
+      las = 1, cex.axis = cex_axis, tck = -0.18
+    )
+    graphics::mtext("mPIP",
+      side = 3, line = 0.1, at = 0.35,
+      cex = 0.75 * cex_main
+    )
     graphics::box(bty = "n")
   }
   invisible(NULL)
@@ -355,11 +385,14 @@ plot_top_features <- function(object, top = 10, base_cex = 1,
   dots <- list(...)
   top <- .imr_check_integer_scalar(top, "top", min = 1)
   sz <- .imr_plot_cex(
-    dots, base_cex = base_cex, cex_names = cex_names,
+    dots,
+    base_cex = base_cex, cex_names = cex_names,
     cex_axis = cex_axis, cex_lab = cex_lab, cex_main = cex_main,
     cex_legend = cex_legend,
-    defaults = list(axis = 0.95, lab = 1.05, main = 1.1,
-                    names = 0.95, legend = 0.9, values = 0.9)
+    defaults = list(
+      axis = 0.95, lab = 1.05, main = 1.1,
+      names = 0.95, legend = 0.9, values = 0.9
+    )
   )
   dots <- sz$dots
   .imr_check_flag(show_source, "show_source")
@@ -370,7 +403,8 @@ plot_top_features <- function(object, top = 10, base_cex = 1,
   }
   if (!is.null(reference)) {
     reference <- .imr_check_numeric_vector(
-      reference, "reference", length = 1, nonnegative = TRUE
+      reference, "reference",
+      length = 1, nonnegative = TRUE
     )
     if (reference > 1) {
       .imr_abort("`reference` must be between 0 and 1, or NULL.")
@@ -421,8 +455,10 @@ plot_top_features <- function(object, top = 10, base_cex = 1,
     cex.lab = sz$lab, cex.main = sz$main
   ), dots))
   if (!is.null(reference)) {
-    graphics::abline(v = reference, lty = 2,
-                     col = .imr_plot_reference_colour())
+    graphics::abline(
+      v = reference, lty = 2,
+      col = .imr_plot_reference_colour()
+    )
   }
   ## Annotate each bar with the availability subgroup where its maximum mPIP was
   ## attained.  Long bars carry the label inside the coloured region (light
@@ -433,20 +469,26 @@ plot_top_features <- function(object, top = 10, base_cex = 1,
     src <- tab$subgroup[ord]
     inside <- xend >= xlim[1] + 0.5 * (xlim[2] - xlim[1])
     if (any(inside)) {
-      graphics::text(xend[inside], bp[inside], labels = src[inside],
-                     pos = 2, offset = 0.35, col = "white",
-                     font = 2, cex = sz$values)
+      graphics::text(xend[inside], bp[inside],
+        labels = src[inside],
+        pos = 2, offset = 0.35, col = "white",
+        font = 2, cex = sz$values
+      )
     }
     if (any(!inside)) {
-      graphics::text(xend[!inside], bp[!inside], labels = src[!inside],
-                     pos = 4, offset = 0.35,
-                     col = .imr_plot_reference_colour(),
-                     font = 2, cex = sz$values)
+      graphics::text(xend[!inside], bp[!inside],
+        labels = src[!inside],
+        pos = 4, offset = 0.35,
+        col = .imr_plot_reference_colour(),
+        font = 2, cex = sz$values
+      )
     }
   }
   if (legend) {
-    graphics::legend("bottomright", legend = platforms, fill = pal,
-                     bty = "n", cex = sz$legend)
+    graphics::legend("bottomright",
+      legend = platforms, fill = pal,
+      bty = "n", cex = sz$legend
+    )
   }
   invisible(tab[, c("platform", "feature", "mpip", "subgroup")])
 }
@@ -512,10 +554,13 @@ plot_subgroup_sizes <- function(object, base_cex = 1, cex_axis = NULL,
   .imr_check_fit(object)
   dots <- list(...)
   sz <- .imr_plot_cex(
-    dots, base_cex = base_cex, cex_axis = cex_axis,
+    dots,
+    base_cex = base_cex, cex_axis = cex_axis,
     cex_lab = cex_lab, cex_main = cex_main, cex_values = cex_values,
-    defaults = list(axis = 0.95, lab = 1.05, main = 1.1,
-                    names = 1, legend = 0.9, values = 0.95)
+    defaults = list(
+      axis = 0.95, lab = 1.05, main = 1.1,
+      names = 1, legend = 0.9, values = 0.95
+    )
   )
   dots <- sz$dots
   .imr_check_flag(show_values, "show_values")

@@ -29,8 +29,10 @@ assess a likelihood, statistical assumptions or fitted-model convergence.
 \examples{
 x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
 y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
-analysis <- imr_data(platforms = list(assay = x), outcome = y,
-                     outcome_type = "continuous")
+analysis <- imr_data(
+  platforms = list(assay = x), outcome = y,
+  outcome_type = "continuous"
+)
 validate_imr_data(analysis)
 
 # Subject alignment is rechecked, so a truncated outcome is rejected.

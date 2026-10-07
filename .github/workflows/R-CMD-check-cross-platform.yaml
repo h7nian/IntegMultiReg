@@ -55,12 +55,12 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes autoconf automake devscripts libgsl-dev qpdf tidy
+          sudo apt-get install --yes devscripts qpdf tidy
 
       - name: Install macOS system and CRAN check dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install autoconf automake checkbashisms gsl qpdf tidy-html5
+          brew install checkbashisms qpdf tidy-html5
           echo "$(brew --prefix tidy-html5)/bin" >> "$GITHUB_PATH"
 
       - uses: r-lib/actions/setup-r-dependencies@v2

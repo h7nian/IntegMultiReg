@@ -1,4 +1,4 @@
-name: CRAN instrumented Valgrind release check
+name: Historical 0.1.3 release audit
 
 # A release audit of the pinned source artifact, in addition to per-push CI.
 on:

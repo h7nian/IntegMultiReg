@@ -2,45 +2,20 @@
 % Please edit documentation in R/cv.R
 \name{print.imr_cv}
 \alias{print.imr_cv}
-\title{Print Method for IMR Cross-Validation Results}
+\title{Print Joint-Posterior Cross-Validation Results}
 \usage{
-\method{print}{imr_cv}(x, digits = 3, ...)
+\method{print}{imr_cv}(x, digits = 3L, ...)
 }
 \arguments{
-\item{x}{An \code{imr_cv} object returned by \code{\link[=cv_imr]{cv_imr()}}.}
+\item{x}{An \code{imr_cv} result.}
 
-\item{digits}{Number of significant digits for the reported scores.}
+\item{digits}{Significant digits for scores.}
 
-\item{...}{Ignored.}
+\item{...}{Unused arguments are rejected.}
 }
 \value{
-\code{x}, invisibly. Called for the printed summary.
+\code{x}, invisibly.
 }
 \description{
-Print Method for IMR Cross-Validation Results
-}
-\section{Interpreting the scores}{
-
-The display reads the stored \code{pooled} and \code{fold_mean} matrices and reports
-the validation algorithm, fold design and scoring rule. For reweighting it
-also shows the resolved penalty, state collection and degrees of freedom.
-The model cap is shown when refitting or using top-ranked distinct states.
-Consult \code{x$control} for all recorded settings. \code{\link[=cv_imr]{cv_imr()}} defines the
-scoring formulas and explains why a pooled score can differ from the mean
-fold score. \code{digits} changes significant digits in the display only;
-stored values and subject-level predictions retain full precision.
-}
-
-\examples{
-\donttest{
-x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
-y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
-fit <- imr(list(assay = x), y, outcome_type = "continuous",
-           min_subgroup_size = 5, forced_prior_scale = 1,
-           draws = 500, burnin = 250, seed = 1)
-cv_imr(fit, k = 2, rounds = 1)
-}
-}
-\seealso{
-\code{\link[=cv_imr]{cv_imr()}}
+Print Joint-Posterior Cross-Validation Results
 }

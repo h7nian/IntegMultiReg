@@ -88,7 +88,8 @@ imr_data <- function(platforms, outcome = NULL, covariates = NULL,
       outcome_type, c("right.censored", "binary", "continuous")
     )
     outcome <- .imr_standardize_id_frame(
-      outcome, id, "outcome", require_features = TRUE
+      outcome, id, "outcome",
+      require_features = TRUE
     )
     .imr_validate_outcome(outcome, outcome_type)
   } else if (!is.null(outcome_type)) {
@@ -99,7 +100,8 @@ imr_data <- function(platforms, outcome = NULL, covariates = NULL,
 
   if (!is.null(covariates)) {
     covariates <- .imr_standardize_id_frame(
-      covariates, id, "covariates", require_features = TRUE
+      covariates, id, "covariates",
+      require_features = TRUE
     )
   }
 
@@ -158,8 +160,10 @@ imr_data <- function(platforms, outcome = NULL, covariates = NULL,
 #' @examples
 #' x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
 #' y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
-#' analysis <- imr_data(platforms = list(assay = x), outcome = y,
-#'                      outcome_type = "continuous")
+#' analysis <- imr_data(
+#'   platforms = list(assay = x), outcome = y,
+#'   outcome_type = "continuous"
+#' )
 #' validate_imr_data(analysis)
 #'
 #' # Subject alignment is rechecked, so a truncated outcome is rejected.
@@ -182,8 +186,8 @@ validate_imr_data <- function(x) {
     .imr_abort("`x$platforms` must be a non-empty list.")
   }
   if (is.null(names(x$platforms)) || anyNA(names(x$platforms)) ||
-      any(!nzchar(names(x$platforms))) ||
-      anyDuplicated(names(x$platforms))) {
+    any(!nzchar(names(x$platforms))) ||
+    anyDuplicated(names(x$platforms))) {
     .imr_abort("`x$platforms` must have complete, unique names.")
   }
   .imr_check_reserved_platform_names(names(x$platforms))
@@ -201,7 +205,7 @@ validate_imr_data <- function(x) {
     .imr_check_numeric_columns(x$covariates, "x$covariates")
   }
   if (!is.data.frame(x$availability) ||
-      !all(c("id", "subgroup") %in% names(x$availability))) {
+    !all(c("id", "subgroup") %in% names(x$availability))) {
     .imr_abort("`x$availability` is not a valid availability table.")
   }
   platform_ids <- unique(unlist(lapply(x$platforms, `[[`, "id"), use.names = FALSE))
@@ -218,9 +222,9 @@ validate_imr_data <- function(x) {
     check.names = FALSE, row.names = NULL
   )
   if (!identical(x$availability, expected_availability) ||
-      !identical(x$subgroup_sizes, sort(table(bitstrings))) ||
-      !identical(x$n_platform_subjects, length(platform_ids)) ||
-      !identical(x$excluded_ids, setdiff(platform_ids, all_ids))) {
+    !identical(x$subgroup_sizes, sort(table(bitstrings))) ||
+    !identical(x$n_platform_subjects, length(platform_ids)) ||
+    !identical(x$excluded_ids, setdiff(platform_ids, all_ids))) {
     .imr_abort("Availability metadata does not match the platform data.")
   }
   invisible(TRUE)
@@ -271,8 +275,10 @@ print.imr_data <- function(x, ...) {
     nrow(x$availability), x$n_platform_subjects
   ))
   if (length(x$excluded_ids)) {
-    cat(sprintf(" (%d missing required outcome/covariate rows)",
-                length(x$excluded_ids)))
+    cat(sprintf(
+      " (%d missing required outcome/covariate rows)",
+      length(x$excluded_ids)
+    ))
   }
   cat("\n")
   cat(sprintf("Outcome   : %s\n", if (is.null(x$outcome)) {

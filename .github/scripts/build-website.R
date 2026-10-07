@@ -29,7 +29,7 @@ build_website <- function() {
   required <- c("index.html", "reference/index.html", "reference/cv_imr.html",
                 "articles/IntegMultiReg.html", "articles/covariate-comparison.html",
                 "articles/reproducibility.html", "reference/inclusion_probabilities.html",
-                "reference/sample_regression_posterior.html", "method-coverage.html",
+                "reference/posterior_draws.html", "articles/joint-posterior.html", "method-coverage.html",
                 "migration.html", "news/index.html", "authors.html")
   stopifnot(all(file.exists(file.path("docs", required))))
   cat("Package homepage, tutorial, reference, guides and citation pages built.\n")

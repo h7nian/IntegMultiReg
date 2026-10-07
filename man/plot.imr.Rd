@@ -6,7 +6,8 @@
 \usage{
 \method{plot}{imr}(
   x,
-  type = c("selection", "theta", "trace", "theta_trace", "selection_trace"),
+  type = c("selection", "interaction", "trace", "interaction_trace", "selection_trace",
+    "coefficient_trace", "variance_trace"),
   platform = NULL,
   base_cex = 1,
   cex_axis = NULL,
@@ -27,11 +28,12 @@
 \arguments{
 \item{x}{A fitted object of class \code{"imr"}.}
 
-\item{type}{Character; one of \code{"selection"} (default), \code{"theta"},
-\code{"trace"}, \code{"theta_trace"} or \code{"selection_trace"}.}
+\item{type}{Character; one of \code{"selection"} (default), \code{"interaction"},
+\code{"trace"}, \code{"interaction_trace"}, \code{"selection_trace"},
+\code{"coefficient_trace"} or \code{"variance_trace"}.}
 
 \item{platform}{Optional integer vector selecting which platforms to display
-for the \code{"selection"} and \code{"theta"} plots; defaults to all platforms.}
+for the \code{"selection"} and \code{"interaction"} plots; defaults to all platforms.}
 
 \item{base_cex}{Overall text-size multiplier. The \verb{cex_*} arguments default
 to values derived from this multiplier (default \code{1}).}
@@ -61,11 +63,11 @@ legend be drawn (default \code{TRUE})?}
 \item{mar, mgp}{Optional graphical margin and axis-title placement vectors
 passed to \code{\link[graphics:par]{graphics::par()}} for finer layout control.}
 
-\item{parameter}{Positive integer selecting a theta-pair column for
-\code{type = "theta_trace"}.}
+\item{parameter}{Positive integer selecting an interaction-pair column for
+\code{type = "interaction_trace"} or a coefficient for \code{"coefficient_trace"}.}
 
 \item{subgroup}{Positive integer selecting a platform-specific subgroup row
-for \code{type = "selection_trace"}.}
+for \code{type = "selection_trace"}, or a fitted subgroup for coefficient/variance traces.}
 
 \item{feature}{Positive integer selecting a feature column for
 \code{type = "selection_trace"}.}
@@ -77,16 +79,18 @@ functions.}
 \code{NULL}, invisibly; called for the side effect of producing a plot.
 }
 \description{
-Visualizes a fitted \code{"imr"} object. Five plot types are available:
+Visualizes joint posterior summaries and separate chain traces:
 \describe{
 \item{\code{"selection"}}{Heatmap of the marginal posterior inclusion
 probabilities (mPIP), one panel per platform, with features on the
 horizontal axis, availability subgroups on the vertical axis and a small
 intensity legend showing that darker values are closer to 1.}
-\item{\code{"theta"}}{Heatmap of the posterior mean MRF interaction parameters
+\item{\code{"interaction"}}{Heatmap of the posterior mean MRF interaction parameters
 between availability subgroups, one panel per platform.}
-\item{\code{"trace"}}{Trace plot of the log-posterior across MCMC iterations.}
-\item{\code{"theta_trace"}}{Trace plot for one retained MRF interaction
+\item{\code{"trace"}}{Joint log-density traces, one line per retained chain.}
+\item{\code{"coefficient_trace"}}{A regression effect selected by subgroup and parameter.}
+\item{\code{"variance_trace"}}{Residual variance for a subgroup.}
+\item{\code{"interaction_trace"}}{Trace plot for one retained MRF interaction
 parameter, selected by \code{platform} and \code{parameter}.}
 \item{\code{"selection_trace"}}{Trace plot for one retained selection
 indicator, selected by \code{platform}, \code{subgroup} and \code{feature}.}
@@ -97,19 +101,17 @@ made displays.
 \section{Statistical interpretation}{
 
 The selection heatmap displays \eqn{\widehat\pi_{lsj}}{mPIP_lsj}, the retained-chain
-indicator average defined in \code{\link[=inclusion_probabilities]{inclusion_probabilities()}}. The theta heatmap displays
-\deqn{\frac{1}{B}\sum_{b=1}^{B}\theta_{l,sh}^{(b)}.}{mean_b theta_l,sh[b].}
+indicator average defined in \code{\link[=inclusion_probabilities]{inclusion_probabilities()}}. The interaction heatmap displays
+\deqn{\frac{1}{BC}\sum_{c=1}^{C}\sum_{b=1}^{B}\theta_{l,sh}^{(b,c)}.}{Average theta_l,sh over all retained iterations and chains.}
 
 An MRF interaction measures
 prior coupling of selection indicators; it is not a correlation between
 measured biomarkers or a regression effect.
 
-\code{theta_trace} and \code{selection_trace} display retained parameter draws in
-iteration order. The log-posterior trace includes burn-in and reflects the
-fitted sampler's density convention. These plots can reveal mixing or drift,
-but a flat trace alone does not establish convergence. They display the
-original selection stage; the separate conditional coefficient-stage
-diagnostic is defined in \code{\link[=sample_regression_posterior]{sample_regression_posterior()}}.
+Trace plots retain separate chains and exclude discarded warmup. Joint log
+density is an augmented-state diagnostic, not a marginal model score or
+a cross-model comparison criterion. Use \code{\link[=mcmc_diagnostics]{mcmc_diagnostics()}} for rank-based
+diagnostics; a flat trace alone does not establish convergence.
 }
 
 \seealso{

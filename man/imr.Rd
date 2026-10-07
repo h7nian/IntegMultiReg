@@ -6,7 +6,7 @@
 \alias{imr.list}
 \alias{imr.imr_data}
 \alias{imr.formula}
-\title{Fit the Integrative Bayesian Multi-Platform Regression Model}
+\title{Fit Joint Integrative Bayesian Regressions}
 \usage{
 imr(x, ...)
 
@@ -18,21 +18,12 @@ imr(x, ...)
   covariates = NULL,
   outcome_type = c("right.censored", "binary", "continuous"),
   model_variant = c("imr", "bms"),
+  priors = imr_priors(),
+  mcmc = imr_mcmc(),
   min_subgroup_size = 30L,
-  nu = rep(-3, length(x)),
-  molecular_prior_scale = 0.087,
-  forced_prior_scale = 10000,
-  residual_prior = c(shape = 0.001, rate = 0.001),
-  interaction_prior = c(shape = 40, rate = 10),
-  draws = 2000L,
-  burnin = 1000L,
-  seed = NULL,
-  verbose = FALSE,
-  survival_scale = c("log", "identity"),
-  laplace_max_iter = c(initial = 25L, selection = 40L, latent = 25L, prediction = 40L),
-  laplace_tolerance = 0.001,
   standardize = TRUE,
-  initial = NULL,
+  survival_scale = c("log", "identity"),
+  verbose = FALSE,
   ...
 )
 
@@ -48,106 +39,33 @@ imr(x, ...)
 )
 }
 \arguments{
-\item{x}{A list of data frames, one per platform.  Each
-data frame must contain an \code{id} column (the subject identifier, taken to be
-the first column); the remaining columns are finite numeric features
-measured on that platform.  Subject identifiers must be unique within each
-data frame.  The \code{id} column links subjects across platforms and to the
-outcome and covariate data.
-Alternatively, supply an \code{\link[=imr_data]{imr_data()}} object or a model formula as \code{x}.
-A formula must include an intercept: \code{0}/\code{-1} and \code{offset()} terms are
-rejected. The identifier column is excluded when expanding \code{.}.}
+\item{x}{An \code{\link[=imr_data]{imr_data()}} object, a formula, or a named list of platform data
+frames. Each frame contains unique \code{id} values and numeric feature columns.}
 
-\item{...}{Additional fitting arguments passed from the formula or
-\code{imr_data} method to the list method. Unused arguments are rejected.}
+\item{...}{Passed by the generic to its method; unsupported arguments fail.}
 
-\item{outcome}{A data frame containing an \code{id} column and the response.  For
-\code{outcome_type = "right.censored"} it must also contain the event/censoring
-time and a censoring indicator (three columns in total).  For \code{"binary"}
-the response must be coded 0/1 and for \code{"continuous"} it is a numeric
-response (two columns in total).  The \code{id} column must be first and unique.}
+\item{outcome}{Outcome data frame with \code{id} and response; survival also has
+an event indicator (one for an observed event, zero for right censoring).}
 
-\item{covariates}{An optional data frame of clinical covariates including an \code{id}
-column followed by finite numeric covariates.  Covariates are always
-included in every regression (they are not subject to selection).  Defaults
-to \code{NULL} (no covariates).}
+\item{covariates}{Optional numeric clinical data frame, including \code{id}.}
 
-\item{outcome_type}{Character string specifying the outcome type, one of
-\code{"right.censored"} (default), \code{"binary"} or \code{"continuous"}.}
+\item{outcome_type}{\code{"continuous"}, \code{"binary"}, or \code{"right.censored"}.}
 
-\item{model_variant}{Model variant: \code{"imr"} (default) for
-the integrative model that shares information across subgroups via the MRF
-prior, or \code{"bms"} for the non-integrative Bayesian multi-step variant that
-fits each subgroup independently (MRF interaction parameters set to zero).}
+\item{model_variant}{\code{"imr"} shares information; \code{"bms"} fits independent
+subgroup regressions under the same coefficient and variance priors.}
 
-\item{min_subgroup_size}{Minimum availability subgroup size for a subgroup to be
-modelled. Subgroups with at most \code{min_subgroup_size} subjects are dropped. Default is
-\code{30}.}
+\item{priors}{Statistical settings from \code{\link[=imr_priors]{imr_priors()}}.}
 
-\item{nu}{A numeric vector of prior log-odds of inclusion, one value per
-platform, controlling the prior sparsity of the selected features.
-Defaults to \code{rep(-3, length(x))}.}
+\item{mcmc}{Sampling and storage settings from \code{\link[=imr_mcmc]{imr_mcmc()}}.}
 
-\item{molecular_prior_scale}{Scale of the non-local (product moment) prior on the slab
-regression effects (default \code{0.087}).}
+\item{min_subgroup_size}{Groups with at most this many subjects are excluded.}
 
-\item{forced_prior_scale}{pMOM prior scale for the always-included intercept and clinical
-coefficients (default \code{10000}), corresponding to tau_0 in the original
-paper. This is not the marginal prior variance.}
+\item{standardize}{Center/scale predictors within each training subgroup.}
 
-\item{residual_prior}{Length-2 numeric vector with the shape and rate of the
-inverse-gamma prior on the response error variance (default
-\code{c(0.001, 0.001)}).  Ignored when \code{outcome_type = "binary"}: a probit model
-uses a highly concentrated inverse-gamma prior with shape and rate
-\code{100000} to approximate unit residual variance for identifiability.}
+\item{survival_scale}{\code{"log"} for an AFT model or \code{"identity"} for a Gaussian
+working-time model. Applies only to survival outcomes.}
 
-\item{interaction_prior}{Length-2 numeric vector with the shape and rate of the
-gamma prior on the MRF interaction parameters theta, which borrow
-information across subgroups (default \code{c(40, 10)}).}
-
-\item{draws}{Number of post-burn-in MCMC draws to retain (default \code{2000}).}
-
-\item{burnin}{Number of initial MCMC iterations to discard (default \code{1000}).}
-
-\item{seed}{Optional integer seed for the sampler.  If \code{NULL} (the default) a
-seed is drawn from the current R RNG state, so a run is reproducible
-whenever \code{\link[=set.seed]{set.seed()}} is called beforehand or an explicit \code{seed} is passed.}
-
-\item{verbose}{Logical; if \code{TRUE}, print the sampler's progress and
-diagnostics to the console.  Defaults to \code{FALSE} (quiet).}
-
-\item{survival_scale}{Working response scale for right-censored outcomes.
-\code{"log"} (default) logs the supplied positive event/censoring times, as in
-the original AFT model. \code{"identity"} reproduces historical package analyses
-and does not fit a log-time AFT model. Ignored for other outcome types.}
-
-\item{laplace_max_iter}{Maximum coefficient-mode iterations, either a
-positive integer for all stages or a named vector in the order \code{initial},
-\code{selection}, \code{latent}, \code{prediction}. Defaults are 25, 40, 25, 40. The
-released C code used 25 for prediction; these are not MCMC draw counts.}
-
-\item{laplace_tolerance}{Positive relative coefficient-mode convergence
-tolerance (default \code{0.001}). Numerical controls are stored in the fit and
-reused by prediction and cross-validation, including training-fold refits.
-\code{control$laplace_diagnostics} records calls, iteration-limit hits, nonfinite
-likelihoods and factorization failures by subgroup for the initial,
-selection and latent fitting stages. These counters do not assess MCMC
-convergence or subsequent prediction-stage optimization.}
-
-\item{standardize}{Logical; standardize features and forced covariates
-within availability subgroups (default \code{TRUE}). Set \code{FALSE} for inputs
-already transformed by an external historical experiment. Prediction then
-uses those supplied units. Refit CV cannot undo external preprocessing;
-record how the supplied data were constructed.}
-
-\item{initial}{Optional named list with \code{selection} and/or \code{interaction}.
-Each component is a list of matrices named by platform. Selection matrices
-have subgroup rows and feature columns, with entries zero or one; interaction
-matrices have subgroup rows/columns, positive symmetric off-diagonals and
-zero diagonals (IMR only). Dimnames must match the fitted model order.
-NULL preserves the original random initialization and RNG consumption.
-Supplied selection bypasses its initialization draws. Refit CV reuses the
-specified starting values; missing components retain their defaults.}
+\item{verbose}{Print progress for each chain.}
 
 \item{data}{A data frame used with the formula interface.}
 
@@ -157,145 +75,75 @@ interface.}
 \item{id}{Name of the identifier column in \code{data} and \code{platforms}.}
 }
 \value{
-An object of class \code{"imr"} with \code{schema_version = 3L} and four
-named sections: \code{control} (outcome, model variant, update rule, priors, MCMC and seed), \code{model}
-(platform, feature and subgroup metadata), \code{preprocessing} (validated
-inputs, standardized matrices and formula metadata), and \code{posterior}
-(inclusion probabilities, interaction draws, latent-response summaries
-and the log-posterior trace).
+An \code{imr} object with schema version 4, containing controls, model
+metadata, preprocessing, joint posterior arrays and MCMC diagnostics.
+Array dimensions preserve iteration, chain and parameter identities.
 }
 \description{
-\code{imr()} fits the integrative multi-regression (IMR) model of Chekouo et al.
-(2017) by Markov chain Monte Carlo (MCMC).
-It identifies biomarkers associated with a time-to-event, binary or
-continuous outcome while borrowing information across all subjects,
-regardless of which platforms each subject has measured.  Subjects are
-partitioned into availability subgroups defined by their pattern of platform
-availability; one regression is built per subgroup and information is shared
-across subgroups through a Markov random field (MRF) prior on the
-variable-selection indicators together with non-local priors on the
-regression coefficients.  The sampler is implemented in C for efficiency.
-
-The arguments are grouped by the orthogonal aspect of the analysis that each
-one controls: the \emph{data} (\code{x}, \code{outcome}, \code{covariates}), the
-\emph{likelihood} (\code{outcome_type}), the \emph{model variant} (\code{model_variant}), subgroup \emph{filtering}
-(\code{min_subgroup_size}), the \emph{priors} (\code{nu}, \code{molecular_prior_scale}, \code{forced_prior_scale}, \code{residual_prior}, \code{interaction_prior}),
-the \emph{computation} (\code{draws}, \code{burnin}, \code{seed}) and the \emph{output} (\code{verbose}).
+Fits a regression in each availability subgroup and samples selection,
+regression coefficients, residual variances and sharing parameters jointly.
+Use \code{\link[=coef]{coef()}}, \code{\link[=confint]{confint()}}, \code{\link[=summary]{summary()}} and \code{\link[=predict]{predict()}} directly on the fit;
+\code{\link[=posterior_draws]{posterior_draws()}} extracts its stored samples without further MCMC.
 }
-\details{
-With \code{standardize = TRUE}, feature and covariate columns are centered
-within each availability subgroup. Nonconstant columns are divided by their
-sample standard deviations; constant columns use scale one and become zero
-in the training data. The factors are stored in the returned
-object so that \code{\link[=predict.imr]{predict.imr()}} can apply the same transformation to new
-subjects.  For right-censored outcomes the latent log-survival times of
-censored subjects are imputed within the sampler; for binary outcomes a
-probit data-augmentation latent variable is sampled.
-With \code{standardize = FALSE}, the supplied predictor values are used unchanged.
-The historical censored-response proposal has an upper working-scale bound
-of 1000.5. Its starting value is the censoring time plus 0.01, which must
-remain strictly below that bound. Unsupported censored times are rejected
-before native workspaces are allocated. Large raw times should use the
-default log scale; the bound does not constrain observed event times.
+\section{Model and computation}{
 
-See the \href{https://h7nian.github.io/IntegMultiReg/method-coverage.html}{methods and reproducibility guide}
-for the distinction between the stated model and archived implementations.
-Upgrading a saved object's structure does not change its sampling target.
-}
-\section{Outcome models and priors}{
+On the working response scale, subgroup s has
+\deqn{z_s=X_s\beta_s+\epsilon_s,\quad\epsilon_s\sim N(0,v_s I).}{z_s = X_s beta_s + error_s; error_s ~ Normal(0, v_s I).}
+Continuous responses are observed. Binary responses constrain latent values
+above/below zero. Survival uses log time by default; right-censored responses
+are augmented above their observed censoring bounds.
 
-Let \eqn{s} index an availability subgroup. Its design matrix \eqn{Z_s}
-contains an intercept, the forced clinical covariates and the selected
-molecular features. On the working response scale,
-\deqn{y_s^* = Z_s b_s + \epsilon_s,}{y*_s = Z_s b_s + error_s,}
-\deqn{\epsilon_s \sim N(0, v_s I).}{error_s ~ N(0, v_s I).}
+Every active coefficient, including the intercept and clinical effects, has
+the first-order product-moment prior
+\deqn{p(\beta_j\mid v_s)=\frac{\beta_j^2}{\tau_jv_s}\phi(\beta_j;0,\tau_jv_s).}{p(beta_j | v_s) = beta_j^2 / (tau_j v_s) * NormalDensity(beta_j; 0, tau_j v_s).}
+Molecular effects are exactly zero when excluded. Clinical effects are always
+active. \code{forced_scale} and \code{molecular_scale} specify their respective tau's.
+Residual variance has an inverse-gamma shape/rate prior; binary fits anchor
+its latent scale near one with shape and rate both equal to 100000.
 
-For continuous outcomes, \eqn{y_s^*} is observed. For binary outcomes,
-\deqn{Y_i = I(y_i^*>0),}{Y_i = I(y*_i > 0),}
-and the latent normal response is sampled on the appropriate side of zero.
-The binary prior concentrates \eqn{v_s} near one;
-the implemented variance is not fixed exactly at one.
-
-For the default survival model, an observed event has
-\deqn{y_i^*=\log t_i,}{y*_i = log(t_i),}
-whereas a censored observation has
-\deqn{y_i^*>\log t_i.}{y*_i > log(t_i).}
-
-Every active coefficient has the first-order pMOM density
-\deqn{p(b_j\mid v_s) = \frac{b_j^2}{\tau_j v_s}
-      \phi(b_j;0,\tau_j v_s),}{p(b_j | v_s) = b_j^2 / (tau_j v_s) * NormalDensity(b_j; 0, tau_j v_s).}
-where \eqn{\phi(\cdot;\mu,v)}{phi(. ; mu, v)} is a normal density with variance \eqn{v}.
-The scale \eqn{\tau_j}{tau_j} is
-\code{forced_prior_scale} for the intercept and clinical
-effects and \code{molecular_prior_scale} for molecular effects. Inactive molecular
-coefficients are exactly zero.
-
-The residual prior is
-\deqn{v_s\sim\mathrm{IG}(a,b),}{v_s ~ inverse-Gamma(a, b),}
-parameterized by a density proportional to
-\deqn{v_s^{-a-1}\exp(-b/v_s).}{v_s^(-a - 1) * exp(-b/v_s).}
-
-For feature \eqn{j} on platform \eqn{l}, collect its subgroup selection
-indicators in \eqn{\gamma_{lj}}{gamma_lj}. The published MRF prior is
-\deqn{p(\gamma_{lj}\mid\nu_l,\Theta_l) \propto
-      \exp\{\nu_l\mathbf{1}^{T}\gamma_{lj}
-               +\gamma_{lj}^{T}\Theta_l\gamma_{lj}\}.}{p(gamma_lj | nu_l, Theta_l) is proportional to exp(nu_l * sum(gamma_lj) + gamma_lj-transpose * Theta_l * gamma_lj).}
-The symmetric matrix \eqn{\Theta_l}{Theta_l} has zero diagonal and positive
-off-diagonal interactions with the Gamma shape/rate \code{interaction_prior}.
-For BMS, these interactions are zero. The prior conditional log-odds is
-\deqn{\nu_l+2\sum_{h\ne s}\theta_{l,sh}\gamma_{l,hj}.}{nu_l + 2 * sum over h != s of theta_l,sh * gamma_l,hj.}
-
-Fitting uses this symmetric-MRF factor of two and the Hastings correction
-for flip proposals at empty/full model boundaries. The logged Gamma prior
-uses its negative rate term. Historical updates with different targets are
-not selectable through the fitting interface; retain their source snapshot
-for numerical replay.
+IMR shares selection information through the normalized symmetric MRF
+\deqn{p(\gamma_{lj}\mid\Theta_l)\propto
+\exp\{\nu_l\mathbf 1^T\gamma_{lj}+\gamma_{lj}^T\Theta_l\gamma_{lj}\}.}{p(gamma_lj | Theta_l) is proportional to exp(nu_l * sum(gamma_lj) + transpose(gamma_lj) * Theta_l * gamma_lj).}
+BMS sets interactions to zero. The sampler jointly updates a feature's
+selection indicators across its subgroups and then its active coefficients,
+using exact scalar pMOM Bayes factors. Whole-feature exchanges aid movement
+between correlated predictors. Variances and augmented responses use their
+full conditionals; interactions use a Metropolis step with the exact MRF
+normalizer. This engine does not use a Laplace model score.
 }
 
-\section{Computation and interpretation}{
+\section{Scaling and interpretation}{
 
-The selection sampler integrates regression coefficients and variances using
-the package's Laplace-based marginal-likelihood calculation. For augmented
-outcomes, this calculation uses the current latent responses. The retained
-selection and interaction draws are summarized by \code{\link[=inclusion_probabilities]{inclusion_probabilities()}} and
-\code{\link[=selection_summary]{selection_summary()}}. Coefficient samples require the separate conditional
-sampling step \code{\link[=sample_regression_posterior]{sample_regression_posterior()}}.
+When \code{standardize = TRUE}, a predictor in subgroup s becomes
+\deqn{z_{sij}=(x_{sij}-\bar x_{sj})/s_{sj}.}{z_sij = (x_sij - training_mean_sj) / training_sd_sj.}
+Constant columns retain their training mean and use scale one, so their
+training values become zero; different new values need not become zero.
+Prediction reuses the stored training transformations. Coefficients refer to
+these transformed columns. With \code{standardize = FALSE}, supplied columns are
+retained as given.
 
-With \code{standardize = TRUE}, each predictor uses its training subgroup's
-center and scale:
-\deqn{z_{sij}=\frac{x_{sij}-\bar x_{sj}}{s_{sj}}.}{z_sij = (x_sij - mean_sj) / sd_sj.}
-
-For a constant training column, the stored center is its mean and the stored scale is one; its
-transformed training values are zero. A different value in new data is
-still centered at that training mean and need not become zero.
-\code{\link[=predict.imr]{predict.imr()}} reuses these subgroup-specific centers and scales;
-refit \code{\link[=cv_imr]{cv_imr()}} estimates them again within each training fold.
+Multiple chains and \code{\link[=mcmc_diagnostics]{mcmc_diagnostics()}} assess finite-chain exploration.
+Constant indicators have undefined R-hat and are reported separately, not
+certified as converged. Neither a successful fit nor an R-hat cutoff alone
+establishes adequate inference for a particular scientific analysis.
 }
 
 \examples{
-\donttest{
-data("simIMR", package = "IntegMultiReg")
-fit <- imr(
-  x = simIMR$platforms,
-  outcome = simIMR$outcome,
-  covariates = simIMR$covariates,
-  outcome_type = "binary",
-  nu = c(-4, -3, -4),
-  draws = 200, burnin = 100,
-  min_subgroup_size = 5,
-  seed = 1
+x <- data.frame(id = 1:40, marker = sin(1:40))
+y <- data.frame(id = x$id, y = 1 + x$marker + cos(x$id) / 3)
+fit <- imr(list(assay = x), y,
+  outcome_type = "continuous",
+  priors = imr_priors(forced_scale = 1),
+  mcmc = imr_mcmc(draws = 500, burnin = 500, chains = 2, seed = 1)
 )
-fit
-}
+coef(fit)
+confint(fit)
 }
 \references{
-Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). "A Bayesian Integrative
-Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
-\emph{Biometrics}, \strong{73}(2), 615--624. \doi{10.1111/biom.12587}
-
-\href{https://academic.oup.com/biometrics/article/73/2/615/7537638}{Read paper} |
-\href{https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf}{Publisher PDF}.
+Chekouo T, Stingo FC, Doecke JD, Do K-A (2017).
+A Bayesian Integrative Approach for Multi-Platform Genomic Data: A Kidney
+Cancer Case Study. Biometrics, 73(2), 615--624. \doi{10.1111/biom.12587}.
 }
 \seealso{
-\code{\link[=predict.imr]{predict.imr()}}, \code{\link[=cv_imr]{cv_imr()}}, \code{\link[=summary.imr]{summary.imr()}}, \code{\link[=plot.imr]{plot.imr()}}
+\code{\link[=posterior_draws]{posterior_draws()}}, \code{\link[=inclusion_probabilities]{inclusion_probabilities()}}, \code{\link[=cv_imr]{cv_imr()}}
 }

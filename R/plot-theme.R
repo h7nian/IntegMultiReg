@@ -16,25 +16,34 @@
                           cex_lab = NULL, cex_main = NULL,
                           cex_names = NULL, cex_legend = NULL,
                           cex_values = NULL,
-                          defaults = list(axis = 1, lab = 1.15,
-                                          main = 1.2, names = 1,
-                                          legend = 0.95, values = 0.95)) {
+                          defaults = list(
+                            axis = 1, lab = 1.15,
+                            main = 1.2, names = 1,
+                            legend = 0.95, values = 0.95
+                          )) {
   base_cex <- .imr_check_numeric_vector(
-    base_cex, "base_cex", length = 1, positive = TRUE
+    base_cex, "base_cex",
+    length = 1, positive = TRUE
   )
 
   r <- .imr_plot_take_alias(dots, "cex.axis", cex_axis)
-  cex_axis <- r$value; dots <- r$dots
+  cex_axis <- r$value
+  dots <- r$dots
   r <- .imr_plot_take_alias(dots, "cex.lab", cex_lab)
-  cex_lab <- r$value; dots <- r$dots
+  cex_lab <- r$value
+  dots <- r$dots
   r <- .imr_plot_take_alias(dots, "cex.main", cex_main)
-  cex_main <- r$value; dots <- r$dots
+  cex_main <- r$value
+  dots <- r$dots
   r <- .imr_plot_take_alias(dots, "cex.names", cex_names)
-  cex_names <- r$value; dots <- r$dots
+  cex_names <- r$value
+  dots <- r$dots
   r <- .imr_plot_take_alias(dots, "cex.legend", cex_legend)
-  cex_legend <- r$value; dots <- r$dots
+  cex_legend <- r$value
+  dots <- r$dots
   r <- .imr_plot_take_alias(dots, "cex.values", cex_values)
-  cex_values <- r$value; dots <- r$dots
+  cex_values <- r$value
+  dots <- r$dots
 
   out <- list(
     axis = if (is.null(cex_axis)) defaults$axis * base_cex else cex_axis,
@@ -56,7 +65,8 @@
 
   for (nm in setdiff(names(out), "dots")) {
     out[[nm]] <- .imr_check_numeric_vector(
-      out[[nm]], paste0("cex_", nm), length = 1, positive = TRUE
+      out[[nm]], paste0("cex_", nm),
+      length = 1, positive = TRUE
     )
   }
   out
@@ -68,10 +78,12 @@
   if (is.null(mar)) mar <- default_mar
   if (is.null(mgp)) mgp <- default_mgp
   mar <- .imr_check_numeric_vector(
-    mar, "mar", length = 4, nonnegative = TRUE
+    mar, "mar",
+    length = 4, nonnegative = TRUE
   )
   mgp <- .imr_check_numeric_vector(
-    mgp, "mgp", length = 3, nonnegative = TRUE
+    mgp, "mgp",
+    length = 3, nonnegative = TRUE
   )
   list(mar = mar, mgp = mgp)
 }
@@ -79,7 +91,9 @@
 #' @keywords internal
 #' @noRd
 .imr_plot_palette <- function(n, col = NULL, palette = "Dark 3") {
-  if (n < 1L) return(character(0))
+  if (n < 1L) {
+    return(character(0))
+  }
   if (!is.null(col)) {
     if (!is.atomic(col) || length(col) == 0L) {
       .imr_abort("`col` must contain at least one colour.")
@@ -111,8 +125,10 @@
 #' @noRd
 .imr_plot_platform_colours <- function() {
   ## Muted academic palette: distinct, print-friendly, and colourblind aware.
-  c("#2F5D7C", "#8A5A44", "#557A60", "#6D5A7D",
-    "#8A7D4E", "#5B7E91", "#6F6F6F", "#3F4A52")
+  c(
+    "#2F5D7C", "#8A5A44", "#557A60", "#6D5A7D",
+    "#8A7D4E", "#5B7E91", "#6F6F6F", "#3F4A52"
+  )
 }
 
 #' @keywords internal
@@ -131,10 +147,4 @@
 #' @noRd
 .imr_plot_reference_colour <- function() {
   "#707070"
-}
-
-#' @keywords internal
-#' @noRd
-.imr_plot_trace_colour <- function() {
-  "#2B2B2B"
 }

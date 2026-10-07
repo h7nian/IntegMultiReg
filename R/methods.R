@@ -1,275 +1,284 @@
-## S3 methods for objects of class "imr".
-
-## Internal: marginal posterior inclusion probability (mPIP) matrix for one
-## platform, with subgroup (row) and feature (column) names attached.
-#' @keywords internal
-#' @noRd
 .imr_mpip <- function(object, platform) {
-  m <- object$posterior$inclusion_probabilities[[platform]]
-  rn <- object$model$subgroup_names[object$model$platform_subgroups[[platform]]]
-  cn <- object$model$feature_names[[platform]]
-  if (!is.null(rn) && length(rn) == nrow(m)) rownames(m) <- rn
-  if (!is.null(cn) && length(cn) == ncol(m)) colnames(m) <- cn
-  m
-}
-
-## Internal: generic platform labels used to decode availability bitstrings.
-#' @keywords internal
-#' @noRd
-.imr_platform_codes <- function(n_platform) {
-  paste0("P", seq_len(n_platform))
-}
-
-
-## Internal: translate a bitstring into generic platform labels.  The right-most
-## bit corresponds to P1, matching the convention used throughout the package.
-#' @keywords internal
-#' @noRd
-.imr_bitstring_codes <- function(bitstring, n_platform) {
-  bits <- strsplit(as.character(bitstring), "", fixed = TRUE)[[1]]
-  if (length(bits) < n_platform) {
-    bits <- c(rep("0", n_platform - length(bits)), bits)
+  model <- object$model
+  members <- model$platform_subgroups[[platform]]
+  features <- model$feature_names[[platform]]
+  result <- matrix(0, length(members), length(features),
+    dimnames = list(model$subgroup_names[members], features)
+  )
+  for (i in seq_along(members)) {
+    g <- members[i]
+    columns <- .imr_feature_columns(model, g, platform)
+    for (j in seq_along(features)) result[i, j] <- mean(object$posterior$coefficients[[g]][, , columns[j]] != 0)
   }
-  present <- which(rev(bits) == "1")
-  if (!length(present)) return("none")
-  paste(.imr_platform_codes(n_platform)[present], collapse = " + ")
+  result
 }
 
-
-#' Marginal Posterior Inclusion Probabilities of an IMR Fit
+#' Extract Posterior Inclusion Probabilities
 #'
-#' Extracts the posterior mean variable-selection probabilities (the marginal
-#' posterior inclusion probabilities, mPIP) of a fitted model.
-#'
-#' @section Statistical definition:
-#' For platform \eqn{l}, subgroup \eqn{s} and feature \eqn{j}, the returned
-#' entry is the retained-chain average of its binary selection indicator:
-#' \deqn{\widehat\pi_{lsj} = \frac{1}{B}\sum_{b=1}^{B}\gamma_{lsj}^{(b)}.}{mPIP_lsj = sum_b gamma_lsj[b] / B.}
-#' Here \eqn{B} excludes burn-in. This estimates a marginal inclusion
-#' probability under the fitted sampler and its approximations. It is not a
-#' regression coefficient; `coef()` on an `imr_posterior` object instead
-#' returns coefficient posterior means (see [imr_posterior_methods]). Use [selection_summary()] for
-#' selection-indicator and interaction summaries, or [sample_regression_posterior()] for
-#' coefficient uncertainty.
-#'
-#' @param object A fitted object of class `"imr"`.
-#' @return A named list with one matrix per platform.  Rows are the subgroups
-#'   containing that platform (labelled by their availability bitstrings) and
-#'   columns are the platform features.
-#' @seealso [imr()]
+#' Computes the fraction of retained joint draws with a nonzero molecular
+#' coefficient, separately for each platform and availability subgroup.
+#' \deqn{\widehat\pi_{lsj}=\frac{1}{BC}\sum_{c=1}^{C}\sum_{b=1}^{B}I(\beta_{lsj}^{(b,c)}\ne0).}{mPIP_lsj = fraction of all retained chain draws in which beta_lsj is nonzero.}
+#' This is a selection probability; [coef()] extracts regression effects.
+#' @param object A joint `imr` fit.
+#' @return A named list of subgroup-by-feature matrices, one per platform.
+#' @examples
+#' # Short interface example; increase the budget and inspect diagnostics for inference.
+#' x <- data.frame(id = 1:20, marker = sin(1:20))
+#' y <- data.frame(id = x$id, y = 1 + x$marker + cos(x$id) / 3)
+#' fit <- imr(list(assay = x), y,
+#'   outcome_type = "continuous",
+#'   min_subgroup_size = 0, priors = imr_priors(forced_scale = 1),
+#'   mcmc = imr_mcmc(
+#'     draws = 100, burnin = 100, chains = 2,
+#'     seed = 1, diagnostics = FALSE
+#'   )
+#' )
+#' inclusion_probabilities(fit)
 #' @export
 inclusion_probabilities <- function(object) {
-  validate_imr_object(object)
-  out <- lapply(seq_len(object$model$n_platforms), function(l) .imr_mpip(object, l))
-  names(out) <- object$model$platform_names
-  out
+  .imr_check_fit(object)
+  stats::setNames(lapply(seq_len(object$model$n_platforms), function(l) .imr_mpip(object, l)), object$model$platform_names)
 }
 
-#' Regression Coefficients Require Regression Posterior Samples
+#' Extract Regression Coefficients
 #'
-#' An `imr` fit stores selection draws and integrates regression coefficients
-#' out of its model scores. It does not store regression coefficient estimates.
-#' This method reports that limitation instead of returning inclusion
-#' probabilities as coefficients or starting an additional sampler implicitly.
-#'
-#' @param object A fitted `imr` object.
-#' @param ... Unused.
-#' @return No value is returned: the method stops with instructions for sampling
-#'   regression coefficients. `coef()` on the resulting `imr_posterior` object
-#'   returns posterior mean regression coefficients.
-#' @seealso [inclusion_probabilities()], [sample_regression_posterior()],
-#'   [imr_posterior_methods]
+#' Returns posterior means, including exclusion zeros in model averaging.
+#' \deqn{\widehat\beta_j=\frac{1}{BC}\sum_{c,b}\beta_j^{(b,c)}.}{Posterior coefficient mean = average over retained iterations and chains.}
+#' Coefficients use the fitted subgroup predictor scales; log-time survival
+#' fits describe log time. Extraction performs no sampling.
+#' @param object A joint `imr` fit.
+#' @param ... Unused; unsupported arguments fail.
+#' @return A named list of coefficient vectors by availability subgroup.
+#' @examples
+#' # Short interface example; increase the budget and inspect diagnostics for inference.
+#' x <- data.frame(id = 1:20, marker = sin(1:20))
+#' y <- data.frame(id = x$id, y = 1 + x$marker + cos(x$id) / 3)
+#' fit <- imr(list(assay = x), y,
+#'   outcome_type = "continuous",
+#'   min_subgroup_size = 0, priors = imr_priors(forced_scale = 1),
+#'   mcmc = imr_mcmc(
+#'     draws = 100, burnin = 100, chains = 2,
+#'     seed = 1, diagnostics = FALSE
+#'   )
+#' )
+#' coef(fit)
 #' @export
 coef.imr <- function(object, ...) {
-  validate_imr_object(object)
-  .imr_abort(paste0(
-    "This fit does not store regression coefficients. Use ",
-    "`inclusion_probabilities()` for selection probabilities, or ",
-    "`sample_regression_posterior()` followed by `coef()` for coefficients."
-  ))
+  .imr_reject_dots(...)
+  .imr_check_fit(object)
+  lapply(object$posterior$coefficients, function(x) {
+    values <- vapply(seq_len(dim(x)[3L]), function(j) mean(x[, , j]), 0)
+    stats::setNames(values, dimnames(x)[[3L]])
+  })
 }
 
-
-# Features ranked by their highest inclusion probability across subgroups.
-# The two callers differ only in which columns they keep, so `select` receives
-# those probabilities and returns the column order to report.
 .imr_feature_ranking <- function(m, select) {
-  maxp <- apply(m, 2, max)
-  ord <- select(maxp)
+  if (!nrow(m)) {
+    return(data.frame(feature = character(), max_mpip = numeric(), subgroup = character()))
+  }
+  maximum <- apply(m, 2L, max)
+  order <- select(maximum)
   data.frame(
-    feature = colnames(m)[ord],
-    max_mpip = round(maxp[ord], 3),
-    subgroup = rownames(m)[apply(m, 2, which.max)][ord],
-    row.names = NULL,
-    stringsAsFactors = FALSE
+    feature = colnames(m)[order], max_mpip = round(maximum[order], 3),
+    subgroup = rownames(m)[apply(m, 2L, which.max)][order], row.names = NULL, stringsAsFactors = FALSE
   )
 }
 
-#' Print Method for IMR Fits
+#' Print a Joint IMR Fit
 #'
-#' Prints a compact overview of the fit, including a platform key (`P1`,
-#' `P2`, ...) that decodes the availability-subgroup bitstrings.  Optionally,
-#' it can also print the top-ranked features per platform, ranked by each
-#' feature's maximum mPIP over availability subgroups containing that platform.
-#'
-#' @section Reading the display:
-#' Selected-feature counts use the strict threshold and maximum subgroup mPIP
-#' defined in [summary.imr()]. With `rank = TRUE`, the display shows the `top`
-#' highest-ranking features even if some are below `threshold`; the threshold
-#' controls the counts, not the displayed ranking. Printing does not rerun
-#' sampling or change the stored inclusion probabilities.
-#'
-#' @param x A fitted object of class `"imr"`.
-#' @param threshold Inclusion-probability threshold used to count selected
-#'   features (default `0.5`).
-#' @param rank Logical; if `TRUE`, print a short ranked feature table for each
-#'   platform (default `FALSE`).
-#' @param top Integer; when `rank = TRUE`, the number of top-ranked features to
-#'   show per platform (default `5`).
-#' @param ... Unused; present for S3 compatibility.
+#' Reports the model, stored chain budget, feature ranking and available MCMC
+#' diagnostics. Ranking uses the maximum marginal inclusion probability over
+#' subgroups, which is not the probability of selection in at least one subgroup.
+#' @param x A joint `imr` fit.
+#' @param threshold Inclusion-probability cutoff for selected-feature counts.
+#' @param rank Display ranked features, including low-probability features.
+#' @param top Maximum ranked features per platform.
+#' @param ... Unused arguments are rejected.
 #' @return `x`, invisibly.
 #' @export
-print.imr <- function(x, threshold = 0.5, rank = FALSE, top = 5, ...) {
+print.imr <- function(x, threshold = .5, rank = FALSE, top = 5L, ...) {
   .imr_reject_dots(...)
+  .imr_check_fit(x)
   threshold <- .imr_check_threshold(threshold)
   .imr_check_flag(rank, "rank")
   top <- .imr_check_integer_scalar(top, "top", min = 1)
-  cat("Integrative Bayesian Multi-Platform Regression (IMR)\n")
-  cat("----------------------------------------------------\n")
-  if (!is.null(x$control$call)) {
-    cat("Call:\n  ")
-    print(x$control$call)
+  control <- x$control
+  model <- x$model
+  cat(toupper(control$model_variant), "joint posterior fit\n")
+  cat("Outcome:", control$outcome_type, "(", control$response_scale, "scale )\n")
+  cat(sprintf(
+    "%d chains; %d retained draws per chain after %d burn-in updates; thinning %d.\n",
+    control$mcmc$chains, control$mcmc$draws, control$mcmc$burnin, control$mcmc$thin
+  ))
+  cat("Subgroups:", paste(paste0(model$subgroup_names, " (n=", model$sample_sizes, ")"), collapse = ", "), "\n")
+  for (l in seq_len(model$n_platforms)) {
+    m <- .imr_mpip(x, l)
+    selected <- if (nrow(m)) sum(apply(m, 2, max) > threshold) else 0L
+    cat(sprintf("  %s: %d/%d features above %.3f in a subgroup\n", model$platform_names[l], selected, ncol(m), threshold))
+    if (rank && nrow(m)) print(.imr_feature_ranking(m, function(p) utils::head(order(p, decreasing = TRUE), top)), row.names = FALSE)
   }
-  validate_imr_object(x)
-  cat(sprintf("\nOutcome type : %s\n", x$control$outcome_type))
-  cat(sprintf("Model variant: %s\n", toupper(x$control$model_variant)))
-  cat("Selection    :", if (identical(x$control$selection_update, "symmetric_mrf_hastings"))
-    "Hastings-adjusted updates for the stated model" else "archived unadjusted flip/swap updates", "\n")
-  cat(sprintf("Platforms    : %d (%s)\n", x$model$n_platforms,
-              paste(x$model$platform_names, collapse = ", ")))
-  cat(sprintf("MCMC         : %d retained draws after %d burn-in\n",
-              x$control$mcmc$draws, x$control$mcmc$burnin))
-
-  codes <- .imr_platform_codes(x$model$n_platforms)
-  cat("\nPlatform key:\n")
-  key <- paste(sprintf("  %s = %s", codes, x$model$platform_names), collapse = "\n")
-  cat(key, "\n", sep = "")
-
-  cat("\nAvailability subgroups modelled (bitstring : platforms : size):\n")
-  subgroup_codes <- vapply(
-    x$model$subgroup_names, .imr_bitstring_codes, character(1),
-    n_platform = x$model$n_platforms
-  )
-  st <- paste(sprintf("  %-*s : %-*s : %d",
-                      max(nchar(x$model$subgroup_names)), x$model$subgroup_names,
-                      max(nchar(subgroup_codes)), subgroup_codes,
-                      as.integer(x$model$sample_sizes)),
-              collapse = "\n")
-  cat(st, "\n", sep = "")
-
-  cat(sprintf("\nFeatures with mPIP > %.2f (in any subgroup):\n", threshold))
-  for (l in seq_len(x$model$n_platforms)) {
-    m <- x$posterior$inclusion_probabilities[[l]]
-    sel <- if (nrow(m) > 0 && ncol(m) > 0) sum(apply(m, 2, max) > threshold) else 0L
-    cat(sprintf("  %-12s : %d of %d\n", x$model$platform_names[l], sel, ncol(m)))
-  }
-  if (rank) {
-    cat(sprintf("\nTop %d ranked features by maximum subgroup mPIP:\n", top))
-    for (l in seq_len(x$model$n_platforms)) {
-      m <- .imr_mpip(x, l)
-      cat(sprintf("  %s\n", x$model$platform_names[l]))
-      if (nrow(m) == 0 || ncol(m) == 0) {
-        cat("    (no selectable features)\n")
-        next
-      }
-      tab <- .imr_feature_ranking(m, function(maxp)
-        utils::head(order(maxp, decreasing = TRUE), top))
-      lines <- utils::capture.output(print(tab, row.names = FALSE))
-      cat(paste0("    ", lines), sep = "\n")
-      cat("\n")
-    }
-  }
+  if (is.null(x$diagnostics)) cat("MCMC diagnostics have not been computed; use mcmc_diagnostics().\n") else .imr_print_diagnostics(x$diagnostics)
   invisible(x)
 }
 
-
-#' Summarize an IMR Fit
-#'
-#' Produces a per-platform summary of the selected features (those whose
-#' marginal posterior inclusion probability exceeds `threshold` in at least one
-#' subgroup), ranked by their maximum inclusion probability.
-#'
-#' @section Selection and ranking:
-#' Let \eqn{\widehat\pi_{lsj}}{mPIP_lsj} denote the subgroup mPIP defined in [inclusion_probabilities()].
-#' For each platform-feature pair, the ranking score and selected set are
-#' \deqn{r_{lj}=\max_{s\in\mathcal S_l}\widehat\pi_{lsj},}{r_lj = maximum subgroup mPIP for feature j on platform l,}
-#' \deqn{\mathcal A_l(t)=\{j:r_{lj}>t\},}{A_l(t) contains features with r_lj > t,}
-#' where \eqn{\mathcal S_l}{S_l} contains subgroups with platform \eqn{l}, and
-#' \eqn{t} is `threshold`. The inequality is strict. Rows are sorted by
-#' \eqn{r_{lj}}; the reported subgroup is the first maximizing row in the fitted
-#' order. This maximum is a ranking score, not the posterior probability of
-#' selection in at least one subgroup. A common feature is counted once per
-#' platform, even if it exceeds the threshold in several subgroups.
-#'
-#' @param object A fitted object of class `"imr"`.
-#' @param threshold Inclusion-probability threshold for selection (default
-#'   `0.5`).
-#' @param ... Unused; present for S3 compatibility.
-#' @return An object of class `"summary.imr"`: a list with the run metadata and,
-#'   for each platform, a data frame of selected features with their maximum
-#'   mPIP and the subgroup achieving it.
-#' @export
-summary.imr <- function(object, threshold = 0.5, ...) {
-  .imr_reject_dots(...)
-  threshold <- .imr_check_threshold(threshold)
-  validate_imr_object(object)
-  selected <- vector("list", object$model$n_platforms)
-  names(selected) <- object$model$platform_names
-  for (l in seq_len(object$model$n_platforms)) {
-    m <- .imr_mpip(object, l)
-    if (nrow(m) == 0 || ncol(m) == 0) {
-      selected[[l]] <- data.frame(feature = character(0), max_mpip = numeric(0),
-                                  subgroup = character(0))
-      next
-    }
-    selected[[l]] <- .imr_feature_ranking(m, function(maxp) {
-      keep <- which(maxp > threshold)
-      keep[order(maxp[keep], decreasing = TRUE)]
-    })
-  }
-  out <- list(
-    call = object$control$call,
-    outcome_type = object$control$outcome_type,
-    model_variant = object$control$model_variant,
-    selection_update = object$control$selection_update,
-    threshold = threshold,
-    sample_sizes = object$model$sample_sizes,
-    subgroup_names = object$model$subgroup_names,
-    platform_names = object$model$platform_names,
-    selected = selected
+.imr_print_diagnostics <- function(x) {
+  defined <- !is.na(x$rhat)
+  cat(
+    "Rank R-hat:", if (any(defined)) format(max(x$rhat[defined]), digits = 4) else "undefined", "maximum;",
+    sum(x$status == "constant"), "constant parameter(s) remain unassessed.\n"
   )
-  class(out) <- "summary.imr"
-  out
+  if (any(x$status == "constant_in_chain")) cat(sum(x$status == "constant_in_chain"), "parameter(s) are constant in at least one chain but vary across samples.\n")
+}
+
+#' Summarize a Joint IMR Posterior
+#'
+#' Summarizes coefficients, residual variances, selection indicators and
+#' interactions from the same joint draws. Stored latent responses can be
+#' included with `parm = "latent"` or `"all"`.
+#' @param object A joint `imr` fit.
+#' @param parm A parameter family, or `"all"` for all stored families.
+#' @param level Equal-tail probability level, strictly between zero and one.
+#' @param ... Unused arguments are rejected.
+#' @return A `summary.imr` object with a tidy `parameters` table and the fit's
+#'   model/chain description. Quantiles use the empirical inverse CDF (type 1),
+#'   respecting point masses at zero and binary support. Diagnostics are
+#'   computed by the posterior package; undefined values are retained.
+#' @examples
+#' # Short interface example; increase the budget and inspect diagnostics for inference.
+#' x <- data.frame(id = 1:20, marker = sin(1:20))
+#' y <- data.frame(id = x$id, y = 1 + x$marker + cos(x$id) / 3)
+#' fit <- imr(list(assay = x), y,
+#'   outcome_type = "continuous",
+#'   min_subgroup_size = 0, priors = imr_priors(forced_scale = 1),
+#'   mcmc = imr_mcmc(
+#'     draws = 100, burnin = 100, chains = 2,
+#'     seed = 1, diagnostics = FALSE
+#'   )
+#' )
+#' summary(fit, parm = "variance")
+#' @export
+summary.imr <- function(object, parm = "all", level = .95, ...) {
+  .imr_reject_dots(...)
+  .imr_check_fit(object)
+  level <- .imr_check_level(level)
+  structure(list(
+    parameters = .imr_posterior_tables(object, parm, level), level = level,
+    model_variant = object$control$model_variant, chains = object$control$mcmc$chains,
+    draws_per_chain = object$control$mcmc$draws
+  ), class = "summary.imr")
 }
 
 #' @rdname summary.imr
-#' @param x A `"summary.imr"` object.
+#' @param x A `summary.imr` object.
+#' @param digits Significant digits for printing.
+#' @param max_rows Maximum displayed rows; the returned summary retains all rows.
 #' @export
-print.summary.imr <- function(x, ...) {
-  cat("Integrative Bayesian Multi-Platform Regression (IMR) -- summary\n")
-  cat("--------------------------------------------------------------\n")
-  cat(sprintf("Outcome type : %s   Model variant: %s\n", x$outcome_type, toupper(x$model_variant)))
-  if (!identical(x$selection_update, "symmetric_mrf_hastings"))
-    cat("Stored historical draws; metadata conversion has not changed their target.\n")
-  cat(sprintf("Selection threshold (mPIP) : %.2f\n\n", x$threshold))
-  for (l in seq_along(x$selected)) {
-    df <- x$selected[[l]]
-    cat(sprintf("Platform '%s': %d selected feature(s)\n",
-                x$platform_names[l], nrow(df)))
-    if (nrow(df) > 0) {
-      print(df, row.names = FALSE)
-    }
-    cat("\n")
-  }
+print.summary.imr <- function(x, digits = 4L, max_rows = 30L, ...) {
+  .imr_reject_dots(...)
+  max_rows <- .imr_check_integer_scalar(max_rows, "max_rows", min = 1)
+  cat(sprintf("%s joint posterior summary: %.1f%% equal-tail intervals\n", toupper(x$model_variant), 100 * x$level))
+  print(utils::head(x$parameters, max_rows), digits = digits, row.names = FALSE)
+  if (nrow(x$parameters) > max_rows) cat(nrow(x$parameters) - max_rows, "additional rows in $parameters.\n")
   invisible(x)
+}
+
+#' Credible Intervals from a Joint IMR Fit
+#'
+#' Extracts posterior means, spreads and equal-tail intervals from the stored
+#' joint samples. The default parameter family is regression coefficients.
+#' \deqn{[Q_{(1-L)/2},Q_{(1+L)/2}].}{Interval = empirical quantiles at (1-level)/2 and (1+level)/2.}
+#' Quantiles use type 1 to preserve discrete support and exclusion point masses.
+#' @param object A joint `imr` fit.
+#' @param parm `"coefficients"` (default), `"variance"`, `"selection"`,
+#'   `"interaction"`, `"latent"`, `"all"`, or coefficient names/indices.
+#' @param level Equal-tail probability level.
+#' @param ... Unused arguments are rejected.
+#' @return A data frame with parameter family, group, parameter, posterior mean,
+#'   standard deviation and interval endpoints. No additional sampling occurs.
+#' @examples
+#' # Short interface example; increase the budget and inspect diagnostics for inference.
+#' x <- data.frame(id = 1:20, marker = sin(1:20))
+#' y <- data.frame(id = x$id, y = 1 + x$marker + cos(x$id) / 3)
+#' fit <- imr(list(assay = x), y,
+#'   outcome_type = "continuous",
+#'   min_subgroup_size = 0, priors = imr_priors(forced_scale = 1),
+#'   mcmc = imr_mcmc(
+#'     draws = 100, burnin = 100, chains = 2,
+#'     seed = 1, diagnostics = FALSE
+#'   )
+#' )
+#' confint(fit)
+#' @export
+confint.imr <- function(object, parm = "coefficients", level = .95, ...) {
+  .imr_reject_dots(...)
+  .imr_check_fit(object)
+  level <- .imr_check_level(level)
+  families <- c("coefficients", "variance", "selection", "interaction", "latent", "all")
+  family <- if (length(parm) == 1L && is.character(parm) && parm %in% families) parm else "coefficients"
+  result <- .imr_posterior_tables(object, family, level, include_diagnostics = FALSE)
+  if (!identical(parm, family)) {
+    terms <- unique(result$parameter)
+    if (is.numeric(parm)) {
+      if (!.imr_is_integerish(parm) || any(!parm %in% seq_along(terms))) .imr_abort("Invalid coefficient indices.")
+      parm <- terms[parm]
+    }
+    if (!is.character(parm) || any(!parm %in% terms)) .imr_abort("Unknown coefficient name in `parm`.")
+    result <- result[result$parameter %in% parm, , drop = FALSE]
+  }
+  rownames(result) <- NULL
+  result
+}
+
+#' Compare Descriptive Summaries of Joint IMR Fits
+#'
+#' Reports data structure, model variant and selected-feature counts at a common
+#' threshold. It supplies no predictive ranking, Bayes factor or information
+#' criterion. Predictive comparisons should use matched subjects and CV folds.
+#' @param ... Two or more fits, or a single named list of fits.
+#' @param threshold Common marginal inclusion-probability cutoff.
+#' @return One descriptive row per fit. Outcome scales and feature/subgroup
+#'   definitions must agree; identical subject cohorts are the caller's responsibility.
+#' @examples
+#' # Short interface example; increase the budget and inspect diagnostics for inference.
+#' x <- data.frame(id = 1:20, marker = sin(1:20))
+#' y <- data.frame(id = x$id, y = 1 + x$marker + cos(x$id) / 3)
+#' fit <- imr(list(assay = x), y,
+#'   outcome_type = "continuous",
+#'   min_subgroup_size = 0, priors = imr_priors(forced_scale = 1),
+#'   mcmc = imr_mcmc(
+#'     draws = 100, burnin = 100, chains = 2,
+#'     seed = 1, diagnostics = FALSE
+#'   )
+#' )
+#' compare_fit_summaries(list(first = fit, repeated = fit))
+#' @export
+compare_fit_summaries <- function(..., threshold = .5) {
+  fits <- list(...)
+  if (length(fits) == 1L && !inherits(fits[[1L]], "imr")) fits <- fits[[1L]]
+  if (!is.list(fits) || length(fits) < 2L) .imr_abort("Supply at least two joint fits.")
+  threshold <- .imr_check_threshold(threshold)
+  invisible(lapply(fits, .imr_check_fit))
+  reference <- fits[[1L]]
+  same <- vapply(fits, function(f) {
+    identical(f$control$outcome_type, reference$control$outcome_type) &&
+      identical(f$control$response_scale, reference$control$response_scale) &&
+      identical(f$model$feature_names, reference$model$feature_names) &&
+      identical(f$model$platform_names, reference$model$platform_names) &&
+      identical(f$model$subgroup_names, reference$model$subgroup_names)
+  }, TRUE)
+  if (!all(same)) .imr_abort("Fits must share outcome type/scale, platforms, features and availability subgroups.")
+  labels <- names(fits)
+  if (is.null(labels) || any(!nzchar(labels))) labels <- paste0("fit", seq_along(fits))
+  do.call(rbind, lapply(seq_along(fits), function(i) {
+    f <- fits[[i]]
+    data.frame(
+      fit = labels[i], outcome = f$control$outcome_type,
+      model_variant = f$control$model_variant, response_scale = f$control$response_scale,
+      platforms = f$model$n_platforms, subgroups = length(f$model$subgroup_names),
+      chains = f$control$mcmc$chains, draws_per_chain = f$control$mcmc$draws,
+      selected_features = sum(vapply(inclusion_probabilities(f), function(m) {
+        if (nrow(m)) sum(apply(m, 2, max) > threshold) else 0L
+      }, 1L)), stringsAsFactors = FALSE
+    )
+  }))
 }

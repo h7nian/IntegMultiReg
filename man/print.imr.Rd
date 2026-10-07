@@ -2,39 +2,26 @@
 % Please edit documentation in R/methods.R
 \name{print.imr}
 \alias{print.imr}
-\title{Print Method for IMR Fits}
+\title{Print a Joint IMR Fit}
 \usage{
-\method{print}{imr}(x, threshold = 0.5, rank = FALSE, top = 5, ...)
+\method{print}{imr}(x, threshold = 0.5, rank = FALSE, top = 5L, ...)
 }
 \arguments{
-\item{x}{A fitted object of class \code{"imr"}.}
+\item{x}{A joint \code{imr} fit.}
 
-\item{threshold}{Inclusion-probability threshold used to count selected
-features (default \code{0.5}).}
+\item{threshold}{Inclusion-probability cutoff for selected-feature counts.}
 
-\item{rank}{Logical; if \code{TRUE}, print a short ranked feature table for each
-platform (default \code{FALSE}).}
+\item{rank}{Display ranked features, including low-probability features.}
 
-\item{top}{Integer; when \code{rank = TRUE}, the number of top-ranked features to
-show per platform (default \code{5}).}
+\item{top}{Maximum ranked features per platform.}
 
-\item{...}{Unused; present for S3 compatibility.}
+\item{...}{Unused arguments are rejected.}
 }
 \value{
 \code{x}, invisibly.
 }
 \description{
-Prints a compact overview of the fit, including a platform key (\code{P1},
-\code{P2}, ...) that decodes the availability-subgroup bitstrings.  Optionally,
-it can also print the top-ranked features per platform, ranked by each
-feature's maximum mPIP over availability subgroups containing that platform.
+Reports the model, stored chain budget, feature ranking and available MCMC
+diagnostics. Ranking uses the maximum marginal inclusion probability over
+subgroups, which is not the probability of selection in at least one subgroup.
 }
-\section{Reading the display}{
-
-Selected-feature counts use the strict threshold and maximum subgroup mPIP
-defined in \code{\link[=summary.imr]{summary.imr()}}. With \code{rank = TRUE}, the display shows the \code{top}
-highest-ranking features even if some are below \code{threshold}; the threshold
-controls the counts, not the displayed ranking. Printing does not rerun
-sampling or change the stored inclusion probabilities.
-}
-

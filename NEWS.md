@@ -1,3 +1,26 @@
+# IntegMultiReg 0.3.0
+
+* `imr()` now samples selection, regression coefficients, residual variances
+  and sharing parameters jointly. Exact scalar pMOM integration and subgroup
+  pattern updates replace Laplace model scoring. Whole-feature swaps support
+  movement between correlated predictors.
+* Priors and MCMC settings use `imr_priors()` and `imr_mcmc()`. Four separately
+  seeded chains are the default. Recorded starts, chain seeds and thinning
+  define replay; rank R-hat, ESS and MCSE summarize stored chains.
+* `coef()`, `confint()`, `summary()` and `predict()` operate directly on a fit.
+  `posterior_draws()` extracts existing samples. The conditional-only sampler
+  and class, selection-summary wrapper and label upgrader are retired.
+* All parameter and prediction quantiles use an empirical inverse CDF,
+  preserving selection support and exclusion point masses.
+* `cv_imr()` defaults to complete training-fold refits. `cv_method = "reweight"`
+  uses PSIS on joint observed-data likelihoods and reports weight diagnostics.
+  Model ranking, ridge and historical scoring controls are removed.
+* The native engine uses R's RNG and R-managed allocations; GSL is no longer
+  required. Selection histories are derived from exact coefficient zeros.
+* This changes the computational procedure and saved-object schema. Earlier
+  fits require refitting, and earlier numerical references remain attached
+  to their archived sources. See the migration and joint-computation guides.
+
 # IntegMultiReg 0.2.0
 
 ## Interface and statistical meaning

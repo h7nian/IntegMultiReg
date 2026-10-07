@@ -1,108 +1,73 @@
-# Migrating to IntegMultiReg 0.2.0
+# Migrating to joint inference
 
-The development interface names the model, computation and returned quantities
-separately. Retired argument and function names are not accepted as aliases.
-Use the source snapshot recorded with an analysis when replaying old results.
+Version 0.3.0 fits selection and regression parameters in one joint MCMC
+process. It changes the inference engine and fitted-object schema, not only
+function names. Preserve earlier source archives, scripts and references when
+replaying historical results. Existing selection-only fits lack joint
+coefficient samples and must be refitted for the new methods.
 
-## Data and fitting
+## One fitting call
 
-| Earlier interface | Current interface |
-|---|---|
-| `platform_data_list` | generic argument `x` |
-| `cov` | `covariates` |
-| `type_outcome` | `outcome_type` |
-| `ssize` | `min_subgroup_size` |
-| `sample_mcmc = c(draws, burnin)` | separate `draws` and `burnin` |
-| `hh` / `h0` | `molecular_prior_scale` / `forced_prior_scale` |
-| `sig_alpha_psi` | `residual_prior = c(shape = ..., rate = ...)` |
-| `thet_alph_bet` | `interaction_prior = c(shape = ..., rate = ...)` |
-| `method = "IMR"`, `"BMS"`, `"imr"` or `"bms"` | `model_variant = "imr"` or `"bms"` |
-| `sampler_method = "paper"` or `"corrected"` | omit the argument; fitting always uses the symmetric MRF and Hastings correction |
-| `sampler_method = "legacy"` or `"original"` | replay with the archived source; a current fit has a different target |
-| `prior_indexing = "standard"` | omit the argument; prior precision follows coefficient roles |
-| `prior_indexing = "code2017"` or `"original"` | replay with the archived source |
-
-These changes include a default-algorithm correction, not just renamed labels.
-Ordinary fitting no longer offers the known historical departures from the
-stated model. The priors and outcome definitions remain unchanged, including
-the concentrated inverse-Gamma binary variance prior rather than a fixed value
-of one. Old draws cannot be corrected by changing their metadata.
-
-## Returned quantities and additional computation
-
-| Earlier interface | Current interface |
-|---|---|
-| `coef(fit)` or `coef_imr(fit)` for inclusion probabilities | `inclusion_probabilities(fit)` |
-| `posterior_draws(fit)` | `sample_regression_posterior(fit)` |
-| `draws` in that additional sampler | `output_draws` |
-| `conditional_draws` in that sampler | `min_draws_per_model_chain` |
-| `posterior_summary(fit)` | `selection_summary(fit)` |
-| `compare_imr(...)` | `compare_fit_summaries(...)` |
-| `validate_imr(fit)` | `validate_imr_object(fit)` |
-| `upgrade_imr_fit(object)` | `upgrade_imr_object(object)` |
-| `type = "mean"` for regression-posterior prediction | `quantity = "conditional_mean"` |
-| `type = "response"` for regression-posterior prediction | `quantity = "new_observation"` |
-| prediction-list key `model:011` | `subgroup:011` |
-| prediction column `predict` | `prediction` |
-| `predict_imr()`, `summary_imr()`, `plot_imr()` | `predict()`, `summary()`, `plot()` |
-
-`coef(fit)` now stops with an explanation: the selection fit does not store
-regression coefficients. It neither returns probabilities under a coefficient
-name nor starts MCMC implicitly. Call `sample_regression_posterior()` explicitly;
-`coef()` on its result returns coefficient posterior means.
-
-`confint(fit)` requires `parm = "selection"`, `"theta"` or `"all"`. These are
-intervals for selection indicators and interactions. Regression coefficient,
-variance and latent-response intervals come from the `imr_posterior` object,
-using `parm = "coefficients"`, `"variance"` or `"latent"`.
-
-The extra sampler's control record uses `output_draws` and
-`min_draws_per_model_chain`. Its diagnostics use `selection_model`,
-`output_draws` and `draws_per_model_chain`; the last is the actual chain length,
-which can exceed the minimum. `selection_draw_index` identifies source draws.
-Prediction tables retain full numeric precision and now print the availability
-subgroup's measured platforms.
-
-## Cross-validation
-
-`cv_method = "refit"` is the default. This rebuilds preprocessing, formula
-encoding and MCMC inside each training fold, at roughly `k * rounds` fits.
-Choose `"reweight"` explicitly to reuse a full-data fit. Its state collection is
-an independent choice:
+Priors and MCMC settings have their own validated constructors:
 
 ```r
-cv_imr(fit, cv_method = "reweight", model_set = "all_draws")
-cv_imr(fit, cv_method = "reweight", model_set = "top_unique", max_models = 100)
+fit <- imr(
+  analysis,
+  priors = imr_priors(nu = c(-4, -3, -4)),
+  mcmc = imr_mcmc(draws = 4000, burnin = 2000, chains = 4, seed = 1)
+)
+coef(fit)
+confint(fit)
 ```
 
-The old `"importance"` calculation corresponds to reweighting with all draws.
-The `model_set` names `"draws"` and `"ranked_unique"` become `"all_draws"` and
-`"top_unique"`. `df_method = "legacy_integer"` becomes `"integer"`.
-Both CV algorithms now use the standard metric definitions. Historical
-`legacy`/`postfit_original` presets and `score_method` are not ordinary API
-options; use their archived source for exact replay. Substituting a new state
-collection alone does not reproduce an old bundle of scoring and df rules.
-The redundant fitted-`method` assertion was removed from `cv_imr()`; fit a
-separate BMS object when that model variant is wanted.
+`draws` is retained iterations per chain. Total transitions per chain are
+`burnin + draws * thin`. Chain initialization and sampling use separate recorded
+seeds. `workers` inside `imr_mcmc()` distributes chains; `cv_imr(workers = ...)`
+distributes folds and uses serial chains within each fold.
 
-Results retain `pooled`, `fold_mean`, `predictions`, `metric`, `validation` and
-`control`. The control record states `model_variant`, `selection_update` and
-`score_rule`, as well as the effective numerical settings and actual folds.
+| Earlier use | Current use |
+|---|---|
+| `imr(..., nu, molecular_prior_scale, forced_prior_scale, residual_prior, interaction_prior)` | `priors = imr_priors(nu, molecular_scale, forced_scale, residual, interaction)` |
+| `imr(..., draws, burnin, seed, initial)` | `mcmc = imr_mcmc(draws, burnin, chains, seed, initial)` |
+| `sample_regression_posterior(fit, ...)` | Fit once with the required MCMC budget; `posterior_draws(fit)` extracts samples |
+| `coef(fit)` unavailable on selection-only fits | `coef(fit)` returns regression posterior means |
+| `selection_summary(fit)` | `summary(fit, parm = "selection")` and `summary(fit, parm = "interaction")` |
+| `confint(fit)` required a selection/interaction family | Defaults to regression coefficients; `parm` selects other families or coefficient names |
+| `plot(fit, type = "theta")` / `"theta_trace"` | `type = "interaction"` / `"interaction_trace"` |
+| `imr_posterior` methods | Standard methods on the `imr` fit itself |
+| `upgrade_imr_object(old_fit)` | Refit saved inputs; an object conversion cannot create missing joint samples |
+| `laplace_max_iter`, `laplace_tolerance`, ranked-model prediction limits | Removed with the Laplace and coefficient-mode engines |
+| Reweighting with `ridge`, `model_set`, `df_method` or `fold_rng` | PSIS on joint observed-data likelihood ratios, with per-fold diagnostics |
 
-## Saved objects
+Obsolete arguments are rejected rather than treated as aliases. Binary latent
+variance retains its anchored inverse-gamma prior; a conflicting explicit
+residual prior is now rejected rather than silently overwritten.
 
-New fits use schema version 3. Upgrade earlier fits or regression-draw objects
-explicitly before using them:
+## Interpretation and storage
 
-```r
-updated <- upgrade_imr_object(saved_object)
-validate_imr_object(updated)
-saveRDS(updated, "updated-object.rds")
-```
+Coefficient intervals and predictions use the same joint draws as selection.
+`posterior_draws()` returns iteration-by-chain-by-parameter arrays. Molecular
+selection is recoverable as `beta != 0`, so the fit stores no duplicate selection
+history or inclusion-probability cache. Use `inclusion_probabilities()` for
+per-platform probability matrices.
 
-The upgrade preserves posterior draws and the original call. It does not repair
-incomplete or corrupted objects, rerun sampling or replace a historical target
-with the stated posterior. Fits made with historical update or precision rules
-remain inspectable, but new prediction, CV and conditional sampling require
-refitting with the current interface. See the
-[methods guide](https://h7nian.github.io/IntegMultiReg/method-coverage.html) for the statistical distinctions.
+Summary and interval quantiles use the empirical inverse CDF (type 1), with a
+floating-point boundary tolerance. This preserves the support of binary
+indicators and point masses at zero. Rank-normalized split/folded R-hat and
+bulk/tail ESS replace the separate conditional-chain diagnostic. Constant
+parameters remain unassessed; this is not a claim of convergence.
+
+The joint arrays use more storage than selection-only draws. Inspect the
+reported retained-array estimate; `max_draw_memory_mb` is an explicit retained
+storage budget, not total process memory. Fitting, parallel workers and summary
+operations need additional space. Thinning reduces storage but does not improve
+mixing or reduce the required intervening updates.
+
+## Earlier API names
+
+The CRAN 0.1.3 release and earlier 0.2.0 snapshots used different argument and
+function names. The maintained interface uses `model_variant = "imr"/"bms"`,
+`inclusion_probabilities()`, `compare_fit_summaries()` and
+`validate_imr_object()`. Historical `paper`, `legacy`, `original`, `corrected`
+and precision/scoring selectors belong to their archived versions. They are
+not choices in the current joint sampler.

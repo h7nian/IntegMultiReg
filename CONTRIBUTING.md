@@ -12,8 +12,8 @@ dependencies. Package users do not need them. Maintainers running
 
 
 The public API uses `snake_case` names and S3 methods. Internal R functions use
-`.imr_`; `%||%` is the internal null-default operator. Fitting options remain
-explicit arguments, grouped by purpose in `?imr`. Their resolved values are
+`.imr_`; `%||%` is the internal null-default operator. Statistical priors and simulation controls use
+`imr_priors()` and `imr_mcmc()` respectively. Their resolved values are
 stored in the fitted object's `control` component.
 
 | Responsibility | Source |
@@ -23,13 +23,13 @@ stored in the fitted object's `control` component.
 | Formula response and design matrices | `R/formula.R` |
 | Subject alignment and matrix scaling | `R/preprocessing.R` |
 | Prediction and new-data routing | `R/predict.R` |
-| CV settings, refit/post-fit algorithms and workers | `R/cv*.R` |
+| CV folds, training fits and PSIS reweighting | `R/cv*.R` |
 | Fit printing, summaries and feature rankings | `R/methods.R` |
-| Fit validation, migration and posterior summaries | `R/diagnostics.R` |
+| Fit validation and MCMC diagnostics | `R/diagnostics.R` |
 | Plotting and shared appearance settings | `R/plots.R`, `R/plot-theme.R` |
-| Conditional coefficient and latent-response sampling | `R/posterior-draws.R`, `R/posterior-kernel.R` |
-| Explicit R-to-C argument conversion | `R/native-adapters.R` |
-| Native sampler, prediction and CV | `src/` |
+| Joint chain preparation and stored draw access | `R/joint-sampling.R`, `R/posterior.R` |
+| Shared chain/fold worker orchestration | `R/workers.R` |
+| Joint sampler and pairwise concordance | `src/joint_sampler.c`, `src/concordance.c` |
 
 Native calls list their arguments explicitly so reviewers can compare each call
 with its registered C signature. The independent reference calculations in the
@@ -49,3 +49,18 @@ package and run `R CMD check --as-cran` on that tarball. Record the source
 revision or snapshot hash with each result; a previous candidate's CI run does
 not validate later changes. The short help examples demonstrate the interface;
 their MCMC budgets are not evidence of convergence.
+
+
+The joint sampler is checked against independent small-model integrals with
+`Rscript .github/scripts/verify-joint-reference.R`. Maintained integration and
+quadrature sources are in `.github/reference/`; their frozen fixtures are
+independent of production transition code. Regenerate fixtures only with the
+reference calculations, never from MCMC output. Retired Laplace/cache tests
+are available in Git history; they are not valid numerical oracles for the
+new joint target. Current native tests cover GC protection, numerical-error
+cleanup, RNG restoration, serial/parallel equivalence and all outcomes.
+
+The manually dispatched workflows named **Historical** audit pinned older
+release artifacts. Current per-push Valgrind and sanitizer workflows build and
+test the checked-out source. Neither historical evidence nor a passing toy
+reference certifies a new real-data posterior analysis.

@@ -1,92 +1,75 @@
 # Methods and reproducibility
 
-`IntegMultiReg` separates the model variant from its numerical calculation.
-`model_variant = "imr"` couples subgroup selection indicators through an MRF;
-`"bms"` fits the availability subgroups independently. Both use the same outcome
-families and coefficient priors.
+## Statistical model
 
-## Fitting and uncertainty
+The package retains the availability-subgroup regressions, symmetric MRF
+selection prior and first-order pMOM coefficient priors. Clinical coefficients
+and the intercept are always active. Molecular coefficients have an exclusion
+point mass at zero. Residual variances use inverse-gamma shape/rate priors and
+MRF interactions use Gamma shape/rate priors.
 
-Ordinary fitting uses the stated symmetric-MRF conditional log-odds,
-`nu + 2 * sum(theta * gamma)`, and the Hastings correction for flip proposals at
-empty/full selection boundaries. Its Gamma log-prior score has the negative
-rate term and includes the log term for every positive interaction. Prior
-precision follows coefficient roles: intercept and clinical effects use the
-forced scale; molecular effects use the molecular scale.
+Continuous, binary and right-censored outcomes share this structure. Binary
+utilities and censored working responses are sampled with current coefficients
+and variances. Positive survival times are logged by default. Binary variance
+uses the original concentrated prior near one; it is not a point mass.
 
-The fitting engine integrates coefficients and residual variance using its
-Laplace-based model scores. `inclusion_probabilities()` extracts retained
-selection frequencies. `selection_summary()` summarizes selection indicators
-and MRF interactions. Neither returns regression effects.
+## Joint posterior computation
 
-`sample_regression_posterior()` performs additional conditional pMOM sampling.
-Its model weights inherit the fitted selection chain and its Laplace
-approximation. `output_draws` controls returned samples;
-`min_draws_per_model_chain` controls the minimum conditional-chain length.
-The recorded `draws_per_model_chain` is the actual length. Conditional split
-R-hat does not diagnose the original selection chain or remove its uncertainty.
+Version 0.3.0 samples selection, coefficients, variances, interactions and latent
+responses together. The update of one feature integrates its coefficient in each
+available subgroup, samples the full subgroup inclusion pattern, then samples
+the active coefficients immediately. The scalar pMOM Bayes factor is analytic.
+Whole-feature exchanges improve movement between correlated predictors.
+
+Variance and augmented-response updates use full conditionals. Interaction
+updates include the exact MRF normalizer and log-normal proposal correction.
+The engine requires no Laplace model scores, coefficient modes or second-stage
+regression MCMC. The
+[joint posterior guide](https://h7nian.github.io/IntegMultiReg/articles/joint-posterior.html)
+gives the formulas and validation scope.
+
+`coef()`, `confint()`, `summary()` and `predict()` operate on the fitted joint
+samples. `posterior_draws()` only extracts them. All chain identities are kept
+for rank R-hat, ESS and MCSE from the posterior package. Undefined diagnostics
+are retained; software completion and diagnostic cutoffs do not establish
+scientific convergence or interval calibration.
 
 ## Predictive validation
 
 | Choice | Computation | Scope |
 |---|---|---|
-| `cv_method = "refit"` (default) | Refit preprocessing, formula encoding, selection MCMC and prediction in every training fold | Evaluate the fitting procedure with fixed hyperparameters |
-| `cv_method = "reweight"` | Reuse the full-data fit and apply inverse-density weights to its selection states | Post-fit approximation conditional on full-fit preprocessing and latent-response means |
-| `model_set = "all_draws"` | Retain every sampled state and its multiplicity | Default state collection for reweighting |
-| `model_set = "top_unique"` | Keep at most `max_models` ranked distinct states | A truncated collection for the same reweighting engine |
+| `cv_method = "refit"` | Refit preprocessing, formula encoding and joint MCMC within each training fold | Evaluate the fitting procedure with fixed hyperparameters |
+| `cv_method = "reweight"` | PSIS on inverse held-out observed-likelihood weights from the full joint posterior | Posterior approximation conditional on full-fit preprocessing |
 
-Held-out outcomes enter reweighting as an importance correction; their use alone
-does not identify an error. The full-fit augmented-response mean plug-in is
-stated in Section 4.1 of Chekouo et al. (2017). It does not make this procedure
-an independent training-fold refit.
+Reweighting uses the observed-data likelihood, integrating binary latent
+utilities and using survival probabilities for censored observations. Held-out
+outcomes belong in those importance ratios. Pareto k and effective sample size
+are reported per fold; unstable weights require refitting. The procedure is
+neither the old ranked-model calculation nor an OLS/ridge plug-in approximation.
 
-For reweighting, `ridge = 0.001` is the default coefficient penalty, including
-the intercept. The article's unpenalized estimate requires `ridge = 0` explicitly
-and a full-column-rank training design for every state. Singular systems stop
-with fold/subgroup context. A positive ridge can stabilize them but changes the
-estimator. `df_method = "fractional"` retains numeric predictive degrees of
-freedom; `"integer"` truncates them. Scores use the same standard pair and tie
-rules in both public CV algorithms.
+Actual partitions and separate fold/chain seeds are saved. Matching folds pairs
+candidate comparisons. The
+[covariate guide](https://h7nian.github.io/IntegMultiReg/articles/covariate-comparison.html)
+also separates inner formula selection from outer performance assessment.
 
-Actual folds, summation order and refit seeds are recorded for replay. Refit uses
-R's RNG and reweighting uses GSL; identical seeds across those generators do not
-imply identical partitions. Supplied folds match subject IDs. Tuning or formula
-selection requires an outer validation layer, illustrated in the
-[covariate comparison guide](https://h7nian.github.io/IntegMultiReg/articles/covariate-comparison.html).
+## Archived calculations
 
-## Historical implementations
+The released 2017 selection update used a neighbour coefficient of one rather
+than the symmetric MRF coefficient of two and omitted a boundary Hastings
+correction. Its logged Gamma score also differed from a Gamma density, although
+the interaction update itself used the negative rate sign. The released prior
+precision indexing assigned the last clinical column to the molecular block.
 
-The released selection update used a neighbour coefficient of one and omitted
-boundary Hastings ratios. These changes affect its stationary distribution.
-Its diagnostic log score also used a positive Gamma rate term and omitted log
-terms below 0.001. The theta acceptance calculation used the negative rate sign;
-the score error should not be described as a reversed Gamma sampling prior.
-An additional precision-index boundary assigned molecular precision to the last
-forced coefficient in the released calculation.
+Earlier package snapshots exposed those historical behaviors and later added
+matching-model corrections. Version 0.2.0 still used Laplace-based selection and
+optional conditional regression sampling. The new joint engine targets the
+stated joint posterior directly and can produce different model probabilities
+and predictions. Preserve exact archived source and scripts for numerical
+comparisons; relabelling saved draws cannot change their sampling distribution.
 
-These historical conventions are not alternative choices in the ordinary fitting
-interface. Retain the exact archived source and its scripts for replay.
-`upgrade_imr_object()` converts stored structure and labels without recomputing
-draws. It does not turn historical draws into samples from the current target.
-The [migration guide](https://h7nian.github.io/IntegMultiReg/migration.html) identifies renamed quantities and controls.
-
-## What validation establishes
-
-Independent tests check the MRF increments and proposal ratios against enumerated
-conditional targets, Gamma increments against log densities, and conditional CV
-against independently compiled archived code. Other tests cover fold replay,
-worker equality, numerical failures and object boundaries. Source-specific
-manifests and logs identify which build and environment each result belongs to.
-
-Those checks do not establish reproduction of an entire study or convergence of
-its long chains. Historical Table 1 and Figure 3 additionally depend on data,
-preprocessing, starting states, seeds, replicate design and aggregation. The
-supplement contains 778 gene columns whereas the article reports 776; an analysis
-must identify its data source. Historical starting values and replicate seeds
-are not fully recorded. A new reference table does not retroactively explain an
-old unexplained discrepancy.
-
-The [replay guide](https://h7nian.github.io/IntegMultiReg/articles/reproducibility.html) describes a record connecting
-source identity, data, parameters, actual seeds/folds, generating code and
-unrounded results. Computational repeatability and scientific validation remain
-different claims.
+Historical original-study replays, current-model examples and scientific
+validation are separate evidence. Unknown original seeds/build settings, global
+screening and finite-chain limitations remain relevant. A new expected CSV does
+not explain a historical discrepancy. The
+[replay guide](https://h7nian.github.io/IntegMultiReg/articles/reproducibility.html)
+describes the source/data/settings/output record for each analysis.
