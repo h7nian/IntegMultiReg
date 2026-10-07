@@ -8,15 +8,13 @@ cv_imr(
   object,
   k = 5,
   rounds = 2,
-  method = NULL,
   max_models = 100,
   verbose = FALSE,
-  cv_method = c("postfit_original", "refit", "importance"),
+  cv_method = c("refit", "reweight"),
   workers = 1L,
   ridge = NULL,
   model_set = NULL,
   df_method = NULL,
-  score_method = NULL,
   folds = NULL,
   fold_rng = NULL
 )
@@ -31,25 +29,21 @@ Must be at least \code{2}, and each availability subgroup must contain at least
 \item{rounds}{Integer number of independent cross-validation rounds to
 average over (default \code{2}).  Must be positive.}
 
-\item{method}{Optional check of the fitted model type, \code{"imr"} or \code{"bms"}.
-Leave \code{NULL} to use the method stored in \code{object}. Supplying a value only
-checks that it matches the fit; it cannot change an IMR fit into a BMS fit
-or choose the validation algorithm. Fit a separate BMS model with
-\code{imr(..., method = "bms")}, and use \code{cv_method} to choose validation.}
-
 \item{max_models}{Integer maximum number of selection models used for
-Bayesian model averaging with \code{model_set = "ranked_unique"} and for refit
-prediction (default \code{100}). Must be positive. \code{model_set = "draws"} uses
+Bayesian model averaging with \code{model_set = "top_unique"} and for refit
+prediction (default \code{100}). Must be positive. \code{model_set = "all_draws"} uses
 every retained draw, including repeated states, and ignores this limit.}
 
 \item{verbose}{Logical; if \code{TRUE}, print fold progress and sampler
 diagnostics.  Defaults to \code{FALSE}.}
 
-\item{cv_method}{Validation preset: \code{"postfit_original"} (default), \code{"refit"},
-or \code{"importance"}. This is independent of the fitted IMR/BMS \code{method}.}
+\item{cv_method}{\code{"refit"} (default) rebuilds preprocessing and MCMC inside
+every training fold. \code{"reweight"} reuses the fitted selection draws with
+importance weights. To compare IMR and BMS, first fit separate
+\code{model_variant = "imr"} and \code{"bms"} objects.}
 
 \item{workers}{Positive integer number of PSOCK worker processes (default
-\code{1L}, serial). Applies to all three CV methods. At most \code{k * rounds}
+\code{1L}, serial). Applies to both CV methods. At most \code{k * rounds}
 processes are used; no automatic CPU detection is performed.}
 
 \item{ridge}{Nonnegative post-fit diagonal penalty, including the intercept.
@@ -57,18 +51,14 @@ processes are used; no automatic CPU detection is performed.}
 original code. A singular solve stops with fold and subgroup context; no
 penalty or generalized inverse is silently substituted. Not used by refit.}
 
-\item{model_set}{Post-fit states to average: \code{"ranked_unique"} (\code{"postfit_original"}
-default) ranks distinct states and keeps at most \code{max_models}; \code{"draws"}
-(importance default) retains empirical multiplicities and draw order.}
+\item{model_set}{For reweighting, \code{"all_draws"} (default) retains every
+selection draw, including repeated states. \code{"top_unique"} ranks distinct
+selection models by their observed frequency and retains at most
+\code{max_models}. These are state collections, not different CV algorithms.}
 
-\item{df_method}{Predictive-density degrees of freedom: \code{"integer"}
-(\code{"postfit_original"} default) truncates \code{2 * shape + n_train} to an integer;
-\code{"fractional"} (importance default) keeps its numeric value. Post-fit only.}
-
-\item{score_method}{Metric convention, independent of predictions:
-\code{"original"} (\code{"postfit_original"} default) retains historical AUC/concordance rules;
-\code{"standard"} (refit and importance default) uses current tie and comparable
-pair rules. MSE has the same definition in both. \code{NULL} selects the default.}
+\item{df_method}{For reweighting, \code{"fractional"} (default) keeps the numeric
+predictive degrees of freedom \code{2 * shape + n_train}; \code{"integer"} truncates
+them to an integer. Not used by refit.}
 
 \item{folds}{Optional data frame with \code{id}, \code{round}, and \code{fold}. Every
 modelled subject must occur once per round; labels are consecutive integers
@@ -106,10 +96,10 @@ Undefined AUCs (single class) and C-indices (no comparable pairs) are \code{NA}.
 }
 \description{
 \code{cv_imr()} evaluates predictive accuracy of a model fitted with \code{\link[=imr]{imr()}} using
-repeated \eqn{K}-fold splits. \code{cv_method} selects historical post-fit
-validation (\code{"postfit_original"}, the default), training-fold refitting (\code{"refit"}),
-or a paper-derived importance average over retained draws (\code{"importance"}).
-Fit a separate object with \code{method = "bms"} for a no-borrowing comparison.
+repeated \eqn{K}-fold splits. \code{cv_method = "refit"} (the default) fits each
+training fold independently. \code{"reweight"} reuses a full-data fit and applies
+inverse-density importance weights to its selection states.
+Fit a separate object with \code{model_variant = "bms"} for a no-borrowing comparison.
 The accuracy measure depends on the outcome type: the concordance index
 (C-index) for right-censored outcomes, the area under the ROC curve (AUC) for
 binary outcomes, and the mean squared error (MSE) for continuous outcomes.
@@ -122,37 +112,26 @@ In refit mode, preprocessing, formula transformations, selection MCMC and
 prediction weights are recomputed on training rows. Runtime is roughly
 \code{k * rounds} full fits. This is the algorithm used by version 0.1.4.
 
-Legacy mode restores the post-fit CV algorithm from version 0.1.0: ranked
-distinct full-fit selection models, full-fit standardization and augmented
-response means, fold-specific ridge coefficient estimates (penalty 0.001),
-inverse predictive-density weights and historical AUC/concordance scoring.
-It uses the supplied fit; reproducing a 0.1.0 run also requires its original
-fit and preprocessing. Undefined metrics return NA instead of NaN.
+Reweighting with \code{model_set = "all_draws"} follows the empirical importance
+average in equations 6--7 of the paper. It conditions on full-fit predictor
+transformations and posterior-mean augmented responses. The response plug-in
+is part of Section 4.1; the default ridge penalty of 0.001 differs from the
+paper's unpenalized coefficient estimate. Set \code{ridge = 0} explicitly for that
+estimate, provided every training design has full column rank.
 
-Importance mode follows the empirical importance average in equations 6--7
-of Chekouo et al. (2017), retaining MCMC state multiplicities rather than
-selecting equally weighted distinct models. It uses fractional predictive
-degrees of freedom and the current scoring definitions. The full-fit
-augmented response mean plug-in is explicitly part of Section 4.1 of the
-paper. Its default 0.001 ridge stabilization differs from the unpenalized
-coefficient estimate; set \code{ridge = 0} to select that estimate.
-Binary and continuous outcomes extend the survival procedure.
+Held-out outcomes enter inverse-density weights as an importance correction;
+their use alone does not identify an error. This approximation has a different
+scope from training-fold refitting. Choosing \code{model_set = "top_unique"}
+replaces the empirical draw collection with selected distinct states.
+Historical bundles of settings are documented with their archived sources;
+a mode label alone never establishes historical numerical reproduction.
 
-Mode names provide defaults. \code{ridge}, \code{model_set}, \code{df_method}, and
-\code{score_method} can be chosen independently. Explicit post-fit-only arguments
-are rejected in refit mode. The original released CV code combines \code{ridge = 0},
-\code{model_set = "ranked_unique"}, \code{df_method = "integer"},
-\code{score_method = "original"} and \code{max_models = 100}. Paper equations 6--7 use
-\code{ridge = 0}, \code{model_set = "draws"} and \code{df_method = "fractional"}.
-Neither combination alone reproduces a historical experiment: sampler,
-numerical controls, data, initial states and random stream also matter.
-
-Both post-fit modes use the historical GSL fold generator, stratified by
-event status for survival. Refit uses R's generator and additionally
-stratifies binary outcomes by class. Identical seeds therefore do not give
-identical partitions across refit and post-fit modes. Within each mode,
-results are reproducible and the caller's R RNG state is preserved.
-Hyperparameters are fixed; data-driven tuning needs an outer validation layer.
+Supplied folds replay actual partitions. Refit uses R's generator and
+stratifies binary outcomes by class. Generated reweighting folds use GSL and
+stratify survival outcomes by event status. Matching seed numbers across the
+two generators does not imply matching partitions. Within each method the
+caller's R RNG state is preserved. Hyperparameters are fixed; tuning needs an
+outer validation layer.
 
 Parallel execution preserves each method's partitions, seeds and output
 ordering. Each process holds its own fit and training-fold workspace, with
@@ -180,8 +159,8 @@ Each fold reruns \code{\link[=imr]{imr()}} and \code{\link[=predict.imr]{predict
 preprocessing, selection sampling and ranked-model prediction weights;
 the point-prediction rule is described in \code{\link[=predict.imr]{predict.imr()}}.
 
-The two post-fit modes instead reuse full-fit selection states, transformed
-predictors and augmented-response means. Within each state, their fold
+Reweighting reuses full-fit selection states, transformed predictors and
+augmented-response means. Within each state, its fold
 coefficient estimate is
 \deqn{\widehat b_m=(Z_{-f,m}^{T}Z_{-f,m}+\lambda I)^{-1}
                      Z_{-f,m}^{T}\bar y_{-f}^{*},}{beta_m = inverse(transpose(Z_train,m) * Z_train,m + ridge * I) * transpose(Z_train,m) * mean_working_y_train.}
@@ -192,20 +171,18 @@ responses, the normalized fold weights are
 \deqn{w_m=\frac{\exp(a_m-a_{\max})}
                  {\sum_h\exp(a_h-a_{\max})}.}{w_m = exp(a_m - a_max) / sum_h exp(a_h - a_max).}
 Predictions average the fold model predictions with these weights, applying
-the probit link before averaging for binary outcomes. \code{model_set = "draws"}
-retains every state occurrence; \code{model_set = "ranked_unique"} uses at most
-\code{max_models} ranked distinct states. These are the respective defaults for
-\code{"importance"} and \code{"postfit_original"} modes, but \code{model_set} can override either default.
-Importance mode's default empirical reweighting is motivated by equations
-6--7 of Chekouo et al. (2017). Both post-fit calculations are distinct from
-training-fold refitting.
+the probit link before averaging for binary outcomes. \code{model_set = "all_draws"}
+retains every state occurrence; \code{model_set = "top_unique"} uses at most
+\code{max_models} ranked distinct states. The empirical \code{"all_draws"} calculation
+is motivated by equations 6--7 of Chekouo et al. (2017). Both collections
+reuse the full-data fit and therefore differ from training-fold refitting.
 }
 
 \section{Accuracy measures}{
 
 For a scored set of \eqn{n} subjects, continuous-outcome error is
 \deqn{\mathrm{MSE}=\frac{1}{n}\sum_i(y_i-\widehat y_i)^2.}{MSE = sum_i (y_i - prediction_i)^2 / n.}
-With \code{score_method = "standard"}, binary AUC is
+Binary AUC gives half credit to tied predictions:
 \deqn{\mathrm{AUC}=\frac{1}{n_1n_0}
       \sum_{i:y_i=1}\sum_{j:y_j=0}
       \{I(\widehat p_i>\widehat p_j)+\frac{1}{2} I(\widehat p_i=\widehat p_j)\}.}{AUC = sum over positive-negative pairs of [I(p_positive > p_negative) + 0.5 * I(equal predictions)], divided by n_positive * n_negative.}
@@ -220,8 +197,7 @@ The standard C-index is
       \{I(\widehat y_i<\widehat y_j)+\frac{1}{2} I(\widehat y_i=\widehat y_j)\}.}{C-index = sum over ordered comparable pairs of [I(prediction_i < prediction_j) + 0.5 * I(equal predictions)], divided by the number of comparable pairs.}
 Larger predicted working survival times mean longer survival. AUC is
 undefined for a single class, and C is undefined without comparable pairs;
-these return \code{NA}. The historical AUC/concordance tie rules selected by
-\code{score_method = "original"} are not represented by the two standard formulas.
+these return \code{NA}. The same scoring rules apply to both validation methods.
 }
 
 \section{Pooled scores and fold means}{
@@ -245,7 +221,7 @@ fit <- imr(
   nu = c(-4, -3, -4), draws = 200, burnin = 100,
   min_subgroup_size = 5, seed = 1
 )
-cv <- cv_imr(fit, k = 5, rounds = 2, cv_method = "postfit_original")
+cv <- cv_imr(fit, k = 5, rounds = 2, cv_method = "reweight")
 cv$pooled
 }
 }

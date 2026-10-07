@@ -7,9 +7,9 @@ test_that("every CV mode works for all outcome and model combinations", {
     for (method in c("imr", "bms")) {
       fit <- imr(simIMR$platforms, outcomes[[outcome_type]],
                  covariates = simIMR$covariates, outcome_type = outcome_type,
-                 method = method, nu = c(-4, -3, -4),
+                 model_variant = method, nu = c(-4, -3, -4),
                  draws = 12, burnin = 6, min_subgroup_size = 30, seed = 53)
-      for (cv_method in c("postfit_original", "refit", "importance")) {
+      for (cv_method in c("refit", "reweight")) {
         context <- paste(outcome_type, method, cv_method)
         result <- cv_imr(fit, k = 2, rounds = 1, max_models = 4,
                          cv_method = cv_method)

@@ -8,13 +8,13 @@ test_that("native return objects survive frequent garbage collection", {
                draws = 3, burnin = 1, seed = 11)
     predictions <- predict(fit, x, max_models = 2)
     cv <- cv_imr(cv_method = "refit", fit, k = 2, rounds = 1, max_models = 2)
-    postfit <- lapply(c("postfit_original", "importance"), function(mode) {
+    postfit <- lapply("reweight", function(mode) {
       cv_imr(fit, k = 2, rounds = 1, max_models = 2, cv_method = mode)
     })
     list(fit = fit, predictions = predictions, cv = cv, postfit = postfit)
   }
   result <- exercise()
-  expect_true(validate_imr(result$fit))
+  expect_true(validate_imr_object(result$fit))
   expect_true(all(is.finite(result$predictions[[1L]]$prediction)))
   expect_true(all(is.finite(result$cv$pooled)))
   expect_true(all(vapply(result$postfit, function(x) all(is.finite(x$pooled)),

@@ -43,7 +43,7 @@ a data frame with \code{id} and exactly the fitted covariate column names.}
 \item{verbose}{Logical; if \code{TRUE}, print the C routine's diagnostics.
 Defaults to \code{FALSE}.}
 
-\item{...}{Unused; present for S3 compatibility.}
+\item{...}{Unused arguments are rejected.}
 }
 \value{
 A named list with one data frame per active availability subgroup
@@ -89,11 +89,11 @@ apply the probit link within each model:
 \deqn{\widehat p=\sum_{m\in\mathcal M}w_m
       \Phi(z^T\widehat b_{s,m}).}{predicted event probability = sum_m w_m * Phi(z-transpose * approximate_beta_s,m).}
 The binary point-prediction path uses the unit-variance probit approximation;
-it does not average the conditional variance draws from \code{\link[=posterior_draws]{posterior_draws()}}.
+it does not average the conditional variance draws from \code{\link[=sample_regression_posterior]{sample_regression_posterior()}}.
 For a default survival fit, \eqn{\widehat y}{predicted working response} is on the log-time scale.
 
 These are plug-in point predictions. For coefficient uncertainty and
-predictive intervals, use \code{\link[=posterior_draws]{posterior_draws()}} followed by
+predictive intervals, use \code{\link[=sample_regression_posterior]{sample_regression_posterior()}} followed by
 \code{\link[=predict.imr_posterior]{predict.imr_posterior()}}, which also uses a different model-averaging
 construction. Increasing \code{max_models} changes this finite ranked-model
 approximation; it does not lengthen the fitted MCMC chain.

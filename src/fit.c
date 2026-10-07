@@ -93,14 +93,14 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
                   SEXP sample_size, SEXP n_features_R, SEXP n_covariates_R,
                   SEXP X1_filtered, SEXP newYY_list, SEXP type_outcome,
                   SEXP newCC_list,
-                  SEXP draws_R, SEXP burnin_R, SEXP sampler_method_R, SEXP numerical_R, SEXP initial_R)
+                  SEXP draws_R, SEXP burnin_R, SEXP selection_update_R, SEXP numerical_R, SEXP initial_R)
 {
     imr_numerical_control numerical = imr_read_numerical_control(numerical_R);
-    if (!isInteger(sampler_method_R) || XLENGTH(sampler_method_R) != 1 ||
-        INTEGER(sampler_method_R)[0] < IMR_SAMPLER_LEGACY ||
-        INTEGER(sampler_method_R)[0] > IMR_SAMPLER_PAPER)
+    if (!isInteger(selection_update_R) || XLENGTH(selection_update_R) != 1 ||
+        INTEGER(selection_update_R)[0] < IMR_UPDATE_UNADJUSTED ||
+        INTEGER(selection_update_R)[0] > IMR_UPDATE_MRF_HASTINGS)
         Rf_error("Invalid sampler method");
-    int sampler_method = INTEGER(sampler_method_R)[0];
+    int selection_update = INTEGER(selection_update_R)[0];
     /* Reject unsupported censored working times before allocating workspaces.
      * Observed events are not subject to the latent-proposal upper bound. */
     if (asInteger(type_outcome) == IMR_OUTCOME_SURVIVAL) {
@@ -536,7 +536,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
             laplace_diagnostics.subgroup = m;
              sample_gamma_indicators(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
                         ylatent[m], newCC[m], X1[m], gamma, &log_likelihood[m], &logdet[m], &scal[m], nu, theta,
-                        n_platform_models_c, platform_models_c, accept_gamma, r, likelihood_type, h[m], h1, h0, hg, K, alpha, psi, sampler_method, &numerical);
+                        n_platform_models_c, platform_models_c, accept_gamma, r, likelihood_type, h[m], h1, h0, hg, K, alpha, psi, selection_update, &numerical);
             if ((outcome_type == IMR_OUTCOME_SURVIVAL) && (n_censored[m] > 0))
             {
                 sample_censored_latent_response(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
@@ -608,7 +608,7 @@ SEXP imr_fit(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP
         }
 
         log_posterior_sample[s] = log_posterior(log_likelihood, gamma, nu, theta, mrf, alpha0, betaTh, n_subgroups,
-                              n_platforms, G, n_platform_models_c, sampler_method);
+                              n_platforms, G, n_platform_models_c, selection_update);
 
         // Report completed iterations, including the last one and short chains.
         if ((s + 1) % report_every == 0 || s + 1 == n_burnin + n_draws)

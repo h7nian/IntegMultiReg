@@ -1,10 +1,10 @@
 # These settings describe coefficient-mode approximation, not MCMC length.
-.imr_numerical_control <- function(prior_indexing = "standard",
+.imr_numerical_control <- function(prior_indexing = "coefficient_blocks",
     laplace_max_iter = c(initial = 25L, selection = 40L, latent = 25L, prediction = 40L),
     laplace_tolerance = 1e-3) {
   if (!is.character(prior_indexing) || length(prior_indexing) != 1L ||
-      is.na(prior_indexing) || !prior_indexing %in% c("standard", "original"))
-    .imr_abort("`prior_indexing` must be \"standard\" or \"original\".")
+      is.na(prior_indexing) || !prior_indexing %in% c("coefficient_blocks", "historical_shifted_boundary"))
+    .imr_abort("The fit has an unknown prior-precision indexing convention.")
   stages <- c("initial", "selection", "latent", "prediction")
   if (length(laplace_max_iter) == 1L && is.null(names(laplace_max_iter)))
     laplace_max_iter <- stats::setNames(rep(laplace_max_iter, 4L), stages)

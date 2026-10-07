@@ -4,7 +4,7 @@
 #' variance draws. The fitted sampler and cross-validation results are unchanged.
 #'
 #' @section Relation to the fitted selection model:
-#' The original sampler uses a Laplace-based integration over coefficients and
+#' The fitted selection sampler uses a Laplace-based integration over coefficients and
 #' variances while exploring selection states. This function adds conditional
 #' draws from the coefficient model specified in [imr()]. For one subgroup,
 #' the resulting model-averaged approximation has the form
@@ -25,25 +25,22 @@
 #'
 #' The design, working response and pMOM scales are defined in [imr()].
 #'
-#' The conditional sampling is an additional computation. It inherits the
-#' selection weights' Laplace approximation and `sampler_method` convention;
-#' it neither recomputes exact model probabilities nor changes an existing
-#' legacy fit into a corrected-sampler fit. The `prior_indexing = "original"`
-#' option preserves a historical precision discrepancy. For a fit using that
-#' option, selection weights come from the original precision calculation,
-#' whereas these conditional draws use standard coefficient-block indexing.
-#' See [Methods and reproducibility](https://h7nian.github.io/IntegMultiReg/method-coverage.html).
+#' This is an additional computation. Its selection weights inherit the fit's
+#' Laplace approximation and finite-chain exploration. Fits made with historical
+#' updates or shifted precision boundaries must be refitted under the current
+#' model before this sampler is used; converting stored labels does not repair
+#' those draws. See the [methods and reproducibility guide](https://h7nian.github.io/IntegMultiReg/method-coverage.html).
 #'
 #' @section Output size and conditional-chain length:
-#' `draws` is the number of model-averaged rows returned per subgroup. Suppose
+#' `output_draws` is the number of model-averaged rows returned per subgroup. Suppose
 #' one subgroup-model combination is assigned \eqn{r_m} of those rows and
 #' `chains` is \eqn{J}. Each of its conditional chains retains
-#' \deqn{n_m=\max\{d_{\min},\lceil r_m/J\rceil\},}{Retained iterations per conditional chain: n_m = max(conditional_draws, ceiling(returned_rows_m / number_of_chains)).}
-#' where \eqn{d_{\min}}{d_min} is `conditional_draws`, after discarding `burnin`
+#' \deqn{n_m=\max\{d_{\min},\lceil r_m/J\rceil\},}{Retained iterations per conditional chain: n_m = max(min_draws_per_model_chain, ceiling(returned_rows_m / number_of_chains)).}
+#' where \eqn{d_{\min}}{d_min} is `min_draws_per_model_chain`, after discarding `burnin`
 #' iterations. Diagnostics use the conditional chains before output subsetting;
 #' \eqn{r_m} rows are then sampled without replacement from the pooled draws for the
-#' output. Increasing `draws` need not lengthen a low-frequency model's chains.
-#' Increase `conditional_draws`, and if needed `burnin`, to investigate a
+#' output. Increasing `output_draws` need not lengthen a low-frequency model's chains.
+#' Increase `min_draws_per_model_chain`, and if needed `burnin`, to investigate a
 #' conditional-chain warning.
 #'
 #' @section Conditional split R-hat:
@@ -66,11 +63,11 @@
 #' selection chain, and passing this check alone does not establish convergence.
 #'
 #' @param object An `imr` fit with stored data and selection draws.
-#' @param draws Number of model-averaged draws to return (default `1000`).
+#' @param output_draws Number of model-averaged draws to return (default `1000`).
 #' @param burnin Conditional Gibbs burn-in iterations for each distinct
 #'   subgroup selection model and each chain (default `1000`).
 #' @param chains Number of conditional chains, at least two (default `2`).
-#' @param conditional_draws Minimum retained iterations per conditional chain
+#' @param min_draws_per_model_chain Minimum retained iterations per conditional chain
 #'   used for sampling and split R-hat (default `200`). Increase with `burnin`
 #'   if the reported conditional diagnostics are poor.
 #' @param seed Integer seed. The caller's random-number state is restored.
@@ -95,19 +92,19 @@
 #' as the fitted model (approximately, not exactly, one).
 #'
 #' This is a two-stage posterior approximation: model weights inherit the
-#' original sampler's Laplace approximation and finite-chain exploration. The
+#' fitted selection sampler's Laplace approximation and finite-chain exploration. The
 #' conditional Gibbs draws do not make those weights exact. Classical split
 #' R-hat is reported for each conditional model and does not diagnose the
 #' original selection chain. Inspect both stages and increase simulation effort
 #' before interpreting intervals. Runtime grows with the number of distinct
-#' subgroup selection models, not just `draws`.
+#' subgroup selection models, not just `output_draws`.
 #'
 #' Old survival fits without explicit response-scale metadata must be refitted.
 #' Log-time fits return coefficients for log time; identity-scale fits are
 #' retained only for historical compatibility.
 #'
 #' @return An `imr_posterior` object containing `beta` (one draws-by-coefficients
-#'   matrix per subgroup), `variance`, source `model_draw` indices, conditional
+#'   matrix per subgroup), `variance`, source `selection_draw_index` indices, conditional
 #'   `diagnostics`, and the originating `fit`. With `latent = TRUE` it also
 #'   contains `latent`, one draws-by-subject matrix per subgroup holding the
 #'   augmented response, paired row by row with `beta`. Coefficient column names
@@ -124,19 +121,20 @@
 #' y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
 #' fit <- imr(list(assay = x), y, outcome_type = "continuous",
 #'            forced_prior_scale = 1, draws = 500, burnin = 250, seed = 1)
-#' draws <- posterior_draws(fit, draws = 1000, burnin = 1000,
-#'                          conditional_draws = 1000, seed = 2)
+#' draws <- sample_regression_posterior(fit, output_draws = 1000, burnin = 1000,
+#'                          min_draws_per_model_chain = 1000, seed = 2)
 #' summary(draws)
 #' }
-posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
-                            chains = 2L, conditional_draws = 200L, seed = 1L,
+sample_regression_posterior <- function(object, output_draws = 1000L, burnin = 1000L,
+                            chains = 2L, min_draws_per_model_chain = 200L, seed = 1L,
                             latent = FALSE) {
-  validate_imr(object)
-  draws <- .imr_check_integer_scalar(draws, "draws", min = 2L)
+  validate_imr_object(object)
+  .imr_require_current_updates(object)
+  output_draws <- .imr_check_integer_scalar(output_draws, "output_draws", min = 2L)
   burnin <- .imr_check_integer_scalar(burnin, "burnin", min = 0L)
   chains <- .imr_check_integer_scalar(chains, "chains", min = 2L)
-  conditional_draws <- .imr_check_integer_scalar(
-    conditional_draws, "conditional_draws", min = 4L)
+  min_draws_per_model_chain <- .imr_check_integer_scalar(
+    min_draws_per_model_chain, "min_draws_per_model_chain", min = 4L)
   seed <- .imr_check_integer_scalar(seed, "seed", min = 0L)
   .imr_check_flag(latent, "latent")
   # For a continuous outcome the response is observed, so there is nothing
@@ -151,22 +149,22 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
   rng <- .imr_save_rng()
   on.exit(.imr_restore_rng(rng), add = TRUE)
   set.seed(seed)
-  model_draw <- sample.int(length(object$posterior$selection_draws), draws, replace = TRUE)
+  selection_draw_index <- sample.int(length(object$posterior$selection_draws), output_draws, replace = TRUE)
   beta <- variance <- diagnostics <- augmented <-
     vector("list", length(object$model$subgroup_names))
   priors <- object$control$priors
   for (g in seq_along(beta)) {
     design <- .imr_posterior_design(object, g)
-    masks <- lapply(model_draw, function(s) {
+    masks <- lapply(selection_draw_index, function(s) {
       c(rep(TRUE, 1L + length(object$model$covariate_names)), unlist(lapply(
         object$model$subgroup_platforms[[g]], function(p) {
           object$posterior$selection_draws[[s]][[p]][match(g, object$model$platform_subgroups[[p]]), ] == 1
         }), use.names = FALSE))
     })
     keys <- vapply(masks, function(x) paste(as.integer(x), collapse = ""), "")
-    beta[[g]] <- matrix(0, draws, ncol(design), dimnames = list(NULL, colnames(design)))
-    variance[[g]] <- numeric(draws)
-    if (keep_latent) augmented[[g]] <- matrix(NA_real_, draws,
+    beta[[g]] <- matrix(0, output_draws, ncol(design), dimnames = list(NULL, colnames(design)))
+    variance[[g]] <- numeric(output_draws)
+    if (keep_latent) augmented[[g]] <- matrix(NA_real_, output_draws,
       nrow(object$preprocessing$response[[g]]),
       dimnames = list(NULL, rownames(object$preprocessing$response[[g]])))
     records <- list()
@@ -176,7 +174,7 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
       X <- design[, active, drop = FALSE]
       h <- c(rep(priors$forced_scale, 1L + length(object$model$covariate_names)),
              rep(priors$molecular_scale, ncol(design) - 1L - length(object$model$covariate_names)))[active]
-      n <- max(conditional_draws, ceiling(length(positions) / chains))
+      n <- max(min_draws_per_model_chain, ceiling(length(positions) / chains))
       y <- object$preprocessing$response[[g]][, 1L]
       status <- if (object$control$outcome_type == "right.censored") object$preprocessing$response[[g]][, 2L] else NULL
       samples <- lapply(seq_len(chains), function(chain) {
@@ -199,8 +197,8 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
         augmented[[g]][positions, ] <- pooled_latent[chosen, , drop = FALSE]
       }
       records[[length(records) + 1L]] <- data.frame(
-        subgroup = object$model$subgroup_names[g], model = key,
-        returned_draws = length(positions), conditional_draws = n,
+        subgroup = object$model$subgroup_names[g], selection_model = key,
+        output_draws = length(positions), draws_per_model_chain = n,
         max_split_rhat = max(rhat), row.names = NULL)
     }
     diagnostics[[g]] <- do.call(rbind, records)
@@ -209,14 +207,14 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
   if (keep_latent) names(augmented) <- object$model$subgroup_names
   diagnostics <- do.call(rbind, diagnostics)
   if (any(!is.finite(diagnostics$max_split_rhat) | diagnostics$max_split_rhat > 1.05)) {
-    .imr_warn("Conditional split R-hat exceeds 1.05 or is undefined; inspect `diagnostics`, increase `conditional_draws` and, if needed, `burnin`, then reassess before interpreting intervals.")
+    .imr_warn("Conditional split R-hat exceeds 1.05 or is undefined; inspect `diagnostics`, increase `min_draws_per_model_chain` and, if needed, `burnin`, then reassess before interpreting intervals.")
   }
   structure(list(beta = beta, variance = variance,
     latent = if (keep_latent) augmented else NULL,
-    model_draw = model_draw,
+    selection_draw_index = selection_draw_index,
     diagnostics = diagnostics, fit = object,
-    control = list(draws = draws, burnin = burnin, chains = chains,
-                   conditional_draws = conditional_draws, seed = seed),
+    control = list(output_draws = output_draws, burnin = burnin, chains = chains,
+                   min_draws_per_model_chain = min_draws_per_model_chain, seed = seed),
     approximation = "Empirical selection weights from the Laplace-based fit; conditional pMOM Gibbs draws."),
     class = "imr_posterior")
 }
@@ -282,7 +280,7 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
 #' and quantiles use `stats::quantile(type = 7)`. The interval includes the
 #' point mass at zero from inactive models. `confint()` reuses `summary()`;
 #' neither method runs further MCMC. `print()` reports the stored approximation
-#' and maximum conditional R-hat described in [posterior_draws()].
+#' and maximum conditional R-hat described in [sample_regression_posterior()].
 #'
 #' With `parm = "latent"`, the same mean, standard deviation and quantiles are
 #' computed per subject, without a nonzero-probability column. For log-time
@@ -292,14 +290,15 @@ posterior_draws <- function(object, draws = 1000L, burnin = 1000L,
 #' zero according to the observed class. These latent summaries are conditional
 #' on observed outcomes; they are not predictions for new subjects.
 #'
-#' @param object,x An `imr_posterior` object returned by [posterior_draws()].
+#' @param object,x An `imr_posterior` object returned by [sample_regression_posterior()].
 #' @param level Equal-tail credible level, between zero and one.
-#' @param parm `"coefficients"` for the regression coefficients, or `"latent"`
-#'   for the augmented response of a binary or right-censored fit. `"latent"`
-#'   requires draws retained with `posterior_draws(latent = TRUE)` and gives one
+#' @param parm `"coefficients"` for regression coefficients, `"variance"` for
+#'   residual variance, or `"latent"` for a binary/censored augmented response. `"latent"`
+#'   requires draws retained with `sample_regression_posterior(latent = TRUE)` and gives one
 #'   row per subject, without a `probability_nonzero` column.
-#' @param ... Unused.
-#' @return `summary()` and `confint()` return coefficient tables by subgroup.
+#' @param ... Unused arguments are rejected.
+#' @return `summary()` and `confint()` return tables for the requested parameter
+#'   set, by subgroup.
 #'   `coef()` returns posterior mean coefficient vectors. `print()` returns
 #'   its argument invisibly. Effects are on subgroup-standardized predictor
 #'   scales. Intervals include zero-mass from inactive selection models.
@@ -308,33 +307,36 @@ NULL
 
 #' @rdname imr_posterior_methods
 #' @export
-summary.imr_posterior <- function(object, level = .95,
-                                  parm = c("coefficients", "latent"), ...) {
+summary.imr_posterior <- function(object, level = .95, parm = "coefficients", ...) {
+  .imr_reject_dots(...)
+  validate_imr_object(object)
   .imr_check_interval_level(level)
   parm <- .imr_posterior_parm(parm)
   if (parm == "latent") return(.imr_latent_summary(object, level))
-  lapply(object$beta, function(x) {
-    q <- t(apply(x, 2L, stats::quantile, probs = c((1-level)/2, .5, (1+level)/2), names = FALSE))
-    data.frame(term = colnames(x), mean = colMeans(x), sd = apply(x, 2L, stats::sd),
-      lower = q[, 1L], median = q[, 2L], upper = q[, 3L],
-      probability_nonzero = colMeans(x != 0), row.names = NULL)
-  })
+  probs <- c((1-level)/2, .5, (1+level)/2)
+  if (parm == "variance") return(lapply(object$variance, function(x)
+    .imr_draw_interval(x, probs, quantile_type = 7L, parameter = "residual_variance")))
+  lapply(object$beta, function(x) do.call(rbind, lapply(seq_len(ncol(x)), function(j) {
+    out <- .imr_draw_interval(x[, j], probs, quantile_type = 7L, term = colnames(x)[j])
+    out$probability_nonzero <- mean(x[, j] != 0)
+    out
+  })))
 }
 
 #' @rdname imr_posterior_methods
 #' @export
-confint.imr_posterior <- function(object, parm = c("coefficients", "latent"),
+confint.imr_posterior <- function(object, parm = "coefficients",
                                   level = .95, ...) {
+  .imr_reject_dots(...)
   summary(object, level = level, parm = .imr_posterior_parm(parm))
 }
 
 # Named explicitly rather than through match.arg(), so that a bad value is
 # reported against `parm` as the other methods report their arguments.
 .imr_posterior_parm <- function(parm) {
-  choices <- c("coefficients", "latent")
-  if (identical(parm, choices)) return("coefficients")
+  choices <- c("coefficients", "variance", "latent")
   if (length(parm) == 1L && !is.na(parm) && parm %in% choices) return(parm)
-  .imr_abort("`parm` must be 'coefficients' or 'latent'.")
+  .imr_abort("`parm` must be 'coefficients', 'variance' or 'latent'.")
 }
 
 # One row per subject, summarising the augmented response that the conditional
@@ -344,25 +346,30 @@ confint.imr_posterior <- function(object, parm = c("coefficients", "latent"),
   if (is.null(object$latent)) {
     .imr_abort(if (object$fit$control$outcome_type == "continuous")
       "A continuous outcome has no latent response; its response is observed."
-      else "Latent draws were not retained; call `posterior_draws(latent = TRUE)`.")
+      else "Latent draws were not retained; call `sample_regression_posterior(latent = TRUE)`.")
   }
   probs <- c((1 - level) / 2, .5, (1 + level) / 2)
-  lapply(object$latent, function(x) {
-    q <- t(apply(x, 2L, stats::quantile, probs = probs, names = FALSE))
-    data.frame(id = if (is.null(colnames(x))) seq_len(ncol(x)) else colnames(x),
-      mean = colMeans(x), sd = apply(x, 2L, stats::sd),
-      lower = q[, 1L], median = q[, 2L], upper = q[, 3L], row.names = NULL)
-  })
+  lapply(object$latent, function(x) do.call(rbind, lapply(seq_len(ncol(x)), function(j) {
+    id <- if (is.null(colnames(x))) j else colnames(x)[j]
+    .imr_draw_interval(x[, j], probs, quantile_type = 7L, id = id)
+  })))
 }
 
 #' @rdname imr_posterior_methods
 #' @export
-coef.imr_posterior <- function(object, ...) lapply(object$beta, colMeans)
+coef.imr_posterior <- function(object, ...) {
+  .imr_reject_dots(...)
+  validate_imr_object(object)
+  lapply(object$beta, colMeans)
+}
 
 #' @rdname imr_posterior_methods
 #' @export
 print.imr_posterior <- function(x, ...) {
-  cat("IMR coefficient posterior:", length(x$model_draw), "draws;",
+  .imr_reject_dots(...)
+  validate_imr_object(x)
+  cat("Regression posterior for", toupper(x$fit$control$model_variant), "fit:",
+      length(x$selection_draw_index), "draws;",
       length(x$beta), "availability subgroups\n")
   if (!is.null(x$latent)) cat("Latent response draws retained.\n")
   cat(x$approximation, "\n")
@@ -381,8 +388,8 @@ print.imr_posterior <- function(x, ...) {
 #' \deqn{\eta^{(d)}=z^Tb^{(d)}}{eta[d] = transpose(z) * beta[d]}
 #' and use its paired variance \eqn{v^{(d)}}.
 #'
-#' For a continuous response, `type = "mean"` summarizes \eqn{\eta^{(d)}}{eta[d]}.
-#' `type = "response"` instead generates
+#' For a continuous response, `quantity = "conditional_mean"` summarizes \eqn{\eta^{(d)}}{eta[d]}.
+#' `quantity = "new_observation"` instead generates
 #' \deqn{Y_{\mathrm{new}}^{(d)}\sim N(\eta^{(d)},v^{(d)}).}{Y_new[d] ~ N(eta[d], v[d]).}
 #'
 #' For a binary response, the mean draws are event probabilities
@@ -407,26 +414,26 @@ print.imr_posterior <- function(x, ...) {
 #' binary outcomes and its sample median for log-time survival outcomes, whose
 #' posterior mean may not exist. Response intervals include future outcome
 #' variation; mean intervals describe parameter and model uncertainty. These
-#' draw-based summaries inherit the approximation in [posterior_draws()] and
+#' draw-based summaries inherit the approximation in [sample_regression_posterior()] and
 #' can differ from the ranked-model plug-in predictions in [predict.imr()].
 #'
 #' @param object An `imr_posterior` object.
 #' @param newdata,platform_names,covariates As in [predict.imr()].
-#' @param type `"mean"` returns uncertainty in the conditional response mean
-#'   (event probability for binary data). `"response"` additionally generates
+#' @param quantity `"conditional_mean"` returns uncertainty in the conditional response mean
+#'   (event probability for binary data). `"new_observation"` additionally generates
 #'   new outcomes, including residual variability. Binary response intervals
-#'   summarize 0/1 draws with interpolated quantiles; use `"mean"` for
+#'   summarize 0/1 draws with interpolated quantiles; use `"conditional_mean"` for
 #'   event-probability intervals.
 #' @param level Equal-tail interval level.
 #' @param seed Integer simulation seed; the caller's RNG state is restored.
-#' @param ... Unused.
-#' @details Log-time survival fits return time-scale results: for `"mean"`,
-#'   each draw is exp(eta + variance/2); for `"response"`, each draw is
+#' @param ... Unused arguments are rejected.
+#' @details Log-time survival fits return time-scale results: for `"conditional_mean"`,
+#'   each draw is exp(eta + variance/2); for `"new_observation"`, each draw is
 #'   exp(eta + error). Censoring times for future observations are not generated.
 #'   Identity-scale fits return their historical working scale. These results
 #'   integrate conditional parameter uncertainty and may differ from the
 #'   existing plug-in `predict.imr()` point predictions. Their model weights
-#'   inherit the approximation described in [posterior_draws()].
+#'   inherit the approximation described in [sample_regression_posterior()].
 #'   For log-time fits, point predictions are medians of the simulated
 #'   quantities. A time-scale posterior mean need not exist under an
 #'   inverse-gamma variance mixture, so a sample mean is not reported.
@@ -435,19 +442,22 @@ print.imr_posterior <- function(x, ...) {
 #'   log-time survival fits, where it is the median.
 #' @export
 predict.imr_posterior <- function(object, newdata, platform_names = NULL,
-                                  covariates = NULL, type = c("mean", "response"),
+                                  covariates = NULL, quantity = c("conditional_mean", "new_observation"),
                                   level = .95, seed = 1L, ...) {
-  type <- match.arg(type)
+  .imr_reject_dots(...)
+  validate_imr_object(object)
+  .imr_require_current_updates(object$fit)
+  quantity <- match.arg(quantity)
   .imr_check_interval_level(level)
   seed <- .imr_check_integer_scalar(seed, "seed", min = 0L)
   fit <- object$fit
   inputs <- .imr_prediction_inputs(fit, newdata, platform_names, covariates)
   if (!is.null(inputs$empty)) {
-    return(lapply(inputs$empty, function(x) {
+    return(.imr_prediction_result(lapply(inputs$empty, function(x) {
       x$lower <- numeric()
       x$upper <- numeric()
       x
-    }))
+    }), fit))
   }
   rng <- .imr_save_rng()
   on.exit(.imr_restore_rng(rng), add = TRUE)
@@ -460,12 +470,12 @@ predict.imr_posterior <- function(object, newdata, platform_names = NULL,
     v <- object$variance[[g]]
     if (fit$control$outcome_type == "binary") {
       values <- stats::pnorm(eta / sqrt(v))
-      if (type == "response") values[] <- stats::rbinom(length(values), 1, values)
+      if (quantity == "new_observation") values[] <- stats::rbinom(length(values), 1, values)
     } else {
       values <- eta
-      if (type == "response") values <- eta + matrix(stats::rnorm(length(eta)), nrow(eta)) * sqrt(v)
+      if (quantity == "new_observation") values <- eta + matrix(stats::rnorm(length(eta)), nrow(eta)) * sqrt(v)
       if (fit$control$outcome_type == "right.censored" && identical(fit$control$response_scale, "log")) {
-        if (type == "mean") values <- values + v / 2
+        if (quantity == "conditional_mean") values <- values + v / 2
         values <- exp(values)
       }
     }
@@ -476,6 +486,5 @@ predict.imr_posterior <- function(object, newdata, platform_names = NULL,
     } else colMeans(values)
     data.frame(id = ids, prediction = point, lower = q[1L, ], upper = q[2L, ], row.names = NULL)
   })
-  names(out) <- paste0("model:", fit$model$subgroup_names)
-  out
+  .imr_prediction_result(out, fit)
 }

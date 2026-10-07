@@ -25,7 +25,7 @@ verify_failures <- function() {
     for (method in c("imr", "bms")) {
       Sys.unsetenv("IMR_TEST_ROW_FAIL_AT")
       fit <- imr(list(assay = platform), outcomes[[outcome_type]],
-        outcome_type = outcome_type, method = method, draws = 8, burnin = 2,
+        outcome_type = outcome_type, model_variant = method, draws = 8, burnin = 2,
         min_subgroup_size = 0, seed = 3)
       # Two guaranteed distinct, valid states. Reverse traversal starts A/A/B;
       # failure at allocation 3 occurs after a live alias in importance mode.
@@ -35,7 +35,7 @@ verify_failures <- function() {
       second[[1L]][1L] <- 1L
       fit$posterior$selection_draws <- rep(list(first), 8L)
       fit$posterior$selection_draws[6L] <- list(second)
-      for (cv_method in c("postfit_original", "importance")) {
+      for (cv_method in "reweight") {
         for (workers in 1:2) {
           run <- function() cv_imr(fit, k = 2L, rounds = 1L,
             cv_method = cv_method, workers = workers)

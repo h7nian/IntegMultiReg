@@ -5,7 +5,7 @@ args <- commandArgs(trailingOnly = TRUE)
 if (length(args) != 4L) stop("Usage: fit.rds new-output-directory folds rounds")
 library(IntegMultiReg)
 fit <- readRDS(args[[1L]])
-validate_imr(fit)
+validate_imr_object(fit)
 output <- args[[2L]]
 if (file.exists(output)) stop("Refusing to overwrite benchmark evidence")
 dir.create(output, recursive = TRUE)

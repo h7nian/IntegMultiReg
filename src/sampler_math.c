@@ -3,13 +3,13 @@
 
 double imr_gamma_log_odds(int n_groups, int group, int feature,
                           const double *interaction, _Bool **selection,
-                          double nu, int sampler_method)
+                          double nu, int selection_update)
 {
     double neighbors = 0;
     for (int other = 0; other < n_groups; ++other)
         if (other != group)
             neighbors += interaction[other] * selection[other][feature];
-    if (sampler_method == IMR_SAMPLER_PAPER) neighbors *= 2;
+    if (selection_update == IMR_UPDATE_MRF_HASTINGS) neighbors *= 2;
     return neighbors + nu;
 }
 

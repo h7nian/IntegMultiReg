@@ -4,17 +4,17 @@ test_that("all three outcome types fit without error and return valid output", {
     expect_s3_class(fit, "imr")
     expect_identical(fit$control$outcome_type, type)
     expect_true(all(is.finite(fit$posterior$log_posterior)))
-    expect_true(all(vapply(coef(fit), function(m) all(m >= 0 & m <= 1), logical(1))))
+    expect_true(all(vapply(inclusion_probabilities(fit), function(m) all(m >= 0 & m <= 1), logical(1))))
   }
 })
 
 test_that("the BMS (non-integrative) method also runs", {
   fit <- imr(
     simIMR$platforms, simIMR$outcome.binary, covariates = simIMR$covariates,
-    outcome_type = "binary", method = "bms",
+    outcome_type = "binary", model_variant = "bms",
     nu = c(-4, -3, -4), draws = 150, burnin = 75, min_subgroup_size = 30, seed = 1)
   expect_s3_class(fit, "imr")
-  expect_identical(fit$control$method, "bms")
+  expect_identical(fit$control$model_variant, "bms")
 })
 
 test_that("the model runs without clinical covariates", {

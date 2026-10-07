@@ -23,13 +23,13 @@ test_that("summary produces a per-platform selection table", {
 
 test_that("standard S3 generics dispatch without duplicate wrappers", {
   expect_s3_class(summary(fit_bin, threshold = 0.5), "summary.imr")
-  expect_named(coef(fit_bin), fit_bin$model$platform_names)
+  expect_named(inclusion_probabilities(fit_bin), fit_bin$model$platform_names)
   expect_false(any(c("summary_imr", "coef_imr", "plot_imr", "predict_imr") %in%
                    getNamespaceExports("IntegMultiReg")))
 })
 
 test_that("coef returns named per-platform mPIP matrices", {
-  mp <- coef(fit_bin)
+  mp <- inclusion_probabilities(fit_bin)
   expect_type(mp, "list")
   expect_named(mp, c("genomic", "proteomic", "metabolomic"))
   expect_equal(rownames(mp$genomic),

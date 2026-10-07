@@ -55,7 +55,7 @@ data <- measure("data", {
 })
 fit_args <- list(x = data$platforms, outcome = data$outcome,
                  covariates = data$covariates, outcome_type = outcome_type,
-                 method = method, draws = draws, burnin = burnin,
+                 model_variant = method, draws = draws, burnin = burnin,
                  seed = 100, nu = c(-4, -3, -4), min_subgroup_size = 30)
 if (args[2L] != "sim") {
   fit_args$molecular_prior_scale <- 0.087
@@ -83,12 +83,12 @@ for (repeat_index in 1:2) {
   measure(paste0("predict-", repeat_index), predict(fit, data$platforms,
     covariates = if (interface == "formula") clinical else data$covariates))
 }
-for (cv_method in c("postfit_original", "refit", "importance")) {
+for (cv_method in c("refit", "reweight")) {
   cv_args <- list(object = fit, k = 5L, rounds = 2L, cv_method = cv_method)
   if ("workers" %in% names(formals(cv_imr))) cv_args$workers <- workers
   else if (workers != 1L) stop("Installed version does not implement workers")
   measure(paste0("cv-", cv_method), do.call(cv_imr, cv_args))
 }
 # These short conditional chains measure execution, not convergence. Keep warnings.
-measure("posterior", posterior_draws(fit, draws = 20L, burnin = 20L,
-                                     conditional_draws = 20L, seed = 101L))
+measure("posterior", sample_regression_posterior(fit, output_draws = 20L, burnin = 20L,
+                                     min_draws_per_model_chain = 20L, seed = 101L))

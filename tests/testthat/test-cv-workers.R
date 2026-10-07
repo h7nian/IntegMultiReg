@@ -11,7 +11,7 @@ test_that("refit task dispatch preserves complete results for each outcome and m
     for (method in c("imr", "bms")) {
       fit <- imr(simIMR$platforms, outcomes[[outcome_type]],
                  covariates = simIMR$covariates, outcome_type = outcome_type,
-                 method = method, draws = 12, burnin = 6,
+                 model_variant = method, draws = 12, burnin = 6,
                  min_subgroup_size = 30, seed = 53)
       reference <- cv_imr(fit, k = 3, rounds = 2, max_models = 4,
                           cv_method = "refit")

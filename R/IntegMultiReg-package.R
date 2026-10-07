@@ -26,12 +26,12 @@
 #' @section Statistical reference:
 #' [imr()] defines the outcome models, pMOM coefficient prior, MRF selection
 #' prior and computational conventions. [imr_data()] explains availability
-#' subgroups. [coef.imr()] defines marginal inclusion probabilities, while
+#' subgroups. [inclusion_probabilities()] defines marginal inclusion probabilities, while
 #' [summary.imr()] explains feature ranking and thresholding.
 #'
-#' Uncertainty has two stages. [posterior_summary()] and [confint.imr()]
+#' Uncertainty has two stages. [selection_summary()] and [confint.imr()]
 #' summarize the selection and interaction draws already stored in a fit.
-#' [posterior_draws()] performs additional conditional coefficient sampling;
+#' [sample_regression_posterior()] performs additional conditional coefficient sampling;
 #' its help page gives the model-averaging construction, sampling budgets and
 #' split R-hat diagnostic. [imr_posterior_methods] explains how those draws
 #' become coefficient and latent-response summaries.

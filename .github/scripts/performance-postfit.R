@@ -1,10 +1,10 @@
 # Isolate post-fit CV timing from the cost of fitting; one warm-up, five repeats.
-# Arguments: frozen fit.rds, new output directory, postfit_original|importance, [workers].
+# Arguments: frozen fit.rds, new output directory, reweight, [workers].
 args <- commandArgs(trailingOnly = TRUE)
 stopifnot(length(args) %in% c(3L, 4L), !file.exists(args[2L]))
 library(IntegMultiReg)
-fit <- readRDS(args[1L])
-method <- match.arg(args[3L], c("postfit_original", "importance"))
+fit <- upgrade_imr_object(readRDS(args[1L]))
+method <- match.arg(args[3L], "reweight")
 workers <- if (length(args) == 4L) as.integer(args[4L]) else 1L
 stopifnot(!is.na(workers), workers >= 1L)
 controls <- list(object = fit, k = 5L, rounds = 2L, cv_method = method)
@@ -29,6 +29,6 @@ for (iteration in 0:5) {
 write.csv(data.frame(repeat_index = 1:5, elapsed = times),
           file.path(args[2L], "timings.csv"), row.names = FALSE)
 saveRDS(list(source_sha = Sys.getenv("IMR_SOURCE_SHA", unset = NA_character_),
-             input_md5 = tools::md5sum(args[1L]), workers = workers, method = method),
+             input_md5 = tools::md5sum(args[1L]), workers = workers, model_variant = method),
         file.path(args[2L], "provenance.rds"))
 print(c(median = median(times), minimum = min(times), maximum = max(times)))

@@ -51,11 +51,11 @@ same latent signal.  The truly associated features are recorded in
 
 # Prepare and inspect a data object
 
-The examples below explicitly use `sampler_method = "corrected"`, which applies
-the stated MRF update and boundary Hastings correction. The package default,
-`"original"`, preserves the released updates and targets a different distribution.
-These are statistical conventions, not speed settings. We use refit CV for
-predictive evaluation and keep all hyperparameters fixed in advance.
+The fitter uses the symmetric MRF update and its boundary Hastings correction.
+The model variant is `"imr"` for MRF borrowing or `"bms"` for independent
+subgroups. Historical updates are replayed from their archived source, rather
+than selected through the ordinary fitting interface. These examples use
+training-fold refit CV with hyperparameters fixed in advance.
 
 Construct an `imr_data` object once, inspect it, and pass it to fitting or
 prediction. The constructor checks identifiers, outcome coding and alignment.
@@ -85,7 +85,7 @@ fit <- imr(
   nu = c(-4, -3, -4),
   draws = 1500, burnin = 500,
   min_subgroup_size = 30,
-  seed = 1, sampler_method = "corrected"
+  seed = 1
 )
 fit
 ```
@@ -118,7 +118,7 @@ new_data <- imr_data(
 )
 stopifnot(validate_imr_data(new_data))
 pred <- predict(fit, newdata = new_data)
-head(pred[["model:011"]])
+head(pred[["subgroup:011"]])
 ```
 
 # Use a formula and data frame
@@ -134,10 +134,9 @@ clinical <- merge(simIMR$outcome.continuous, simIMR$covariates,
 formula_fit <- imr(
   y ~ age + sex + stage, data = clinical, platforms = simIMR$platforms,
   outcome_type = "continuous", nu = c(-4, -3, -4),
-  draws = 1500, burnin = 500, min_subgroup_size = 30,
-  sampler_method = "corrected", seed = 1
+  draws = 1500, burnin = 500, min_subgroup_size = 30, seed = 1
 )
-head(predict(formula_fit, newdata = new_data)[["model:011"]])
+head(predict(formula_fit, newdata = new_data)[["subgroup:011"]])
 ```
 
 # Compare formulas on the same folds
@@ -151,8 +150,7 @@ its candidate. Necessary adjustment terms must remain in every candidate.
 age_fit <- imr(
   y ~ age, data = clinical, platforms = simIMR$platforms,
   outcome_type = "continuous", nu = c(-4, -3, -4),
-  draws = 1500, burnin = 500, min_subgroup_size = 30,
-  sampler_method = "corrected", seed = 1
+  draws = 1500, burnin = 500, min_subgroup_size = 30, seed = 1
 )
 cv_age <- cv_imr(age_fit, k = 3, rounds = 1, cv_method = "refit")
 cv_full <- cv_imr(formula_fit, k = 3, rounds = 1, cv_method = "refit",
@@ -180,7 +178,7 @@ inclusion probability (mPIP) exceeds a threshold.
 summary(fit, threshold = 0.5)
 ```
 
-The posterior inclusion probabilities themselves are available through `coef()`
+The posterior inclusion probabilities themselves are available through `inclusion_probabilities()`
 (a list of subgroup $\times$ feature matrices) and can be visualised either as
 per-platform heatmaps or as a single ranked bar chart of the most strongly
 supported features across all platforms.
@@ -203,9 +201,9 @@ plot(fit, type = "trace")
 
 # Coefficient and predictive uncertainty
 
-`posterior_summary(fit)` summarizes selection indicators and MRF interactions
+`selection_summary(fit)` summarizes selection indicators and MRF interactions
 already stored in the fitted object. Regression coefficients require a second
-step, `posterior_draws()`. The following small continuous example shows that
+step, `sample_regression_posterior()`. The following small continuous example shows that
 step and keeps the printed coefficient table short.
 
 ```{r posterior-fit}
@@ -215,11 +213,11 @@ response <- data.frame(id = assay$id,
 uncertainty_fit <- imr(
   list(assay = assay), response, outcome_type = "continuous",
   forced_prior_scale = 1, min_subgroup_size = 5,
-  draws = 500, burnin = 250, sampler_method = "corrected", seed = 1
+  draws = 500, burnin = 250, seed = 1
 )
-post <- posterior_draws(
-  uncertainty_fit, draws = 1000, burnin = 1000, chains = 4,
-  conditional_draws = 1000, seed = 2
+post <- sample_regression_posterior(
+  uncertainty_fit, output_draws = 1000, burnin = 1000, chains = 4,
+  min_draws_per_model_chain = 1000, seed = 2
 )
 post
 post$diagnostics
@@ -227,32 +225,31 @@ confint(post)[[1]]
 ```
 
 `draws` controls the number of returned model-averaged samples, while
-`conditional_draws` is the minimum retained length of each conditional chain.
+`min_draws_per_model_chain` is the minimum retained length of each conditional chain.
 Inspect the model-specific diagnostics before interpreting intervals. These
 diagnostics assess conditional coefficient/variance sampling, not the original
 selection chain. Model weights still inherit the fitted Laplace approximation.
 
 ```{r posterior-predict}
 new_assay <- list(assay = data.frame(id = 41:43, marker = c(-0.5, 0, 0.5)))
-predict(post, new_assay, type = "mean")
-predict(post, new_assay, type = "response")
+predict(post, new_assay, quantity = "conditional_mean")
+predict(post, new_assay, quantity = "new_observation")
 ```
 
 The first call summarizes uncertainty in the conditional response mean. The
 second also generates future outcome variation. `summary(post)` and
 `confint(post)` read the same stored posterior draws; they do not rerun MCMC.
-For binary or censored fits, `posterior_draws(..., latent = TRUE)` additionally
+For binary or censored fits, `sample_regression_posterior(..., latent = TRUE)` additionally
 retains the augmented response for inspection with
 `summary(post, parm = "latent")`. A continuous outcome has no latent response.
 
 # Assessing predictive performance
 
-`cv_imr()` defaults to `cv_method = "postfit_original"`, the historical post-fit
-algorithm. `cv_method = "importance"` uses all retained draws in a paper-derived
-importance average; both post-fit modes reuse full-fit preprocessing and latent
-response summaries. Held-out responses enter inverse-density importance weights as a correction;
-their use alone does not identify an error. Neither mode promises reproduction
-of the original study's numbers.
+`cv_imr()` defaults to `cv_method = "refit"`. The alternative `"reweight"`
+reuses a full-data fit; `model_set = "all_draws"` keeps empirical multiplicities,
+while `"top_unique"` retains ranked distinct states. Reweighting uses full-fit
+preprocessing and latent-response summaries. Held-out outcomes enter its
+importance correction, which alone is not evidence of an error.
 
 This example explicitly uses `cv_method = "refit"` to refit each training fold, including
 standardization, selection MCMC and model weights. It reports AUC for binary
@@ -260,7 +257,7 @@ outcomes, concordance for survival and MSE for continuous outcomes, overall
 and within each retained availability subgroup. Formula transformations are
 also rebuilt on training rows. Runtime scales with folds times rounds; use
 short chains for a code-path check and increase them for final analysis.
-To compare IMR with BMS, fit a separate `method = "bms"` object. The original
+To compare IMR with BMS, fit a separate `model_variant = "bms"` object. The original
 hyperparameters are treated as fixed; tuning requires another validation layer.
 
 ```{r cv}
@@ -279,15 +276,13 @@ The same interface handles continuous and right-censored outcomes; only
 fit_c <- imr(
   simIMR$platforms, simIMR$outcome.continuous, covariates = simIMR$covariates,
   outcome_type = "continuous", nu = c(-4, -3, -4),
-  draws = 1500, burnin = 500, min_subgroup_size = 30,
-  sampler_method = "corrected", seed = 1)
+  draws = 1500, burnin = 500, min_subgroup_size = 30, seed = 1)
 
 # right-censored survival outcome
 fit_s <- imr(
   simIMR$platforms, simIMR$outcome.survival, covariates = simIMR$covariates,
   outcome_type = "right.censored", nu = c(-4, -3, -4),
-  draws = 1500, burnin = 500, min_subgroup_size = 30,
-  sampler_method = "corrected", seed = 1)
+  draws = 1500, burnin = 500, min_subgroup_size = 30, seed = 1)
 ```
 
 # Real TCGA-KIRC example
@@ -322,28 +317,25 @@ kirc_fit <- imr(
   nu                 = c(-4, -3, -4),
   draws = 4000, burnin = 1000,
   min_subgroup_size              = 30,
-  seed = 1, sampler_method = "corrected"
+  seed = 1
 )
 summary(kirc_fit)
 plot_top_features(kirc_fit, top = 12)
 ```
 
-# Choosing computational conventions
+# Record computational settings
 
-The three CV modes provide defaults. Optional `ridge`, `model_set`,
-`df_method`, and `score_method` let users choose unpenalized estimation,
-empirical or ranked selection states, predictive degrees of freedom, and
-scoring independently. `folds = result$control$folds` replays actual partitions
-and summation order; identical seeds across different generators are not enough.
-`fold_rng="continue"` resumes a new fit's saved GSL stream for post-fit CV.
+Use `folds = result$control$folds` for partition replay. Reweighting also retains
+`row_order`, which preserves summation order. `fold_rng = "continue"` can resume
+a compatible fit's saved GSL stream for reweighting; generated refit folds use
+R's generator. Seeds alone do not identify the actual partitions.
 
-`sampler_method="corrected"` uses the symmetric MRF conditional and corrects
-boundary proposal probabilities. The default `"original"` preserves historical
-updates, whose target differs from the stated MRF posterior. Numerical options
-`prior_indexing`, `laplace_max_iter`, and `laplace_tolerance` are recorded and
-reused by prediction and CV. See `system.file("METHOD-COVERAGE.md",
-package="IntegMultiReg")` for reference combinations and their validation scope.
-No mode name alone guarantees reproduction of historical experiment tables.
+The fit records prior scales and Laplace optimization controls. The
+[replay guide](reproducibility.html) connects the exact source, data, settings,
+folds and unrounded outputs. The
+[methods guide](https://h7nian.github.io/IntegMultiReg/method-coverage.html) explains model approximations and
+historical differences. Successful execution does not establish convergence
+or reproduce an entire historical study.
 
 # References
 

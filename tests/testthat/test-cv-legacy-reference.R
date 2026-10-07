@@ -2,46 +2,46 @@
 # using the same input fit as the current adapter. Never refresh these numbers
 # with the implementation being tested. Short chains test compatibility only.
 test_that("legacy metrics reproduce the 0.1.0 native implementation", {
-  reference <- list(`continuous imr` = list(total_cindex = structure(c(0.918327581495245,
+  reference <- list(`continuous imr` = list(pooled_score = structure(c(0.918327581495245,
 0.914673647129399, 0.23050223128536, 0.253782536460212, 0.57567857607147,
 0.544745828674187, 0.663989889725636, 0.555467590453565, 0.661365172014591,
-0.636668649969352), dim = c(2L, 5L)), subset_cindex = structure(c(0.918327581495245,
+0.636668649969352), dim = c(2L, 5L)), mean_fold_score = structure(c(0.918327581495245,
 0.914673647129399, 0.23050223128536, 0.253782536460211, 0.57567857607147,
 0.544745828674187, 0.663989889725636, 0.555467590453565, 0.661365172014591,
 0.636668649969352), dim = c(2L, 5L))), `continuous bms` = list(
-    total_cindex = structure(c(0.772759834444478, 0.842896991791768,
+    pooled_score = structure(c(0.772759834444478, 0.842896991791768,
     0.23050223128536, 0.253782536460211, 0.565979560984862, 0.551460426011281,
     0.667481118851619, 0.60187800766565, 0.601896516002159, 0.618582990744136
-    ), dim = c(2L, 5L)), subset_cindex = structure(c(0.772759834444478,
+    ), dim = c(2L, 5L)), mean_fold_score = structure(c(0.772759834444478,
     0.842896991791769, 0.23050223128536, 0.253782536460211, 0.565979560984862,
     0.551460426011281, 0.667481118851619, 0.601878007665651,
     0.601896516002159, 0.618582990744136), dim = c(2L, 5L))),
-    `binary imr` = list(total_cindex = structure(c(0.579225842383737,
+    `binary imr` = list(pooled_score = structure(c(0.579225842383737,
     0.622110832637148, 0.577008928571428, 0.638392857142857,
     0.696428571428571, 0.675223214285714, 0.57174638487208, 0.611790878754171,
-    0.60372150997151, 0.632879273504274), dim = c(2L, 5L)), subset_cindex = structure(c(0.586049522783942,
+    0.60372150997151, 0.632879273504274), dim = c(2L, 5L)), mean_fold_score = structure(c(0.586049522783942,
     0.632705666533192, 0.638994107744108, 0.659294779294779,
     0.720721500721501, 0.722222222222222, 0.571585775335775,
     0.721620971620971, 0.607748609279119, 0.634455072463768), dim = c(2L,
-    5L))), `binary bms` = list(total_cindex = structure(c(0.632414369256474,
+    5L))), `binary bms` = list(pooled_score = structure(c(0.632414369256474,
     0.627958785853522, 0.563616071428572, 0.640625, 0.680803571428572,
     0.668526785714286, 0.604004449388209, 0.553948832035595,
-    0.62468839031339, 0.624510327635328), dim = c(2L, 5L)), subset_cindex = structure(c(0.647939114623729,
+    0.62468839031339, 0.624510327635328), dim = c(2L, 5L)), mean_fold_score = structure(c(0.647939114623729,
     0.635320664552602, 0.625841750841751, 0.692729122729123,
     0.6998334998335, 0.701388888888889, 0.628962148962149, 0.675805675805676,
     0.631923680661637, 0.632210858210496), dim = c(2L, 5L))),
-    `right.censored imr` = list(total_cindex = structure(c(0.758613977029395,
+    `right.censored imr` = list(pooled_score = structure(c(0.758613977029395,
     0.72902472260074, 0.66358024691358, 0.700617283950617, 0.839543726235741,
     0.847908745247148, 0.759447674418605, 0.741279069767442,
-    0.762326435950724, 0.75548929249119), dim = c(2L, 5L)), subset_cindex = structure(c(0.754781093322842,
+    0.762326435950724, 0.75548929249119), dim = c(2L, 5L)), mean_fold_score = structure(c(0.754781093322842,
     0.752898475207706, 0.692296319289333, 0.711652991228857,
     0.845020870602266, 0.841971705327854, 0.79022564316682, 0.77330081300813,
     0.765027277344517, 0.76358048732156), dim = c(2L, 5L))),
-    `right.censored bms` = list(total_cindex = structure(c(0.817013821296477,
+    `right.censored bms` = list(pooled_score = structure(c(0.817013821296477,
     0.814288495230679, 0.425154320987654, 0.517746913580247,
     0.796958174904943, 0.847908745247148, 0.649709302325581,
     0.67078488372093, 0.730369567181711, 0.751965302249932), dim = c(2L,
-    5L)), subset_cindex = structure(c(0.809503811531775, 0.820071720722956,
+    5L)), mean_fold_score = structure(c(0.809503811531775, 0.820071720722956,
     0.465273684293366, 0.516371164238417, 0.807196808359599,
     0.862066699847401, 0.666154636742872, 0.696981904012588,
     0.732707490947365, 0.752385158514155), dim = c(2L, 5L))))
@@ -51,14 +51,42 @@ test_that("legacy metrics reproduce the 0.1.0 native implementation", {
                       binary = simIMR$outcome.binary,
                       right.censored = simIMR$outcome.survival)
     fit <- imr(simIMR$platforms, outcome, covariates = simIMR$covariates,
-               outcome_type = settings[1], method = settings[2],
+               outcome_type = settings[1], model_variant = settings[2],
                draws = 40, burnin = 20, min_subgroup_size = 30,
                seed = 271, nu = c(-4, -3, -4))
-    result <- cv_imr(fit, k = 3, rounds = 2, max_models = 10,
-                     cv_method = "postfit_original")
-    expect_equal(unname(result$pooled), reference[[name]]$total_cindex,
+    # The ordinary API now fits the stated model. This frozen historical
+    # reference is exercised only through the explicitly named native adapter.
+    control <- fit$control; model <- fit$model; prep <- fit$preprocessing
+    old <- local({
+      rng <- IntegMultiReg:::.imr_save_rng()
+      on.exit(IntegMultiReg:::.imr_restore_rng(rng))
+      set.seed(control$seed)
+      IntegMultiReg:::.imr_call_fit_native(
+      priors = control$priors, seed = control$seed, nu = control$priors$nu,
+      model_variant = control$model_variant, n_platforms = model$n_platforms,
+      platform_subgroups = lapply(model$platform_subgroups, function(i) as.integer(i-1L)),
+      subgroup_platforms = lapply(model$subgroup_platforms, function(i) as.integer(i-1L)),
+      sample_sizes = model$sample_sizes, n_features = lengths(model$feature_names),
+      n_covariates = length(model$covariate_names), features = prep$features,
+      response = prep$response, outcome_type = control$outcome_type,
+      covariates = prep$covariates, draws = control$mcmc$draws,
+      burnin = control$mcmc$burnin, verbose = FALSE,
+      selection_update = "unadjusted_flip_swap", numerical = control$numerical)
+    })
+    fit$posterior <- list(inclusion_probabilities = old$gam_mean,
+      interaction_means = old$theta_mean, latent_response_mean = old$estimate_latent_y,
+      log_posterior = old$log_posterior, selection_draws = old$gam_sample,
+      interaction_draws = old$theta_sample)
+    fit$control$selection_update <- "unadjusted_flip_swap"
+    fit$control$rng_state$state <- old$rng_state
+    historical_settings <- list(ridge = .001, model_set = "top_unique",
+      df_method = "integer", score_method = "original", fold_rng = "reset")
+    native <- IntegMultiReg:::.imr_call_cv_postfit_native(fit, 3L, 2L, 10L,
+      FALSE, FALSE, settings = historical_settings)
+    result <- list(pooled = native$pooled_score, fold_mean = native$mean_fold_score)
+    expect_equal(unname(result$pooled), reference[[name]]$pooled_score,
                  tolerance = 1e-8, info = name)
-    expect_equal(unname(result$fold_mean), reference[[name]]$subset_cindex,
+    expect_equal(unname(result$fold_mean), reference[[name]]$mean_fold_score,
                  tolerance = 1e-8, info = name)
   }
 })

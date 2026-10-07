@@ -77,7 +77,7 @@ test_that("theta uncertainty labels follow the native pair ordering", {
     data.frame(id = 1:32, y = cos(1:32)), outcome_type = "continuous",
     min_subgroup_size = 1, forced_prior_scale = 1, nu = rep(-10, 3), draws = 4, burnin = 2, seed = 1)
   for (j in 1:6) fit$posterior$interaction_draws[[1]][, j] <- j
-  result <- posterior_summary(fit)$theta$A
+  result <- selection_summary(fit)$theta$A
   expect_equal(paste(result$subgroup1, result$subgroup2),
     c("001 011", "001 101", "011 101", "001 111", "011 111", "101 111"))
   expect_equal(result$mean, 1:6)

@@ -55,25 +55,27 @@ reference:
   contents:
   - print.imr
   - summary.imr
-  - coef.imr
-  - validate_imr
-  - compare_imr
-  - upgrade_imr_fit
+  - inclusion_probabilities
+  - validate_imr_object
+  - compare_fit_summaries
+  - upgrade_imr_object
 - title: Predict and cross-validate
   contents:
   - predict.imr
   - cv_imr
   - print.imr_cv
+  - print.imr_predictions
 - title: Selection and interaction uncertainty
   desc: Summarize retained draws from the fitted selection sampler.
   contents:
-  - posterior_summary
+  - selection_summary
   - confint.imr
 - title: Coefficient and predictive uncertainty
   desc: Run conditional sampling, then summarize the resulting posterior draws or predict.
   contents:
-  - posterior_draws
+  - sample_regression_posterior
   - imr_posterior_methods
+  - coef.imr
   - predict.imr_posterior
 - title: Plot results
   contents:

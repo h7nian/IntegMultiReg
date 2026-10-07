@@ -46,7 +46,7 @@ test_that("outcome_type and method are matched against their choices", {
   )
   expect_error(
     imr(simIMR$platforms, simIMR$outcome.binary,
-      outcome_type = "binary", method = "lasso", draws = 50, burnin = 25),
+      outcome_type = "binary", model_variant = "lasso", draws = 50, burnin = 25),
     "should be one of"
   )
 })

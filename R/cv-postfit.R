@@ -26,7 +26,7 @@
   result <- if (workers == 1L) {
     # Current scores are computed below; skip unused historical scores.
     .imr_call_cv_postfit_native(object, k, rounds, max_models,
-                                verbose, settings$model_set == "draws",
+                                verbose, settings$model_set == "all_draws",
                                 stage = if (settings$score_method == "standard") "predict" else "full",
                                 settings = settings, folds = partitions$folds,
                                 row_order = partitions$row_order)
@@ -35,7 +35,7 @@
                               settings, workers, partitions)
   }
   labels <- c(model$subgroup_names, "all")
-  colnames(result$total_cindex) <- colnames(result$subset_cindex) <- labels
+  colnames(result$pooled_score) <- colnames(result$mean_fold_score) <- labels
   records <- do.call(rbind, lapply(seq_len(rounds), function(round) {
     data.frame(round = round, fold = result$folds[, round], id = ids,
                subgroup = subgroup, prediction = result$predictions[, round],
@@ -55,15 +55,15 @@
       folds <- result$folds[, round]
       score <- function(index) .imr_cv_accuracy(
         control$outcome_type, prediction[index], outcome[index, , drop = FALSE])
-      result$total_cindex[round, ] <- vapply(groups, score, numeric(1))
-      result$subset_cindex[round, ] <- vapply(groups, function(index) {
+      result$pooled_score[round, ] <- vapply(groups, score, numeric(1))
+      result$mean_fold_score[round, ] <- vapply(groups, function(index) {
         mean(vapply(seq_len(k), function(fold) score(index[folds[index] == fold]),
                     numeric(1)))
       }, numeric(1))
     }
   }
   structure(class = "imr_cv", list(
-    pooled = result$total_cindex, fold_mean = result$subset_cindex,
+    pooled = result$pooled_score, fold_mean = result$mean_fold_score,
     predictions = records,
     metric = switch(control$outcome_type, right.censored = "C-index",
                     binary = "AUC", continuous = "MSE"),

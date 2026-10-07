@@ -48,22 +48,45 @@
 #' Here \eqn{B} excludes burn-in. This estimates a marginal inclusion
 #' probability under the fitted sampler and its approximations. It is not a
 #' regression coefficient; `coef()` on an `imr_posterior` object instead
-#' returns coefficient posterior means (see [imr_posterior_methods]). Use [posterior_summary()] for
-#' selection-indicator and interaction summaries, or [posterior_draws()] for
+#' returns coefficient posterior means (see [imr_posterior_methods]). Use [selection_summary()] for
+#' selection-indicator and interaction summaries, or [sample_regression_posterior()] for
 #' coefficient uncertainty.
 #'
 #' @param object A fitted object of class `"imr"`.
-#' @param ... Unused; present for S3 compatibility.
 #' @return A named list with one matrix per platform.  Rows are the subgroups
 #'   containing that platform (labelled by their availability bitstrings) and
 #'   columns are the platform features.
 #' @seealso [imr()]
 #' @export
-coef.imr <- function(object, ...) {
-  validate_imr(object)
+inclusion_probabilities <- function(object) {
+  validate_imr_object(object)
   out <- lapply(seq_len(object$model$n_platforms), function(l) .imr_mpip(object, l))
   names(out) <- object$model$platform_names
   out
+}
+
+#' Regression Coefficients Require Regression Posterior Samples
+#'
+#' An `imr` fit stores selection draws and integrates regression coefficients
+#' out of its model scores. It does not store regression coefficient estimates.
+#' This method reports that limitation instead of returning inclusion
+#' probabilities as coefficients or starting an additional sampler implicitly.
+#'
+#' @param object A fitted `imr` object.
+#' @param ... Unused.
+#' @return No value is returned: the method stops with instructions for sampling
+#'   regression coefficients. `coef()` on the resulting `imr_posterior` object
+#'   returns posterior mean regression coefficients.
+#' @seealso [inclusion_probabilities()], [sample_regression_posterior()],
+#'   [imr_posterior_methods]
+#' @export
+coef.imr <- function(object, ...) {
+  validate_imr_object(object)
+  .imr_abort(paste0(
+    "This fit does not store regression coefficients. Use ",
+    "`inclusion_probabilities()` for selection probabilities, or ",
+    "`sample_regression_posterior()` followed by `coef()` for coefficients."
+  ))
 }
 
 
@@ -107,6 +130,7 @@ coef.imr <- function(object, ...) {
 #' @return `x`, invisibly.
 #' @export
 print.imr <- function(x, threshold = 0.5, rank = FALSE, top = 5, ...) {
+  .imr_reject_dots(...)
   threshold <- .imr_check_threshold(threshold)
   .imr_check_flag(rank, "rank")
   top <- .imr_check_integer_scalar(top, "top", min = 1)
@@ -116,9 +140,11 @@ print.imr <- function(x, threshold = 0.5, rank = FALSE, top = 5, ...) {
     cat("Call:\n  ")
     print(x$control$call)
   }
-  validate_imr(x)
+  validate_imr_object(x)
   cat(sprintf("\nOutcome type : %s\n", x$control$outcome_type))
-  cat(sprintf("Method       : %s\n", toupper(x$control$method)))
+  cat(sprintf("Model variant: %s\n", toupper(x$control$model_variant)))
+  cat("Selection    :", if (identical(x$control$selection_update, "symmetric_mrf_hastings"))
+    "Hastings-adjusted updates for the stated model" else "archived unadjusted flip/swap updates", "\n")
   cat(sprintf("Platforms    : %d (%s)\n", x$model$n_platforms,
               paste(x$model$platform_names, collapse = ", ")))
   cat(sprintf("MCMC         : %d retained draws after %d burn-in\n",
@@ -174,7 +200,7 @@ print.imr <- function(x, threshold = 0.5, rank = FALSE, top = 5, ...) {
 #' subgroup), ranked by their maximum inclusion probability.
 #'
 #' @section Selection and ranking:
-#' Let \eqn{\widehat\pi_{lsj}}{mPIP_lsj} denote the subgroup mPIP defined in [coef.imr()].
+#' Let \eqn{\widehat\pi_{lsj}}{mPIP_lsj} denote the subgroup mPIP defined in [inclusion_probabilities()].
 #' For each platform-feature pair, the ranking score and selected set are
 #' \deqn{r_{lj}=\max_{s\in\mathcal S_l}\widehat\pi_{lsj},}{r_lj = maximum subgroup mPIP for feature j on platform l,}
 #' \deqn{\mathcal A_l(t)=\{j:r_{lj}>t\},}{A_l(t) contains features with r_lj > t,}
@@ -194,8 +220,9 @@ print.imr <- function(x, threshold = 0.5, rank = FALSE, top = 5, ...) {
 #'   mPIP and the subgroup achieving it.
 #' @export
 summary.imr <- function(object, threshold = 0.5, ...) {
+  .imr_reject_dots(...)
   threshold <- .imr_check_threshold(threshold)
-  validate_imr(object)
+  validate_imr_object(object)
   selected <- vector("list", object$model$n_platforms)
   names(selected) <- object$model$platform_names
   for (l in seq_len(object$model$n_platforms)) {
@@ -213,7 +240,8 @@ summary.imr <- function(object, threshold = 0.5, ...) {
   out <- list(
     call = object$control$call,
     outcome_type = object$control$outcome_type,
-    method = object$control$method,
+    model_variant = object$control$model_variant,
+    selection_update = object$control$selection_update,
     threshold = threshold,
     sample_sizes = object$model$sample_sizes,
     subgroup_names = object$model$subgroup_names,
@@ -230,7 +258,9 @@ summary.imr <- function(object, threshold = 0.5, ...) {
 print.summary.imr <- function(x, ...) {
   cat("Integrative Bayesian Multi-Platform Regression (IMR) -- summary\n")
   cat("--------------------------------------------------------------\n")
-  cat(sprintf("Outcome type : %s   Method: %s\n", x$outcome_type, toupper(x$method)))
+  cat(sprintf("Outcome type : %s   Model variant: %s\n", x$outcome_type, toupper(x$model_variant)))
+  if (!identical(x$selection_update, "symmetric_mrf_hastings"))
+    cat("Stored historical draws; metadata conversion has not changed their target.\n")
   cat(sprintf("Selection threshold (mPIP) : %.2f\n\n", x$threshold))
   for (l in seq_along(x$selected)) {
     df <- x$selected[[l]]

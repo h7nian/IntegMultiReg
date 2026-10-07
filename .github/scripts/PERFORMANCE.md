@@ -337,7 +337,7 @@ RNG call order is unchanged; separate volatile products prevent fused operations
 from changing the original R expression rounding. No sampler update order,
 prior, fit schema or public default changes.
 
-Against `bd4c6b2`, whole `posterior_draws()` measurements use one warm-up and
+Against `bd4c6b2`, whole `sample_regression_posterior()` measurements use one warm-up and
 five repetitions per case, single-thread libraries, fixed seeds and
 100 draws / 100 burn-in / 100 conditional draws:
 

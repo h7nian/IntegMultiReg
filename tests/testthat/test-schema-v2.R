@@ -1,21 +1,21 @@
-test_that("schema v2 has a fixed named structure", {
+test_that("schema v3 has a fixed named structure", {
   expect_named(fit_bin, c(
     "schema_version", "control", "model", "preprocessing", "posterior"
   ))
-  expect_identical(fit_bin$schema_version, 2L)
-  expect_true(validate_imr(fit_bin))
+  expect_identical(fit_bin$schema_version, 3L)
+  expect_true(validate_imr_object(fit_bin))
 
   bad <- fit_bin
   bad$unexpected <- TRUE
-  expect_error(validate_imr(bad), "unsupported top-level fields")
+  expect_error(validate_imr_object(bad), "unsupported top-level fields")
 
   bad <- fit_bin
   bad$model$subgroup_platforms[[1L]] <- 99L
-  expect_error(validate_imr(bad), "platform indices")
+  expect_error(validate_imr_object(bad), "platform indices")
 
   bad <- fit_bin
   storage.mode(bad$preprocessing$features[[1L]][[1L]]) <- "integer"
-  expect_error(validate_imr(bad), "platform 1 is invalid")
+  expect_error(validate_imr_object(bad), "platform 1 is invalid")
 })
 
 legacy_fit_fixture <- function(f) {
@@ -43,7 +43,7 @@ legacy_fit_fixture <- function(f) {
       f$preprocessing$covariate_scale),
     call = f$control$call, type_outcome = f$control$outcome_type,
     response_scale = f$control$response_scale,
-    method = toupper(f$control$method), n_platform = f$model$n_platforms,
+    method = toupper(f$control$model_variant), n_platform = f$model$n_platforms,
     platform_names = f$model$platform_names,
     feature_names = f$model$feature_names,
     covariate_names = f$model$covariate_names,
@@ -66,13 +66,13 @@ legacy_fit_fixture <- function(f) {
 
 test_that("complete 0.1.x fits upgrade explicitly and damaged fits do not", {
   legacy <- legacy_fit_fixture(fit_bin)
-  upgraded <- upgrade_imr_fit(legacy)
-  expect_true(validate_imr(upgraded))
+  upgraded <- upgrade_imr_object(legacy)
+  expect_true(validate_imr_object(upgraded))
   expect_equal(upgraded$posterior, fit_bin$posterior)
-  expect_equal(upgrade_imr_fit(upgraded), upgraded)
+  expect_equal(upgrade_imr_object(upgraded), upgraded)
 
   legacy$data2 <- legacy$data2[-1L]
-  expect_error(upgrade_imr_fit(legacy), "incomplete; refit")
+  expect_error(upgrade_imr_object(legacy), "incomplete; refit")
 })
 
 test_that("MRF subgroup capacity is enforced at 16 before native code", {
@@ -83,7 +83,7 @@ test_that("MRF subgroup capacity is enforced at 16 before native code", {
   )
   bad <- fit_bin
   bad$model$platform_subgroups[[1L]] <- seq_len(17L)
-  expect_error(validate_imr(bad), "at most 16")
+  expect_error(validate_imr_object(bad), "at most 16")
 })
 
 test_that("extreme inclusion priors remain finite and sanitizer-safe", {

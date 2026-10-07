@@ -49,7 +49,7 @@ void sample_gamma_indicators(
     int *n_platform_models, int **platform_models, double **accept_gamma,
     gsl_rng *rng, const char *likelihood_type, double slab_scale,
     double covariate_scale, double intercept_scale, double first_platform_scale,
-    int n_covariates, double alpha, double psi, int sampler_method, const imr_numerical_control *numerical);
+    int n_covariates, double alpha, double psi, int selection_update, const imr_numerical_control *numerical);
 
 void sample_censored_latent_response(
     int subgroup, int n_platforms, int *selected_platforms,
@@ -105,7 +105,7 @@ double log_posterior(
     double *log_likelihood, _Bool ***gamma, double *nu, double ***theta,
     double *mrf_log_normalizer, double alpha0, double ***beta_theta,
     int n_subgroups, int n_platforms, int *n_features, int *n_platform_models,
-    int sampler_method);
+    int selection_update);
 
 void compute_mrf_log_normalizer(
     int n_models, double **theta, double nu, double *log_normalizer);

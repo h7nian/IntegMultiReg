@@ -3,11 +3,11 @@ test_that("explicit starts reach the sampler and preserve default behavior", {
   x <- list(a = data.frame(id, v1 = sin(id), v2 = cos(id), v3 = sin(id/2),
     v4 = cos(id/2), v5 = sin(id/3), v6 = cos(id/3)))
   y <- data.frame(id, y = sin(id/4))
-  run <- function(...) imr(x, y, outcome_type = "continuous", method = "bms",
+  run <- function(...) imr(x, y, outcome_type = "continuous", model_variant = "bms",
     draws = 1L, burnin = 0L, min_subgroup_size = 0L, seed = 31L, ...)
   base <- run()
   expect_identical(run(initial = NULL)$posterior, base$posterior)
-  start <- coef(base)
+  start <- inclusion_probabilities(base)
   start[[1]][] <- 0L
   zero <- run(initial = list(selection = start))
   start[[1]][] <- 1L
@@ -31,7 +31,7 @@ test_that("interaction starts are validated and refits inherit explicit starts",
   run <- function(...) imr(x, y, outcome_type = "continuous", draws = 4L,
     burnin = 2L, min_subgroup_size = 0L, seed = 31L, ...)
   template <- run()
-  initial <- list(selection = coef(template))
+  initial <- list(selection = inclusion_probabilities(template))
   initial$interaction <- lapply(initial$selection, function(m) {
     matrix(0, nrow(m), nrow(m), dimnames = list(rownames(m), rownames(m)))
   })

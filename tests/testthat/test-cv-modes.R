@@ -1,16 +1,16 @@
-test_that("legacy is the explicit and implicit default", {
+test_that("refit is the explicit and implicit default", {
   implicit <- cv_imr(fit_bin, k = 2, rounds = 1, max_models = 4)
   explicit <- cv_imr(fit_bin, k = 2, rounds = 1, max_models = 4,
-                     cv_method = "postfit_original")
+                     cv_method = "refit")
   expect_identical(implicit, explicit)
-  expect_identical(implicit$validation, "postfit_original")
+  expect_identical(implicit$validation, "refit")
   expect_error(cv_imr(fit_bin, cv_method = "unknown"), "should be one of")
 })
 
 test_that("all CV modes return complete reproducible subject records", {
   set.seed(271)
   state <- .Random.seed
-  for (mode in c("postfit_original", "importance", "refit")) {
+  for (mode in c("refit", "reweight")) {
     first <- cv_imr(fit_bin, k = 3, rounds = 2, max_models = 3, cv_method = mode)
     second <- cv_imr(fit_bin, k = 3, rounds = 2, max_models = 3, cv_method = mode)
     expect_identical(first, second)
@@ -28,24 +28,25 @@ test_that("all CV modes return complete reproducible subject records", {
   }
 })
 
-test_that("post-fit modes share historical partitions but importance uses all draws", {
-  legacy <- cv_imr(fit_bin, k = 2, rounds = 1, max_models = 1)
-  importance <- cv_imr(fit_bin, k = 2, rounds = 1, max_models = 1,
-                       cv_method = "importance")
+test_that("state collections share partitions and all draws ignore the model cap", {
+  ranked <- cv_imr(fit_bin, k = 2, rounds = 1, max_models = 1,
+                    cv_method = "reweight", model_set = "top_unique")
+  reweighted <- cv_imr(fit_bin, k = 2, rounds = 1, max_models = 1,
+                       cv_method = "reweight")
   unlimited <- cv_imr(fit_bin, k = 2, rounds = 1, max_models = 100,
-                      cv_method = "importance")
-  expect_identical(importance, unlimited)
-  expect_identical(legacy$predictions[c("id", "fold", "subgroup")],
-                   importance$predictions[c("id", "fold", "subgroup")])
+                      cv_method = "reweight")
+  expect_identical(reweighted, unlimited)
+  expect_identical(ranked$predictions[c("id", "fold", "subgroup")],
+                   reweighted$predictions[c("id", "fold", "subgroup")])
 })
 
-test_that("importance prediction agrees with a direct empirical weight calculation", {
+test_that("reweighted prediction agrees with a direct empirical weight calculation", {
   ids <- seq_len(24)
   fit <- imr(list(assay = data.frame(id = ids, marker = sin(ids))),
              data.frame(id = ids, y = cos(ids)), outcome_type = "continuous",
-             method = "bms", draws = 8, burnin = 2, seed = 13,
+             model_variant = "bms", draws = 8, burnin = 2, seed = 13,
              min_subgroup_size = 0)
-  cv <- cv_imr(fit, k = 2, rounds = 1, cv_method = "importance")
+  cv <- cv_imr(fit, k = 2, rounds = 1, cv_method = "reweight")
   y <- fit$posterior$latent_response_mean[[1]]
   x <- fit$preprocessing$features[[1]][[1]]
   alpha <- fit$control$priors$residual[["shape"]]
@@ -81,7 +82,7 @@ test_that("post-fit modes support zero burn-in and one retained draw", {
   fit <- imr(list(assay = data.frame(id = ids, marker = sin(ids))),
              data.frame(id = ids, y = cos(ids)), outcome_type = "continuous",
              draws = 1, burnin = 0, seed = 11, min_subgroup_size = 0)
-  for (mode in c("postfit_original", "importance")) {
+  for (mode in "reweight") {
     result <- cv_imr(fit, k = 2, rounds = 1, cv_method = mode)
     expect_true(all(is.finite(result$pooled)))
   }

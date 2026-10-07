@@ -17,6 +17,7 @@ test_that("survival time transformation agrees with the original ReadData.c", {
              draws = 12, burnin = 6, seed = 23)
   expect_equal(as.numeric(old$preprocessing$response[[1]][, 1]), time)
   expect_identical(old$control$response_scale, "identity")
+  expect_error(compare_fit_summaries(survival, old), "same outcome type, response scale")
   expect_error(imr(list(assay = x), y, survival_scale = "invalid"), "arg")
 })
 

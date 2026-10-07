@@ -36,12 +36,12 @@ Jianfeng Wang initiated the R interface that calls the C implementation.
 
 \code{\link[=imr]{imr()}} defines the outcome models, pMOM coefficient prior, MRF selection
 prior and computational conventions. \code{\link[=imr_data]{imr_data()}} explains availability
-subgroups. \code{\link[=coef.imr]{coef.imr()}} defines marginal inclusion probabilities, while
+subgroups. \code{\link[=inclusion_probabilities]{inclusion_probabilities()}} defines marginal inclusion probabilities, while
 \code{\link[=summary.imr]{summary.imr()}} explains feature ranking and thresholding.
 
-Uncertainty has two stages. \code{\link[=posterior_summary]{posterior_summary()}} and \code{\link[=confint.imr]{confint.imr()}}
+Uncertainty has two stages. \code{\link[=selection_summary]{selection_summary()}} and \code{\link[=confint.imr]{confint.imr()}}
 summarize the selection and interaction draws already stored in a fit.
-\code{\link[=posterior_draws]{posterior_draws()}} performs additional conditional coefficient sampling;
+\code{\link[=sample_regression_posterior]{sample_regression_posterior()}} performs additional conditional coefficient sampling;
 its help page gives the model-averaging construction, sampling budgets and
 split R-hat diagnostic. \link{imr_posterior_methods} explains how those draws
 become coefficient and latent-response summaries.

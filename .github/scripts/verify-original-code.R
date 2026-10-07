@@ -34,13 +34,13 @@ library(IntegMultiReg)
 dll <- dyn.load(file.path(work, paste0("original", .Platform$dynlib.ext)))
 id <- seq_len(40)
 fit <- imr(list(assay = data.frame(id, a = sin(id), b = cos(id / 3))),
-  data.frame(id, y = sin(id / 2) + cos(id / 5)), method = "bms", outcome_type = "continuous",
+  data.frame(id, y = sin(id / 2) + cos(id / 5)), model_variant = "bms", outcome_type = "continuous",
   draws = 6, burnin = 2, min_subgroup_size = 0, seed = 17,
   residual_prior = c(shape = .37, rate = .21))
 states <- rbind(c(0L, 0L), c(1L, 0L), c(1L, 0L), c(1L, 1L), c(0L, 0L), c(1L, 0L))
 fit$posterior$selection_draws <- lapply(seq_len(nrow(states)), function(i) list(matrix(states[i, ], 1)))
-result <- cv_imr(fit, k = 2, rounds = 2, cv_method = "importance", ridge = 0,
-                 df_method = "integer", score_method = "original")
+result <- cv_imr(fit, k = 2, rounds = 2, cv_method = "reweight", ridge = 0,
+                 df_method = "integer")
 comparisons <- list()
 for (round in 1:2) for (fold in 1:2) {
   rows <- result$control$folds[result$control$folds$round == round, ]

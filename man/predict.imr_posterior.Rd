@@ -9,7 +9,7 @@
   newdata,
   platform_names = NULL,
   covariates = NULL,
-  type = c("mean", "response"),
+  quantity = c("conditional_mean", "new_observation"),
   level = 0.95,
   seed = 1L,
   ...
@@ -20,17 +20,17 @@
 
 \item{newdata, platform_names, covariates}{As in \code{\link[=predict.imr]{predict.imr()}}.}
 
-\item{type}{\code{"mean"} returns uncertainty in the conditional response mean
-(event probability for binary data). \code{"response"} additionally generates
+\item{quantity}{\code{"conditional_mean"} returns uncertainty in the conditional response mean
+(event probability for binary data). \code{"new_observation"} additionally generates
 new outcomes, including residual variability. Binary response intervals
-summarize 0/1 draws with interpolated quantiles; use \code{"mean"} for
+summarize 0/1 draws with interpolated quantiles; use \code{"conditional_mean"} for
 event-probability intervals.}
 
 \item{level}{Equal-tail interval level.}
 
 \item{seed}{Integer simulation seed; the caller's RNG state is restored.}
 
-\item{...}{Unused.}
+\item{...}{Unused arguments are rejected.}
 }
 \value{
 A list of data frames by subgroup, with \code{id}, \code{prediction}, \code{lower}
@@ -42,13 +42,13 @@ Compute point summaries and equal-tail intervals for new subjects from
 stored coefficient and variance draws, optionally including outcome noise.
 }
 \details{
-Log-time survival fits return time-scale results: for \code{"mean"},
-each draw is exp(eta + variance/2); for \code{"response"}, each draw is
+Log-time survival fits return time-scale results: for \code{"conditional_mean"},
+each draw is exp(eta + variance/2); for \code{"new_observation"}, each draw is
 exp(eta + error). Censoring times for future observations are not generated.
 Identity-scale fits return their historical working scale. These results
 integrate conditional parameter uncertainty and may differ from the
 existing plug-in \code{predict.imr()} point predictions. Their model weights
-inherit the approximation described in \code{\link[=posterior_draws]{posterior_draws()}}.
+inherit the approximation described in \code{\link[=sample_regression_posterior]{sample_regression_posterior()}}.
 For log-time fits, point predictions are medians of the simulated
 quantities. A time-scale posterior mean need not exist under an
 inverse-gamma variance mixture, so a sample mean is not reported.
@@ -61,8 +61,8 @@ posterior draw, form
 \deqn{\eta^{(d)}=z^Tb^{(d)}}{eta[d] = transpose(z) * beta[d]}
 and use its paired variance \eqn{v^{(d)}}.
 
-For a continuous response, \code{type = "mean"} summarizes \eqn{\eta^{(d)}}{eta[d]}.
-\code{type = "response"} instead generates
+For a continuous response, \code{quantity = "conditional_mean"} summarizes \eqn{\eta^{(d)}}{eta[d]}.
+\code{quantity = "new_observation"} instead generates
 \deqn{Y_{\mathrm{new}}^{(d)}\sim N(\eta^{(d)},v^{(d)}).}{Y_new[d] ~ N(eta[d], v[d]).}
 
 For a binary response, the mean draws are event probabilities
@@ -87,7 +87,7 @@ chosen quantity. The point summary is its sample mean for continuous and
 binary outcomes and its sample median for log-time survival outcomes, whose
 posterior mean may not exist. Response intervals include future outcome
 variation; mean intervals describe parameter and model uncertainty. These
-draw-based summaries inherit the approximation in \code{\link[=posterior_draws]{posterior_draws()}} and
+draw-based summaries inherit the approximation in \code{\link[=sample_regression_posterior]{sample_regression_posterior()}} and
 can differ from the ranked-model plug-in predictions in \code{\link[=predict.imr]{predict.imr()}}.
 }
 

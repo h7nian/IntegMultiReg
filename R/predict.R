@@ -28,11 +28,11 @@
 #' \deqn{\widehat p=\sum_{m\in\mathcal M}w_m
 #'       \Phi(z^T\widehat b_{s,m}).}{predicted event probability = sum_m w_m * Phi(z-transpose * approximate_beta_s,m).}
 #' The binary point-prediction path uses the unit-variance probit approximation;
-#' it does not average the conditional variance draws from [posterior_draws()].
+#' it does not average the conditional variance draws from [sample_regression_posterior()].
 #' For a default survival fit, \eqn{\widehat y}{predicted working response} is on the log-time scale.
 #'
 #' These are plug-in point predictions. For coefficient uncertainty and
-#' predictive intervals, use [posterior_draws()] followed by
+#' predictive intervals, use [sample_regression_posterior()] followed by
 #' [predict.imr_posterior()], which also uses a different model-averaging
 #' construction. Increasing `max_models` changes this finite ranked-model
 #' approximation; it does not lengthen the fitted MCMC chain.
@@ -59,7 +59,7 @@
 #'   (gamma configurations) used for Bayesian model averaging.  Default `100`.
 #' @param verbose Logical; if `TRUE`, print the C routine's diagnostics.
 #'   Defaults to `FALSE`.
-#' @param ... Unused; present for S3 compatibility.
+#' @param ... Unused arguments are rejected.
 #'
 #' @details
 #' Predictions are only produced for subjects observed on at least one platform
@@ -94,17 +94,19 @@
 predict.imr <- function(object, newdata, platform_names = NULL,
                         covariates = NULL, max_models = 100,
                         verbose = FALSE, ...) {
-  validate_imr(object)
+  .imr_reject_dots(...)
+  validate_imr_object(object)
+  .imr_require_current_updates(object)
   .imr_check_flag(verbose, "verbose")
   max_models <- .imr_check_integer_scalar(max_models, "max_models", min = 1)
   inputs <- .imr_prediction_inputs(object, newdata, platform_names, covariates)
-  if (!is.null(inputs$empty)) return(inputs$empty)
+  if (!is.null(inputs$empty)) return(.imr_prediction_result(inputs$empty, object))
   x_train <- inputs$x_train
   x_test <- inputs$x_test
   cova_test <- inputs$cova_test
   sample_ids <- inputs$sample_ids
   samplesize_test <- inputs$samplesize_test
-  model_names <- inputs$model_names
+  subgroup_names <- inputs$subgroup_names
   n_platforms <- inputs$n_platforms
   control <- object$control
   model <- object$model
@@ -117,13 +119,42 @@ predict.imr <- function(object, newdata, platform_names = NULL,
     test_sample_sizes = samplesize_test, max_models = max_models,
     verbose = verbose
   )
-  names(results) <- model_names
+  names(results) <- subgroup_names
   res <- mapply(function(x, y) {
     data.frame(id = x, prediction = y, row.names = NULL, stringsAsFactors = FALSE)
   }, sample_ids, results, SIMPLIFY = FALSE)
 
-  names(res) <- paste("model:", model_names, sep = "")
-  return(res)
+  .imr_prediction_result(res, object)
+}
+
+.imr_prediction_result <- function(result, fit) {
+  names(result) <- paste0("subgroup:", fit$model$subgroup_names)
+  attr(result, "platforms") <- lapply(fit$model$subgroup_platforms, function(index)
+    fit$model$platform_names[index])
+  class(result) <- c("imr_predictions", "list")
+  result
+}
+
+#' Print Predictions by Availability Subgroup
+#'
+#' Labels each prediction table by its availability subgroup and the measured
+#' platform names. List keys such as `subgroup:011` identify availability
+#' patterns, not variable-selection models.
+#'
+#' @param x An `imr_predictions` object returned by [predict.imr()] or
+#'   [predict.imr_posterior()].
+#' @param row.names Whether to print row names in the subgroup tables.
+#' @param ... Arguments passed to the data-frame printing method.
+#' @return `x`, invisibly.
+#' @export
+print.imr_predictions <- function(x, row.names = FALSE, ...) {
+  platforms <- attr(x, "platforms")
+  for (g in seq_along(x)) {
+    cat(sprintf("%s (%s)\n", names(x)[g], paste(platforms[[g]], collapse = " + ")))
+    print(x[[g]], row.names = row.names, ...)
+    if (g < length(x)) cat("\n")
+  }
+  invisible(x)
 }
 
 #' @keywords internal
@@ -219,7 +250,7 @@ predict.imr <- function(object, newdata, platform_names = NULL,
     }
   }
   names(newdata) <- platform_names
-  model_names <- model$subgroup_names
+  subgroup_names <- model$subgroup_names
 
   for (i in seq_along(newdata)) {
     arg <- sprintf("newdata[[%d]]", i)
@@ -281,7 +312,7 @@ predict.imr <- function(object, newdata, platform_names = NULL,
     .imr_warn(
       "No subjects have both the required covariates and at least one platform."
     )
-    return(list(empty = .imr_empty_predictions(model_names)))
+    return(list(empty = .imr_empty_predictions(subgroup_names)))
   }
   # Rows correspond to subjects and columns correspond to platforms.
   presence <- data.frame(do.call(cbind, lapply(newdata, function(df) {
@@ -300,7 +331,7 @@ predict.imr <- function(object, newdata, platform_names = NULL,
   )
 
   x_train <- prep$features
-  unique_patterns <- model_names
+  unique_patterns <- subgroup_names
   platforms <- newdata
   for (l in not_active_platform) {
     platforms[[l]] <- data.frame(matrix(nrow = 0, ncol = ncol(x_train[[1]][[as.numeric(l)]])))
@@ -332,7 +363,7 @@ predict.imr <- function(object, newdata, platform_names = NULL,
     .imr_warn(
       "No new subjects belong to availability subgroup models retained during training."
     )
-    return(list(empty = .imr_empty_predictions(model_names)))
+    return(list(empty = .imr_empty_predictions(subgroup_names)))
   }
   routed_ids <- unique(unlist(sample_ids, use.names = FALSE))
   dropped_ids <- setdiff(as.character(all_ids), as.character(routed_ids))
@@ -378,5 +409,5 @@ predict.imr <- function(object, newdata, platform_names = NULL,
 
   list(x_train = x_train, x_test = x_test, cova_test = cova_test,
        sample_ids = sample_ids, samplesize_test = samplesize_test,
-       model_names = model_names, n_platforms = n_platforms)
+       subgroup_names = subgroup_names, n_platforms = n_platforms)
 }

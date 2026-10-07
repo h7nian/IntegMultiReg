@@ -2,11 +2,7 @@
 # Rscript compare-covariates.R [--quick] [--out-dir DIRECTORY]
 # Uses only public IntegMultiReg APIs. Synthetic covariate names are illustrative,
 # not measurements from a clinical study. This is prediction, not confounder selection.
-# The legacy default preserves the archived manuscript example. Current tutorials
-# explicitly request sampler_method = "corrected"; their numerical results differ.
-run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = FALSE,
-                                    sampler_method = c("original", "corrected")) {
-  sampler_method <- match.arg(sampler_method)
+run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = FALSE) {
   stopifnot(is.logical(quick), length(quick) == 1L, !is.na(quick))
   if (utils::packageVersion("IntegMultiReg") != "0.2.0") stop("Requires IntegMultiReg 0.2.0")
   had_rng <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
@@ -33,8 +29,7 @@ run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = F
   fit_candidate <- function(formula, ids, seed) IntegMultiReg::imr(
     formula, data = clinical[match(ids, clinical$id), , drop = FALSE],
     platforms = assays(ids), outcome_type = "continuous", min_subgroup_size = 0,
-    nu = c(-4, -3, -4), draws = draws[1], burnin = draws[2], seed = seed,
-    sampler_method = sampler_method)
+    nu = c(-4, -3, -4), draws = draws[1], burnin = draws[2], seed = seed)
   fit_set <- function(ids, seed) lapply(formulas, fit_candidate, ids = ids, seed = seed)
   evaluate <- function(fits, rounds) {
     first <- IntegMultiReg::cv_imr(fits[[1]], k = k, rounds = rounds,
@@ -57,7 +52,7 @@ run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = F
     row.names = NULL)
   paired_rounds <- data.frame(round = seq_len(rounds), age_only = metrics[[1]],
     age_sex_stage = metrics[[2]], expanded_minus_age_only = metrics[[2]] - metrics[[1]])
-  metadata <- IntegMultiReg::compare_imr(fits)
+  metadata <- IntegMultiReg::compare_fit_summaries(fits)
 
   # Outer splits use availability groups only; held-out responses never choose a formula.
   set.seed(81043L)
@@ -103,7 +98,7 @@ run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = F
     paired_cv_controls = lapply(cv, `[[`, "control"),
     nested_cv_controls = inner_controls,
     settings = list(quick = quick, draws = draws[1], burnin = draws[2], k = k, rounds = rounds,
-      formulas = formulas, sampler_method = sampler_method,
+      formulas = formulas, selection_update = "symmetric_mrf_hastings",
       fit_seed = 24019L, outer_seed = 81043L, inner_fit_seeds = 92000L + seq_len(k),
       version = as.character(utils::packageVersion("IntegMultiReg"))))
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)

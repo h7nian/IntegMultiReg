@@ -10,7 +10,7 @@ test_that("interleaved prediction aliases preserve draw-wise results", {
     native <- function(cache_bytes) {
       IntegMultiReg:::.imr_call_cv_postfit_native(
         fit, k = 3L, rounds = 2L, max_models = 20L,
-        verbose = FALSE, importance = TRUE, cache_bytes = cache_bytes,
+        verbose = FALSE, use_all_draws = TRUE, cache_bytes = cache_bytes,
         stage = "predict")
     }
     set.seed(719)
@@ -28,7 +28,7 @@ test_that("a single owned prediction row supports zero burn-in", {
     native <- function(cache_bytes) {
       IntegMultiReg:::.imr_call_cv_postfit_native(
         fit, k = 3L, rounds = 1L, max_models = 1L,
-        verbose = FALSE, importance = TRUE, cache_bytes = cache_bytes,
+        verbose = FALSE, use_all_draws = TRUE, cache_bytes = cache_bytes,
         stage = "predict")
     }
     expect_identical(native(128 * 1024^2), native(0))

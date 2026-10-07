@@ -14,7 +14,7 @@
 #'
 #' The arguments are grouped by the orthogonal aspect of the analysis that each
 #' one controls: the *data* (`x`, `outcome`, `covariates`), the
-#' *likelihood* (`outcome_type`), the *model* (`method`), subgroup *filtering*
+#' *likelihood* (`outcome_type`), the *model variant* (`model_variant`), subgroup *filtering*
 #' (`min_subgroup_size`), the *priors* (`nu`, `molecular_prior_scale`, `forced_prior_scale`, `residual_prior`, `interaction_prior`),
 #' the *computation* (`draws`, `burnin`, `seed`) and the *output* (`verbose`).
 #'
@@ -40,7 +40,7 @@
 #' \deqn{p(b_j\mid v_s) = \frac{b_j^2}{\tau_j v_s}
 #'       \phi(b_j;0,\tau_j v_s),}{p(b_j | v_s) = b_j^2 / (tau_j v_s) * NormalDensity(b_j; 0, tau_j v_s).}
 #' where \eqn{\phi(\cdot;\mu,v)}{phi(. ; mu, v)} is a normal density with variance \eqn{v}.
-#' With `prior_indexing = "standard"`, the scale \eqn{\tau_j}{tau_j} is
+#' The scale \eqn{\tau_j}{tau_j} is
 #' `forced_prior_scale` for the intercept and clinical
 #' effects and `molecular_prior_scale` for molecular effects. Inactive molecular
 #' coefficients are exactly zero.
@@ -50,9 +50,6 @@
 #' parameterized by a density proportional to
 #' \deqn{v_s^{-a-1}\exp(-b/v_s).}{v_s^(-a - 1) * exp(-b/v_s).}
 #'
-#' The `original` indexing option preserves a historical precision boundary:
-#' when clinical covariates are present, the last one receives molecular
-#' precision. It does not implement the standard scale assignment above.
 #'
 #' For feature \eqn{j} on platform \eqn{l}, collect its subgroup selection
 #' indicators in \eqn{\gamma_{lj}}{gamma_lj}. The published MRF prior is
@@ -64,18 +61,19 @@
 #' For BMS, these interactions are zero. The prior conditional log-odds is
 #' \deqn{\nu_l+2\sum_{h\ne s}\theta_{l,sh}\gamma_{l,hj}.}{nu_l + 2 * sum over h != s of theta_l,sh * gamma_l,hj.}
 #'
-#' This factor of two is used by `sampler_method = "corrected"`. The legacy update uses a factor of
-#' one and omits the Hastings correction at empty/full model boundaries.
-#' These equations describe the stated model, not a claim that the legacy
-#' transition targets the same posterior.
+#' Fitting uses this symmetric-MRF factor of two and the Hastings correction
+#' for flip proposals at empty/full model boundaries. The logged Gamma prior
+#' uses its negative rate term. Historical updates with different targets are
+#' not selectable through the fitting interface; retain their source snapshot
+#' for numerical replay.
 #'
 #' @section Computation and interpretation:
 #' The selection sampler integrates regression coefficients and variances using
 #' the package's Laplace-based marginal-likelihood calculation. For augmented
 #' outcomes, this calculation uses the current latent responses. The retained
-#' selection and interaction draws are summarized by [coef.imr()] and
-#' [posterior_summary()]. Coefficient samples require the separate conditional
-#' sampling step [posterior_draws()].
+#' selection and interaction draws are summarized by [inclusion_probabilities()] and
+#' [selection_summary()]. Coefficient samples require the separate conditional
+#' sampling step [sample_regression_posterior()].
 #'
 #' With `standardize = TRUE`, each predictor uses its training subgroup's
 #' center and scale:
@@ -107,7 +105,7 @@
 #'   to `NULL` (no covariates).
 #' @param outcome_type Character string specifying the outcome type, one of
 #'   `"right.censored"` (default), `"binary"` or `"continuous"`.
-#' @param method Character string specifying the method, `"imr"` (default) for
+#' @param model_variant Model variant: `"imr"` (default) for
 #'   the integrative model that shares information across subgroups via the MRF
 #'   prior, or `"bms"` for the non-integrative Bayesian multi-step variant that
 #'   fits each subgroup independently (MRF interaction parameters set to zero).
@@ -141,16 +139,6 @@
 #'   `"log"` (default) logs the supplied positive event/censoring times, as in
 #'   the original AFT model. `"identity"` reproduces historical package analyses
 #'   and does not fit a log-time AFT model. Ignored for other outcome types.
-#' @param sampler_method Selection-update convention. `"original"` (default)
-#'   retains the existing package and 2017 code updates. `"corrected"` uses the
-#'   symmetric MRF conditional log-odds, the boundary flip/swap Hastings
-#'   correction, and the negative Gamma rate term in the log-posterior trace.
-#'   This is a computational convention, separate from IMR/BMS `method`.
-#' @param prior_indexing `"standard"` (default) assigns prior precision by
-#'   coefficient block. `"original"` reproduces the strict index boundaries
-#'   in the released C code; in particular, the last forced covariate receives
-#'   molecular precision when covariates are present. Use for historical
-#'   comparisons, not as a different scientific prior specification.
 #' @param laplace_max_iter Maximum coefficient-mode iterations, either a
 #'   positive integer for all stages or a named vector in the order `initial`,
 #'   `selection`, `latent`, `prediction`. Defaults are 25, 40, 25, 40. The
@@ -194,18 +182,12 @@
 #' before native workspaces are allocated. Large raw times should use the
 #' default log scale; the bound does not constrain observed event times.
 #'
-#' For the symmetric interaction matrix in the paper, the conditional
-#' log-odds contribution is `nu + 2 * sum(theta * neighboring_indicators)`.
-#' The released code used a factor of one and omitted the proposal ratio when
-#' a flip moved between an empty/full model and an interior model. These
-#' conventions remain available as `sampler_method = "original"`; they are not
-#' mathematically equivalent to the stated MRF posterior. The `"corrected"` option
-#' corrects these updates without changing defaults. Exact historical table
-#' reproduction additionally depends on data, preprocessing, initialization,
-#' random-number consumption and validation settings.
+#' See the [methods and reproducibility guide](https://h7nian.github.io/IntegMultiReg/method-coverage.html)
+#' for the distinction between the stated model and archived implementations.
+#' Upgrading a saved object's structure does not change its sampling target.
 #'
-#' @return An object of class `"imr"` with `schema_version = 2L` and four
-#'   named sections: `control` (outcome, method, priors, MCMC and seed), `model`
+#' @return An object of class `"imr"` with `schema_version = 3L` and four
+#'   named sections: `control` (outcome, model variant, update rule, priors, MCMC and seed), `model`
 #'   (platform, feature and subgroup metadata), `preprocessing` (validated
 #'   inputs, standardized matrices and formula metadata), and `posterior`
 #'   (inclusion probabilities, interaction draws, latent-response summaries
@@ -248,7 +230,7 @@ imr.default <- function(x, ...) {
 .imr_new_fit <- function(control, model, preprocessing, posterior) {
   structure(
     list(
-      schema_version = 2L,
+      schema_version = 3L,
       control = control,
       model = model,
       preprocessing = preprocessing,
@@ -262,7 +244,7 @@ imr.default <- function(x, ...) {
 #' @export
 imr.list <- function(x, outcome, covariates = NULL,
                      outcome_type = c("right.censored", "binary", "continuous"),
-                     method = c("imr", "bms"), min_subgroup_size = 30L,
+                     model_variant = c("imr", "bms"), min_subgroup_size = 30L,
                      nu = rep(-3, length(x)), molecular_prior_scale = 0.087,
                      forced_prior_scale = 10000,
                      residual_prior = c(shape = 0.001, rate = 0.001),
@@ -270,22 +252,16 @@ imr.list <- function(x, outcome, covariates = NULL,
                      draws = 2000L, burnin = 1000L, seed = NULL,
                      verbose = FALSE,
                      survival_scale = c("log", "identity"),
-                     sampler_method = c("original", "corrected"),
-                     prior_indexing = c("standard", "original"),
                      laplace_max_iter = c(initial = 25L, selection = 40L,
                                           latent = 25L, prediction = 40L),
                      laplace_tolerance = 1e-3, standardize = TRUE, initial = NULL, ...) {
-  dots <- list(...)
-  if (length(dots) > 0L) {
-    .imr_abort(sprintf("Unused argument: `%s`.", names(dots)[1L]))
-  }
+  .imr_reject_dots(...)
   call <- match.call()
   outcome_type <- match.arg(outcome_type)
   survival_scale <- match.arg(survival_scale)
-  sampler_method <- match.arg(sampler_method)
-  numerical <- .imr_numerical_control(match.arg(prior_indexing),
+  numerical <- .imr_numerical_control("coefficient_blocks",
                                       laplace_max_iter, laplace_tolerance)
-  method <- match.arg(method)
+  model_variant <- match.arg(model_variant)
 
   .imr_check_flag(verbose, "verbose")
   .imr_check_flag(standardize, "standardize")
@@ -346,12 +322,9 @@ imr.list <- function(x, outcome, covariates = NULL,
   alpha_c <- as.numeric(residual_prior[["shape"]])
   psi_c <- as.numeric(residual_prior[["rate"]])
   if (outcome_type == "binary") {
-    # A probit outcome fixes the residual variance at 1 for identifiability
-    # (the latent utility is z = eta + e with e ~ N(0, 1)).  The marginal
-    # likelihood otherwise integrates sigma^2 out under this inverse-gamma
-    # prior, which leaves the latent scale only weakly identified and makes the
-    # binary chain drift and mix poorly.  Concentrating the prior at 1 pins
-    # sigma^2 = 1; any large shape/rate gives an effectively fixed unit variance.
+    # A concentrated inverse-Gamma prior anchors the binary latent scale near
+    # one. This is not a point mass: variance remains part of the model and of
+    # the conditional coefficient sampler.
     probit_unit_variance <- 1e5
     alpha_c <- psi_c <- probit_unit_variance
   }
@@ -478,7 +451,7 @@ imr.list <- function(x, outcome, covariates = NULL,
   ### For each model, list the corresponding platforms involved in the model
   n_models <- length(model_index)
 
-  model_platforms_c <- sapply(1:n_models, function(x) {
+  subgroup_platforms_c <- sapply(1:n_models, function(x) {
     as.integer((seq_along(dat_normalized[[3]][[x]]) - 1)[unlist(lapply(
       seq_along(dat_normalized[[3]][[x]]),
       function(i) nrow(dat_normalized[[3]][[x]][[i]])
@@ -486,13 +459,13 @@ imr.list <- function(x, outcome, covariates = NULL,
   }, simplify = FALSE)
 
   ### For each platform, obtain the model indices where that platform is involved
-  platform_models_c <- lapply(seq_len(n_platforms), function(x) {
+  platform_subgroups_c <- lapply(seq_len(n_platforms), function(x) {
     as.integer((seq(1, n_models) - 1)[unlist(lapply(
-      model_platforms_c,
+      subgroup_platforms_c,
       function(y) (x - 1) %in% y
     ))])
   })
-  .imr_check_mrf_capacity(platform_models_c)
+  .imr_check_mrf_capacity(platform_subgroups_c)
 
   n_platform_c <- n_platforms
   x_filtered <- dat_normalized[[3]]
@@ -528,14 +501,15 @@ imr.list <- function(x, outcome, covariates = NULL,
     interaction = c(shape = alpha0_c, rate = beta0_c)
   )
   initial <- .imr_initial_state(initial, platform_names,
-    lapply(platform_models_c, function(i) names(x_filtered)[i + 1L]), feature_names, method)
+    lapply(platform_subgroups_c, function(i) names(x_filtered)[i + 1L]), feature_names, model_variant)
   results <- .imr_call_fit_native(
-    priors = effective_priors, seed = seed_c, nu = nu_c, method = method,
-    n_platforms = n_platform_c, platform_subgroups = platform_models_c,
-    subgroup_platforms = model_platforms_c, sample_sizes = sample_size,
+    priors = effective_priors, seed = seed_c, nu = nu_c, model_variant = model_variant,
+    n_platforms = n_platform_c, platform_subgroups = platform_subgroups_c,
+    subgroup_platforms = subgroup_platforms_c, sample_sizes = sample_size,
     n_features = n_features, n_covariates = n_cov, features = x_filtered,
     response = y_list, outcome_type = outcome_type, covariates = cov_list,
-    draws = draws, burnin = burnin, verbose = verbose, sampler_method = sampler_method, numerical = numerical, initial = initial
+    draws = draws, burnin = burnin, verbose = verbose,
+    selection_update = "symmetric_mrf_hastings", numerical = numerical, initial = initial
   )
 
   ## Guard against tiny floating-point drift in the running averages so that
@@ -552,7 +526,7 @@ imr.list <- function(x, outcome, covariates = NULL,
       call = call, outcome_type = outcome_type,
       response_scale = if (outcome_type == "right.censored") survival_scale else
         if (outcome_type == "binary") "probit" else "identity",
-      method = method, sampler_method = sampler_method, min_subgroup_size = min_subgroup_size,
+      model_variant = model_variant, selection_update = "symmetric_mrf_hastings", min_subgroup_size = min_subgroup_size,
       priors = list(nu = nu, molecular_scale = molecular_prior_scale,
         forced_scale = forced_prior_scale,
         residual = c(shape = alpha_c, rate = psi_c),
@@ -573,8 +547,8 @@ imr.list <- function(x, outcome, covariates = NULL,
       covariate_names = if (!is.null(covariates)) colnames(covariates)[-1] else character(),
       subgroup_names = subgroup_names,
       sample_sizes = stats::setNames(sample_size, subgroup_names),
-      subgroup_platforms = lapply(model_platforms_c, function(index) index + 1L),
-      platform_subgroups = lapply(platform_models_c, function(index) index + 1L)
+      subgroup_platforms = lapply(subgroup_platforms_c, function(index) index + 1L),
+      platform_subgroups = lapply(platform_subgroups_c, function(index) index + 1L)
     ),
     preprocessing = list(
       input_data = validated, features = x_filtered, response = y_list,
@@ -592,7 +566,7 @@ imr.list <- function(x, outcome, covariates = NULL,
       interaction_draws = results$theta_sample
     )
   )
-  validate_imr(fit)
+  validate_imr_object(fit)
   fit
 }
 

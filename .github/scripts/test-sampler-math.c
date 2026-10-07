@@ -42,9 +42,9 @@ int main(void) {
                 if (!q) continue;
                 double ratio = .13 * (to - from) - .03 * (to * to - from * from);
                 for (int j = 0; j < n; ++j) {
-                    double odds = imr_gamma_log_odds(2, 0, j, theta, selection, -.7, IMR_SAMPLER_PAPER);
+                    double odds = imr_gamma_log_odds(2, 0, j, theta, selection, -.7, IMR_UPDATE_MRF_HASTINGS);
                     assert(fabs(odds - (-.7 + .8 * neighbor[j])) < 1e-14);
-                    assert(fabs(imr_gamma_log_odds(2, 0, j, theta, selection, -.7, IMR_SAMPLER_LEGACY) -
+                    assert(fabs(imr_gamma_log_odds(2, 0, j, theta, selection, -.7, IMR_UPDATE_UNADJUSTED) -
                                 (-.7 + .4 * neighbor[j])) < 1e-14);
                     ratio += (((to >> j) & 1) - current[j]) * odds;
                 }

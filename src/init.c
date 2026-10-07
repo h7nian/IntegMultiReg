@@ -23,7 +23,7 @@ extern SEXP imr_fit(
     SEXP seed_R, SEXP nu_R, SEXP method1_R, SEXP n_platforms_R,
     SEXP platform_models_R, SEXP model_platforms_R, SEXP n_subgroups_R, SEXP sample_size,
     SEXP n_features_R, SEXP n_covariates_R, SEXP X1_filtered, SEXP newYY_list,
-    SEXP type_outcome, SEXP newCC_list, SEXP draws_R, SEXP burnin_R, SEXP sampler_method_R, SEXP numerical_R, SEXP initial_R);
+    SEXP type_outcome, SEXP newCC_list, SEXP draws_R, SEXP burnin_R, SEXP selection_update_R, SEXP numerical_R, SEXP initial_R);
 
 extern SEXP imr_cv_legacy_score(SEXP, SEXP, SEXP, SEXP);
 

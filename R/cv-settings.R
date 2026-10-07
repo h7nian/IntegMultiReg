@@ -1,7 +1,7 @@
 # Resolve public choices once. Numerical engines receive explicit settings;
 # the validation mode supplies defaults, not hidden overrides downstream.
 .imr_cv_settings <- function(cv_method, ridge = NULL, model_set = NULL,
-                              df_method = NULL, score_method = NULL, fold_rng = NULL) {
+                              df_method = NULL, fold_rng = NULL) {
   choice <- function(value, choices, arg) {
     if (!is.character(value) || length(value) != 1L || is.na(value) ||
         !value %in% choices) {
@@ -10,27 +10,22 @@
     }
     value
   }
+  cv_method <- choice(cv_method, c("refit", "reweight"), "cv_method")
   if (cv_method == "refit") {
     supplied <- c(ridge = !is.null(ridge), model_set = !is.null(model_set),
                   df_method = !is.null(df_method), fold_rng = !is.null(fold_rng))
     if (any(supplied)) .imr_abort(sprintf(
-      "`%s` applies only to post-fit CV; it cannot be used with `cv_method = \"refit\"`.",
+      "`%s` applies only to reweighting; it cannot be used with `cv_method = \"refit\"`.",
       names(supplied)[which(supplied)[1L]]))
   } else {
-    if (is.null(ridge)) ridge <- 0.001
-    ridge <- .imr_check_numeric_vector(ridge, "ridge", length = 1L,
+    ridge <- .imr_check_numeric_vector(ridge %||% 0.001, "ridge", length = 1L,
                                         nonnegative = TRUE)
-    model_set <- choice(model_set %||% if (cv_method == "postfit_original")
-      "ranked_unique" else "draws", c("draws", "ranked_unique"), "model_set")
-    df_method <- choice(df_method %||% if (cv_method == "postfit_original")
-      "integer" else "fractional",
-      c("fractional", "integer"), "df_method")
+    model_set <- choice(model_set %||% "all_draws", c("all_draws", "top_unique"), "model_set")
+    df_method <- choice(df_method %||% "fractional", c("fractional", "integer"), "df_method")
     fold_rng <- choice(fold_rng %||% "reset", c("reset", "continue"), "fold_rng")
   }
-  score_method <- choice(score_method %||% if (cv_method == "postfit_original")
-    "original" else "standard", c("standard", "original"), "score_method")
   list(ridge = ridge, model_set = model_set, df_method = df_method,
-       score_method = score_method, fold_rng = fold_rng)
+       score_method = "standard", fold_rng = fold_rng)
 }
 
 .imr_cv_rng_state <- function(object, fold_rng) {
@@ -105,10 +100,15 @@
 
 .imr_cv_control <- function(settings, object, k, rounds, max_models, folds,
                              fold_source) {
-  c(settings, list(k = k, rounds = rounds,
-    max_models = if (identical(settings$model_set, "draws")) NULL else max_models,
+  score_rule <- switch(object$control$outcome_type,
+    binary = "auc_half_ties", right.censored = "concordance_comparable_pairs",
+    continuous = "mean_squared_error")
+  c(settings[c("ridge", "model_set", "df_method", "fold_rng")],
+    list(score_rule = score_rule, k = k, rounds = rounds,
+    max_models = if (identical(settings$model_set, "all_draws")) NULL else max_models,
     seed = object$control$seed,
-    sampler_method = object$control$sampler_method %||% "original",
+    model_variant = object$control$model_variant,
+    selection_update = object$control$selection_update,
     initial = object$control$initial,
     standardize = object$control$standardize %||% TRUE,
     numerical = .imr_fit_numerical_control(object$control), folds = folds, fold_source = fold_source,

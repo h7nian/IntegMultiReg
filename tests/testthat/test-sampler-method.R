@@ -1,25 +1,17 @@
-test_that("the corrected sampler is explicit, recorded, and preserved by refits", {
-  args <- list(x = simIMR$platforms, outcome = simIMR$outcome.continuous,
-    outcome_type = "continuous", covariates = simIMR$covariates,
-    draws = 12, burnin = 6, min_subgroup_size = 30, seed = 53)
-  legacy <- do.call(imr, args)
-  explicit <- do.call(imr, c(args, list(sampler_method = "original")))
-  expect_identical(legacy$posterior, explicit$posterior)
-  paper <- do.call(imr, c(args, list(sampler_method = "corrected")))
-  expect_identical(paper$control$sampler_method, "corrected")
-  expect_true(validate_imr(paper))
-  expect_true(all(is.finite(paper$posterior$log_posterior)))
-  train_ids <- unlist(lapply(paper$model$subgroup_names, function(group) {
-    ids <- paper$preprocessing$input_data$availability
+test_that("fitting and refitting use symmetric MRF Hastings updates", {
+  fit <- fit_demo("continuous", total = 12, burn = 6, seed = 53)
+  expect_identical(fit$control$selection_update, "symmetric_mrf_hastings")
+  expect_identical(fit$control$numerical$prior_indexing, "coefficient_blocks")
+  expect_true(validate_imr_object(fit))
+  expect_true(all(is.finite(fit$posterior$log_posterior)))
+  train_ids <- unlist(lapply(fit$model$subgroup_names, function(group) {
+    ids <- fit$preprocessing$input_data$availability
     head(ids$id[ids$subgroup == group], -1L)
   }), use.names = FALSE)
-  refit <- IntegMultiReg:::.imr_cv_refit(paper, train_ids, seed = 71)
-  expect_identical(refit$control$sampler_method, "corrected")
-  old <- legacy; old$control$sampler_method <- NULL
-  expect_true(validate_imr(old))
-  expect_identical(IntegMultiReg:::.imr_cv_refit(old, train_ids, seed = 71)$control$sampler_method,
-                   "original")
-  bad <- paper; bad$control$sampler_method <- "unknown"
-  expect_error(validate_imr(bad), "sampler_method")
-  expect_error(do.call(imr, c(args, list(sampler_method = "unknown"))), "arg")
+  refit <- IntegMultiReg:::.imr_cv_refit(fit, train_ids, seed = 71)
+  expect_identical(refit$control$selection_update, fit$control$selection_update)
+  bad <- fit; bad$control$selection_update <- "unknown"
+  expect_error(validate_imr_object(bad), "selection-update")
+  expect_error(imr(simIMR$platforms, simIMR$outcome.continuous, outcome_type = "continuous", sampler_method = "paper"), "Unused argument")
+  expect_error(imr(simIMR$platforms, simIMR$outcome.continuous, outcome_type = "continuous", prior_indexing = "code2017"), "Unused argument")
 })

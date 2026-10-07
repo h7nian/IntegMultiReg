@@ -40,15 +40,15 @@ test_that("ambiguous frame names are rejected before data can be dropped", {
 
 test_that("saved fit validation catches corrupted counts, mappings and traces", {
   bad <- fit_bin; bad$model$n_platforms <- 1e100
-  expect_error(expect_warning(validate_imr(bad), NA), "platform metadata")
+  expect_error(expect_warning(validate_imr_object(bad), NA), "platform metadata")
   bad <- fit_bin; bad$control$mcmc$draws <- 1e100
-  expect_error(expect_warning(validate_imr(bad), NA), "control\\$mcmc")
+  expect_error(expect_warning(validate_imr_object(bad), NA), "control\\$mcmc")
   for (indices in list(0L, 100L, c(1L, 1L), NA_integer_)) {
     bad <- fit_bin; bad$model$platform_subgroups[[1]] <- indices
-    expect_error(validate_imr(bad), "subgroup indices|not reciprocal")
+    expect_error(validate_imr_object(bad), "subgroup indices|not reciprocal")
   }
   bad <- fit_bin; bad$posterior$log_posterior <- bad$posterior$log_posterior[-1]
-  expect_error(validate_imr(bad), "one entry per iteration")
+  expect_error(validate_imr_object(bad), "one entry per iteration")
 })
 
 test_that("one retained draw and zero burn-in remain supported", {
@@ -59,7 +59,7 @@ test_that("one retained draw and zero burn-in remain supported", {
       right.censored = data.frame(id = x$id, time = x$id + 1, status = rep(0:1, 6)))
     f <- imr(list(assay = x), y, outcome_type = type, min_subgroup_size = 0,
              draws = 1, burnin = 0, seed = 3)
-    expect_true(validate_imr(f))
+    expect_true(validate_imr_object(f))
     expect_length(f$posterior$selection_draws, 1)
     expect_length(f$posterior$log_posterior, 1)
     p <- predict(f, list(assay = x))[[1]]$prediction

@@ -14,9 +14,9 @@ outcomes <- list(binary = data.frame(id = 1:12, y = rep(0:1, 6)),
 for (type in names(outcomes)) {
   for (method in c("imr", "bms")) {
     fit <- imr(list(assay = platform), outcomes[[type]], outcome_type = type,
-               method = method, draws = 5, burnin = 2,
+               model_variant = method, draws = 5, burnin = 2,
                min_subgroup_size = 0, seed = 3)
-    for (mode in c("postfit_original", "refit", "importance")) {
+    for (mode in c("refit", "reweight")) {
       set.seed(912)
       rng <- .Random.seed
       connections <- showConnections(all = TRUE)
