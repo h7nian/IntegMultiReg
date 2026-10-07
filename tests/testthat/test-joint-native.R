@@ -58,3 +58,19 @@ test_that("identity-scale censoring is not bounded by the retired truncation con
   expect_true(validate_imr_object(fit))
   expect_true(all(posterior_draws(fit, "latent")[[1L]] > 1000.5))
 })
+
+
+test_that("interaction proposal ratios stay on the log scale across extreme ranges", {
+  # log(new/old) overflows here although log(new)-log(old) is finite.
+  # Such a proposal must not overwhelm a negative Gamma log-density change.
+  x <- data.frame(id = 1:8, marker = 0)
+  fit <- imr(list(A = x, B = x[5:8, ]), data.frame(id = x$id, y = cos(x$id)),
+    outcome_type = "continuous", min_subgroup_size = 0,
+    priors = imr_priors(nu = -10, forced_scale = 1,
+      residual = c(shape = 3, rate = 2), interaction = c(shape = .02, rate = 1)),
+    mcmc = imr_mcmc(draws = 500, burnin = 10, chains = 1,
+      theta_step = 400, seed = 7, diagnostics = FALSE))
+  # Gamma(.02, 1) has negligible probability above 100 in this no-signal design.
+  expect_lt(max(posterior_draws(fit, "interaction")$A), 100)
+  expect_true(validate_imr_object(fit))
+})

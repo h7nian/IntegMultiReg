@@ -306,7 +306,7 @@ static void update_interactions(imr_joint *state, imr_platform *p)
                       state->group[p->group[j]].beta[p->column[j + p->groups * f]] != 0;
         double ratio = change * shared - p->features * (new_normalizer - p->log_normalizer) +
             dgamma(proposal, state->interaction_shape, 1 / state->interaction_rate, 1) -
-            dgamma(old, state->interaction_shape, 1 / state->interaction_rate, 1) + log(proposal / old);
+            dgamma(old, state->interaction_shape, 1 / state->interaction_rate, 1) + log(proposal) - log(old);
         if (ISNAN(ratio)) Rf_error("Undefined interaction acceptance ratio");
         if (log(runif(0, 1)) < fmin(0, ratio)) {
             p->theta[i + p->groups * j] = p->theta[j + p->groups * i] = proposal;
