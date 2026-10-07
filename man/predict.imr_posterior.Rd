@@ -23,7 +23,8 @@
 \item{type}{\code{"mean"} returns uncertainty in the conditional response mean
 (event probability for binary data). \code{"response"} additionally generates
 new outcomes, including residual variability. Binary response intervals
-are discrete 0/1; use \code{"mean"} for event-probability intervals.}
+summarize 0/1 draws with interpolated quantiles; use \code{"mean"} for
+event-probability intervals.}
 
 \item{level}{Equal-tail interval level.}
 
@@ -56,20 +57,27 @@ inverse-gamma variance mixture, so a sample mean is not reported.
 
 For a new subject, let \eqn{z} be the design row transformed with the
 training subgroup's centers, scales and formula encoding. For each stored
-posterior draw, form \eqn{\eta^{(d)}=z^Tb^{(d)}}{eta[d] = transpose(z) * beta[d]} and use its paired
-variance \eqn{v^{(d)}}.
+posterior draw, form
+\deqn{\eta^{(d)}=z^Tb^{(d)}}{eta[d] = transpose(z) * beta[d]}
+and use its paired variance \eqn{v^{(d)}}.
 
 For a continuous response, \code{type = "mean"} summarizes \eqn{\eta^{(d)}}{eta[d]}.
 \code{type = "response"} instead generates
-\eqn{Y_{\mathrm{new}}^{(d)}\sim N(\eta^{(d)},v^{(d)})}{Y_new[d] ~ N(eta[d], v[d])}.
+\deqn{Y_{\mathrm{new}}^{(d)}\sim N(\eta^{(d)},v^{(d)}).}{Y_new[d] ~ N(eta[d], v[d]).}
+
 For a binary response, the mean draws are event probabilities
-\deqn{p^{(d)}=\Phi\{\eta^{(d)}/\sqrt{v^{(d)}}\},}{p[d] = Phi(eta[d] / sqrt(v[d])).}
-and response draws are \eqn{\mathrm{Bernoulli}(p^{(d)})}{Bernoulli(p[d])}.
+\deqn{p^{(d)}=\Phi\left(\frac{\eta^{(d)}}{\sqrt{v^{(d)}}}\right),}{p[d] = Phi(eta[d] / sqrt(v[d])),}
+and response draws follow
+\deqn{Y_{\mathrm{new}}^{(d)}\sim\mathrm{Bernoulli}(p^{(d)}).}{Y_new[d] ~ Bernoulli(p[d]).}
+
 For default log-time survival fits, the corresponding time-scale quantities
 are
-\deqn{m^{(d)}=\exp\{\eta^{(d)}+v^{(d)}/2\}, \qquad
-      T_{\mathrm{new}}^{(d)}=\exp\{\eta^{(d)}+\epsilon^{(d)}\},}{Conditional mean time m[d] = exp(eta[d] + v[d]/2); new time T[d] = exp(eta[d] + error[d]).}
-where \eqn{\epsilon^{(d)}\sim N(0,v^{(d)})}{error[d] ~ N(0, v[d])}. The first expression is the
+\deqn{m^{(d)}=\exp\{\eta^{(d)}+v^{(d)}/2\},}{Conditional mean time m[d] = exp(eta[d] + v[d]/2),}
+\deqn{T_{\mathrm{new}}^{(d)}=\exp\{\eta^{(d)}+\epsilon^{(d)}\},}{New time T[d] = exp(eta[d] + error[d]),}
+where
+\deqn{\epsilon^{(d)}\sim N(0,v^{(d)}).}{error[d] ~ N(0, v[d]).}
+
+The first expression is the
 conditional log-normal mean at a parameter draw, not the median survival
 time at that draw. Identity-scale survival fits use the normal working
 response without exponentiation.

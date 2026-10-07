@@ -47,8 +47,10 @@ before the MCMC sampler is called.
 \section{Availability groups and eligibility}{
 
 For subject \eqn{i} and platform \eqn{l}, define
-\eqn{A_{il}=I(i\mathrm{\ occurs\ in\ platform\ }l)}{A_il = I(subject i occurs in platform l)}. The availability pattern is
-\eqn{A_i=(A_{i1},\ldots,A_{iL})}{A_i = (A_i1, ..., A_iL)}; its integer code is
+\deqn{A_{il}=I(i\mathrm{\ occurs\ in\ platform\ }l).}{A_il = I(subject i occurs in platform l).}
+The availability pattern is
+\deqn{A_i=(A_{i1},\ldots,A_{iL}),}{A_i = (A_i1, ..., A_iL),}
+with integer code
 \deqn{c_i=\sum_{l=1}^{L}2^{l-1}A_{il}.}{Availability code for subject i = sum_l 2^(l - 1) * A_il.}
 Printed bitstrings put platform 1 on the right. For example, \code{101} means
 platforms 1 and 3 are present. Subjects with the same pattern form a

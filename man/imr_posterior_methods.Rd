@@ -43,8 +43,10 @@ object without running additional sampling.
 For \eqn{S} stored draws of coefficient \eqn{b_j}, \code{coef()} returns
 \deqn{\bar b_j=\frac{1}{S}\sum_{d=1}^{S}b_j^{(d)}.}{Posterior mean of coefficient j = sum_d beta_j[d] / S.}
 \code{summary()} and \code{confint()} report this mean, the sample standard deviation,
-the median, an equal-tail interval
-\eqn{[Q_{(1-L)/2}(b_j),Q_{(1+L)/2}(b_j)]}, and
+the median and an equal-tail interval:
+\deqn{[Q_{(1-L)/2}(b_j),Q_{(1+L)/2}(b_j)].}{Equal-tail interval: [quantile(beta_j, (1 - level)/2), quantile(beta_j, (1 + level)/2)].}
+
+The nonzero-probability column is
 \deqn{\widehat{\Pr}(b_j\ne0\mid\mathcal D)=
       \frac{1}{S}\sum_{d=1}^{S}I(b_j^{(d)}\ne0).}{Estimated probability that coefficient j is nonzero = sum_d I(beta_j[d] != 0) / S.}
 Here \eqn{L} is \code{level}, \eqn{\mathcal D}{data} denotes the observed data,

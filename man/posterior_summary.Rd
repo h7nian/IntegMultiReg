@@ -31,8 +31,8 @@ summaries for each pair of linked availability subgroups.
 
 For retained values \eqn{a^{(1)},\ldots,a^{(B)}}{a[1], ..., a[B]} of a selection indicator
 or MRF interaction, the reported mean, standard deviation and interval are
-\deqn{\bar a=\frac{1}{B}\sum_b a^{(b)}, \qquad
-      s_a=\sqrt{\frac{1}{B-1}\sum_b(a^{(b)}-\bar a)^2},}{mean(a) = sum_b a[b] / B; sd(a) = sqrt(sum_b (a[b] - mean(a))^2 / (B - 1)).}
+\deqn{\bar a=\frac{1}{B}\sum_b a^{(b)},}{mean(a) = sum_b a[b] / B,}
+\deqn{s_a=\sqrt{\frac{1}{B-1}\sum_b(a^{(b)}-\bar a)^2},}{sd(a) = sqrt(sum_b (a[b] - mean(a))^2 / (B - 1)),}
 \deqn{[Q_{(1-L)/2}(a),\ Q_{(1+L)/2}(a)],}{Equal-tail interval: [quantile(a, (1 - level)/2), quantile(a, (1 + level)/2)].}
 where \eqn{L} is \code{level} and \eqn{Q} is the empirical quantile computed by
 \code{stats::quantile(type = 8)}. The median is \eqn{Q_{0.5}}.
@@ -41,8 +41,9 @@ between ordered draws and can produce fractional interval endpoints even
 though the indicator only takes values zero and one. These are interpolated
 empirical quantiles, not exact credible sets on the indicator's support.
 The interval is not an
-interval for the Monte Carlo error of the estimated mPIP. BMS has no sampled
-MRF interactions and therefore returns empty theta tables.
+interval for the Monte Carlo error of the estimated mPIP. A platform's theta
+table is empty for BMS, or when that platform occurs in only one retained
+subgroup and therefore has no subgroup pair to connect.
 
 This function summarizes the original fitted selection and interaction
 draws without additional sampling. Its \code{sd} is posterior spread, not a

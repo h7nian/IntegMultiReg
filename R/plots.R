@@ -21,7 +21,9 @@
 #' @section Statistical interpretation:
 #' The selection heatmap displays \eqn{\widehat\pi_{lsj}}{mPIP_lsj}, the retained-chain
 #' indicator average defined in [coef.imr()]. The theta heatmap displays
-#' \eqn{B^{-1}\sum_{b=1}^{B}\theta_{l,sh}^{(b)}}{mean_b theta_l,sh[b]}. An MRF interaction measures
+#' \deqn{\frac{1}{B}\sum_{b=1}^{B}\theta_{l,sh}^{(b)}.}{mean_b theta_l,sh[b].}
+#'
+#' An MRF interaction measures
 #' prior coupling of selection indicators; it is not a correlation between
 #' measured biomarkers or a regression effect.
 #'
@@ -286,8 +288,8 @@ plot.imr <- function(x, type = c("selection", "theta", "trace",
 #'
 #' @section Plotted quantity:
 #' Each bar is the maximum subgroup mPIP for one platform-feature pair,
-#' \eqn{r_{lj}=\max_{s\in\mathcal S_l}\widehat\pi_{lsj}}{r_lj = maximum subgroup mPIP for platform l and feature j} as defined in
-#' [summary.imr()]. Bars are ranked jointly across platforms. This maximum
+#' \deqn{r_{lj}=\max_{s\in\mathcal S_l}\widehat\pi_{lsj},}{r_lj = maximum subgroup mPIP for platform l and feature j,}
+#' as defined in [summary.imr()]. Bars are ranked jointly across platforms. This maximum
 #' is the inclusion probability of a maximizing subgroup; it is not a
 #' coefficient effect size or the posterior probability of selection in at
 #' least one subgroup. `reference` adds a
@@ -459,7 +461,8 @@ plot_top_features <- function(object, top = 10, base_cex = 1,
 #'
 #' @section Counted subjects:
 #' For a retained availability pattern \eqn{s}, the bar height is
-#' \eqn{n_s=\sum_i I(A_i=s)}{n_s = count of subjects with availability pattern s}, where \eqn{A_i} is the subject's platform
+#' \deqn{n_s=\sum_i I(A_i=s),}{n_s = count of subjects with availability pattern s,}
+#' where \eqn{A_i} is the subject's platform
 #' availability pattern defined in [imr_data()]. Counts are the observed sample
 #' sizes stored in the fit, after eligibility checks and subgroup filtering.
 #' They are not posterior estimates or imputed numbers of complete cases.

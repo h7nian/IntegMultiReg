@@ -66,7 +66,8 @@ quick picture of how the sample is distributed across subgroups.
 \section{Counted subjects}{
 
 For a retained availability pattern \eqn{s}, the bar height is
-\eqn{n_s=\sum_i I(A_i=s)}{n_s = count of subjects with availability pattern s}, where \eqn{A_i} is the subject's platform
+\deqn{n_s=\sum_i I(A_i=s),}{n_s = count of subjects with availability pattern s,}
+where \eqn{A_i} is the subject's platform
 availability pattern defined in \code{\link[=imr_data]{imr_data()}}. Counts are the observed sample
 sizes stored in the fit, after eligibility checks and subgroup filtering.
 They are not posterior estimates or imputed numbers of complete cases.

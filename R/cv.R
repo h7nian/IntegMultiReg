@@ -47,12 +47,14 @@
 #'       \sum_{i:y_i=1}\sum_{j:y_j=0}
 #'       \{I(\widehat p_i>\widehat p_j)+\frac{1}{2} I(\widehat p_i=\widehat p_j)\}.}{AUC = sum over positive-negative pairs of [I(p_positive > p_negative) + 0.5 * I(equal predictions)], divided by n_positive * n_negative.}
 #' Here \eqn{n_1} and \eqn{n_0} are the class counts. For survival, let
-#' \eqn{\mathcal C}{C} contain each comparable pair once, ordered with its event
-#' subject \eqn{i} first. A pair is comparable if \eqn{t_i<t_j}, or if
-#' \eqn{t_i=t_j} and subject \eqn{j} is censored. Two tied events are excluded.
+#' \eqn{\mathcal C}{C} contain each comparable pair once, with the earlier
+#' subject \eqn{i} first. For unequal times, the pair is comparable when
+#' \eqn{t_i<t_j} and subject \eqn{i} has an observed event. For equal times,
+#' put the event subject first and the censored subject second. Two tied
+#' events are excluded.
 #' The standard C-index is
 #' \deqn{C=\frac{1}{|\mathcal C|}\sum_{(i,j)\in\mathcal C}
-#'       \{I(\widehat y_i<\widehat y_j)+\frac{1}{2} I(\widehat y_i=\widehat y_j)\}.}{C-index = sum over comparable event-first pairs of [I(prediction_event < prediction_other) + 0.5 * I(equal predictions)], divided by the number of comparable pairs.}
+#'       \{I(\widehat y_i<\widehat y_j)+\frac{1}{2} I(\widehat y_i=\widehat y_j)\}.}{C-index = sum over ordered comparable pairs of [I(prediction_i < prediction_j) + 0.5 * I(equal predictions)], divided by the number of comparable pairs.}
 #' Larger predicted working survival times mean longer survival. AUC is
 #' undefined for a single class, and C is undefined without comparable pairs;
 #' these return `NA`. The historical AUC/concordance tie rules selected by
@@ -61,8 +63,8 @@
 #' @section Pooled scores and fold means:
 #' Each output row is one validation round. If \eqn{A} is the chosen scoring
 #' function and \eqn{D_f} contains fold \eqn{f}'s outcomes and predictions,
-#' \deqn{A_{\mathrm{pooled}}=A\Bigl(\bigcup_{f=1}^{K}D_f\Bigr), \qquad
-#'       A_{\mathrm{fold\ mean}}=\frac{1}{K}\sum_{f=1}^{K}A(D_f).}{Pooled score = score of all folds combined; fold mean = sum of the K individual fold scores / K.}
+#' \deqn{A_{\mathrm{pooled}}=A\Bigl(\bigcup_{f=1}^{K}D_f\Bigr),}{Pooled score = score of all folds combined,}
+#' \deqn{A_{\mathrm{fold\ mean}}=\frac{1}{K}\sum_{f=1}^{K}A(D_f).}{Fold mean = sum of the K individual fold scores / K.}
 #' The pooled score uses all subject predictions together. The fold mean gives
 #' equal weight to folds; an undefined fold makes the fold mean `NA`. These
 #' quantities can differ, especially for AUC and concordance. Both are reported

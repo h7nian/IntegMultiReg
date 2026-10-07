@@ -30,8 +30,11 @@ the fitted method, dimensions and retained sampling budget.
 
 The returned table is descriptive: it computes no Bayes factor, information
 criterion or predictive ranking. Comparability checks require the same
-outcome type, platforms, feature names and availability subgroups; they do
-not establish identical subject samples or CV folds. For predictive model
+outcome type, platforms, feature names and availability subgroups. They do
+not check \code{response_scale}, identical subject samples or CV folds. In
+particular, log-time and identity-scale survival fits pass these structural
+checks. Confirm that survival fits use the same working response scale
+before interpreting their differences. For predictive model
 comparison, evaluate prespecified candidates on matched subjects and folds
 with \code{\link[=cv_imr]{cv_imr()}}. Choosing a specification from the data requires an outer
 validation layer when estimating the performance of that choice.

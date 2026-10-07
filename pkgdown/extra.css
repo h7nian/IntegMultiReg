@@ -1,5 +1,7 @@
 /* Keep long equations readable without widening the page on small screens. */
 .katex-display {
+  margin: 1.5rem 0;
+  padding: 0.25rem 0;
   overflow-x: auto;
   overflow-y: hidden;
 }

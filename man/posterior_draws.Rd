@@ -89,9 +89,13 @@ selection draws are resampled before extracting subgroup states, preserving
 their dependence across subgroups. Inactive molecular coefficients are zero.
 The conditional Gibbs sampler alternates active coefficients, residual
 variance and, when needed, the augmented responses. Its coefficient update
-has density proportional to \eqn{b_j^2\phi(b_j;\mu_j,v/A_{jj})}{b_j^2 * NormalDensity(b_j; mu_j, v/A_jj)}, where
-\eqn{A=Z^TZ+\mathrm{diag}(1/\tau_j)}{A = transpose(Z) * Z + diag(1/tau_j)} and
-\eqn{\mu_j=((Z^Ty^*)_j-\sum_{k\ne j}A_{jk}b_k)/A_{jj}}{mu_j = ((transpose(Z) * y*)_j - sum over k != j of A_jk * b_k) / A_jj}.
+has density proportional to
+\deqn{b_j^2\phi(b_j;\mu_j,v/A_{jj}),}{b_j^2 * NormalDensity(b_j; mu_j, v/A_jj),}
+with matrix
+\deqn{A=Z^TZ+\mathrm{diag}(1/\tau_j)}{A = transpose(Z) * Z + diag(1/tau_j)}
+and conditional normal location
+\deqn{\mu_j=\frac{(Z^Ty^*)_j-\sum_{k\ne j}A_{jk}b_k}{A_{jj}}.}{mu_j = ((transpose(Z) * y*)_j - sum over k != j of A_jk * b_k) / A_jj.}
+
 The design, working response and pMOM scales are defined in \code{\link[=imr]{imr()}}.
 
 The conditional sampling is an additional computation. It inherits the
@@ -121,13 +125,17 @@ conditional-chain warning.
 \section{Conditional split R-hat}{
 
 Each of the \eqn{J} chains is split into two halves of length
-\eqn{H=\lfloor n_m/2\rfloor}{H = floor(n_m/2)}; an odd-length chain omits its middle draw
-from this diagnostic. For a scalar parameter \eqn{q}, the resulting
-\eqn{M=2J} sequences have means \eqn{\bar q_c}{mean_q_c}, variances \eqn{s_c^2}
+\deqn{H=\lfloor n_m/2\rfloor.}{H = floor(n_m/2).}
+An odd-length chain omits its middle draw from this diagnostic. The number
+of split sequences is
+\deqn{M=2J.}{M = 2J.}
+
+For a scalar parameter \eqn{q}, these sequences have means
+\eqn{\bar q_c}{mean_q_c}, variances \eqn{s_c^2}
 and overall mean \eqn{\bar q}{mean_q}. Sums below run over these \eqn{M} sequences:
-\deqn{W=\frac{1}{M}\sum_c s_c^2, \qquad
-      B=\frac{H}{M-1}\sum_c(\bar q_c-\bar q)^2,}{W = mean of the M within-sequence variances; B = H * sum_c (mean_q_c - overall_mean_q)^2 / (M - 1).}
-\deqn{\widehat R=\sqrt{\frac{(H-1)W/H+B/H}{W}}.}{Split R-hat = sqrt(((H - 1) * W / H + B / H) / W).}
+\deqn{W=\frac{1}{M}\sum_c s_c^2,}{W = mean of the M within-sequence variances,}
+\deqn{B=\frac{H}{M-1}\sum_c(\bar q_c-\bar q)^2,}{B = H * sum_c (mean_q_c - overall_mean_q)^2 / (M - 1),}
+\deqn{\widehat R=\sqrt{\frac{\frac{H-1}{H}W+\frac{B}{H}}{W}}.}{Split R-hat = sqrt(((H - 1) * W / H + B / H) / W).}
 \code{diagnostics} records the maximum over active coefficients and residual
 variance for each subgroup-model combination. This is classical split
 R-hat, not the rank-normalized or folded version. An undefined value or a

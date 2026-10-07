@@ -98,7 +98,9 @@ made displays.
 
 The selection heatmap displays \eqn{\widehat\pi_{lsj}}{mPIP_lsj}, the retained-chain
 indicator average defined in \code{\link[=coef.imr]{coef.imr()}}. The theta heatmap displays
-\eqn{B^{-1}\sum_{b=1}^{B}\theta_{l,sh}^{(b)}}{mean_b theta_l,sh[b]}. An MRF interaction measures
+\deqn{\frac{1}{B}\sum_{b=1}^{B}\theta_{l,sh}^{(b)}.}{mean_b theta_l,sh[b].}
+
+An MRF interaction measures
 prior coupling of selection indicators; it is not a correlation between
 measured biomarkers or a regression effect.
 

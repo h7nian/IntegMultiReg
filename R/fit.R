@@ -22,14 +22,19 @@
 #' Let \eqn{s} index an availability subgroup. Its design matrix \eqn{Z_s}
 #' contains an intercept, the forced clinical covariates and the selected
 #' molecular features. On the working response scale,
-#' \deqn{y_s^* = Z_s b_s + \epsilon_s, \qquad
-#'       \epsilon_s \sim N(0, v_s I).}{y*_s = Z_s b_s + error_s, with error_s ~ N(0, v_s I).}
+#' \deqn{y_s^* = Z_s b_s + \epsilon_s,}{y*_s = Z_s b_s + error_s,}
+#' \deqn{\epsilon_s \sim N(0, v_s I).}{error_s ~ N(0, v_s I).}
+#'
 #' For continuous outcomes, \eqn{y_s^*} is observed. For binary outcomes,
-#' \eqn{Y_i = I(y_i^*>0)} and the latent normal response is sampled on the
-#' appropriate side of zero. For the default survival model, an event has
-#' \eqn{y_i^*=\log t_i}{y*_i = log(t_i)}; a censored observation has
-#' \eqn{y_i^*>\log t_i}{y*_i > log(t_i)}. The binary prior concentrates \eqn{v_s} near one;
+#' \deqn{Y_i = I(y_i^*>0),}{Y_i = I(y*_i > 0),}
+#' and the latent normal response is sampled on the appropriate side of zero.
+#' The binary prior concentrates \eqn{v_s} near one;
 #' the implemented variance is not fixed exactly at one.
+#'
+#' For the default survival model, an observed event has
+#' \deqn{y_i^*=\log t_i,}{y*_i = log(t_i),}
+#' whereas a censored observation has
+#' \deqn{y_i^*>\log t_i.}{y*_i > log(t_i).}
 #'
 #' Every active coefficient has the first-order pMOM density
 #' \deqn{p(b_j\mid v_s) = \frac{b_j^2}{\tau_j v_s}
@@ -38,9 +43,13 @@
 #' With `prior_indexing = "standard"`, the scale \eqn{\tau_j}{tau_j} is
 #' `forced_prior_scale` for the intercept and clinical
 #' effects and `molecular_prior_scale` for molecular effects. Inactive molecular
-#' coefficients are exactly zero. The residual prior is
-#' \eqn{v_s\sim\mathrm{IG}(a,b)}{v_s ~ inverse-Gamma(a, b)}, parameterized by a density proportional to
-#' \eqn{v_s^{-a-1}\exp(-b/v_s)}{v_s^(-a - 1) * exp(-b/v_s)}.
+#' coefficients are exactly zero.
+#'
+#' The residual prior is
+#' \deqn{v_s\sim\mathrm{IG}(a,b),}{v_s ~ inverse-Gamma(a, b),}
+#' parameterized by a density proportional to
+#' \deqn{v_s^{-a-1}\exp(-b/v_s).}{v_s^(-a - 1) * exp(-b/v_s).}
+#'
 #' The `code2017` indexing option preserves a historical precision boundary:
 #' when clinical covariates are present, the last one receives molecular
 #' precision. It does not implement the standard scale assignment above.
@@ -53,8 +62,9 @@
 #' The symmetric matrix \eqn{\Theta_l}{Theta_l} has zero diagonal and positive
 #' off-diagonal interactions with the Gamma shape/rate `interaction_prior`.
 #' For BMS, these interactions are zero. The prior conditional log-odds is
-#' \eqn{\nu_l+2\sum_{h\ne s}\theta_{l,sh}\gamma_{l,hj}}{nu_l + 2 * sum over h != s of theta_l,sh * gamma_l,hj}; this factor of two
-#' is used by `sampler_method = "paper"`. The legacy update uses a factor of
+#' \deqn{\nu_l+2\sum_{h\ne s}\theta_{l,sh}\gamma_{l,hj}.}{nu_l + 2 * sum over h != s of theta_l,sh * gamma_l,hj.}
+#'
+#' This factor of two is used by `sampler_method = "paper"`. The legacy update uses a factor of
 #' one and omits the Hastings correction at empty/full model boundaries.
 #' These equations describe the stated model, not a claim that the legacy
 #' transition targets the same posterior.
@@ -68,8 +78,10 @@
 #' sampling step [posterior_draws()].
 #'
 #' With `standardize = TRUE`, each predictor uses its training subgroup's
-#' \eqn{z_{sij}=(x_{sij}-\bar x_{sj})/s_{sj}}{z_sij = (x_sij - mean_sj) / sd_sj}. For a constant training
-#' column, the stored center is its mean and the stored scale is one; its
+#' center and scale:
+#' \deqn{z_{sij}=\frac{x_{sij}-\bar x_{sj}}{s_{sj}}.}{z_sij = (x_sij - mean_sj) / sd_sj.}
+#'
+#' For a constant training column, the stored center is its mean and the stored scale is one; its
 #' transformed training values are zero. A different value in new data is
 #' still centered at that training mean and need not become zero.
 #' [predict.imr()] reuses these subgroup-specific centers and scales;
@@ -167,8 +179,10 @@
 #'   `imr_data` method to the list method. Unused arguments are rejected.
 #'
 #' @details
-#' With `standardize = TRUE`, nonconstant feature and covariate columns are
-#' centered and scaled within each availability subgroup. The factors are stored in the returned
+#' With `standardize = TRUE`, feature and covariate columns are centered
+#' within each availability subgroup. Nonconstant columns are divided by their
+#' sample standard deviations; constant columns use scale one and become zero
+#' in the training data. The factors are stored in the returned
 #' object so that [predict.imr()] can apply the same transformation to new
 #' subjects.  For right-censored outcomes the latent log-survival times of
 #' censored subjects are imputed within the sampler; for binary outcomes a
