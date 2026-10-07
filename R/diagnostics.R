@@ -148,7 +148,8 @@ validate_imr_object <- function(object) {
 #' Reports rank-normalized split/folded R-hat, bulk/tail effective sample sizes
 #' and mean Monte Carlo standard errors using the posterior package. A fit's
 #' cached diagnostics are returned when available; otherwise stored draws are
-#' inspected without running MCMC.
+#' inspected without running MCMC. Large diagnostic tasks use the fit's
+#' `imr_mcmc(workers = ...)` limit; short tasks run serially.
 #'
 #' @section Diagnostic quantities:
 #' Each chain is split into equal beginning/end halves; an odd middle draw is
@@ -185,34 +186,50 @@ mcmc_diagnostics <- function(object) {
   object$diagnostics %||% .imr_compute_diagnostics(object)
 }
 
+# Parameter blocks are independent diagnostic tasks. Workers receive only the
+# arrays they inspect, not another copy of the complete fitted object.
 .imr_compute_diagnostics <- function(object) {
   blocks <- .imr_parameter_blocks(object, "all")
-  result <- lapply(blocks, function(block) {
-    x <- block$draws
-    if (!dim(x)[3L]) {
-      return(NULL)
+  for (i in seq_along(blocks)) {
+    block <- blocks[[i]]
+    observed <- identical(block$family, "latent") && object$control$outcome_type == "right.censored"
+    blocks[[i]]$observed <- if (observed) {
+      object$preprocessing$response[[match(block$group, object$model$subgroup_names)]][, 2L] == 1
+    } else {
+      rep(FALSE, dim(block$draws)[3L])
     }
-    do.call(rbind, lapply(seq_len(dim(x)[3L]), function(j) {
-      values <- matrix(x[, , j], nrow = dim(x)[1L], ncol = dim(x)[2L])
-      constant <- apply(values, 2L, function(v) all(v == v[1L]))
-      observed <- identical(block$family, "latent") && object$control$outcome_type == "right.censored" &&
-        object$preprocessing$response[[match(block$group, object$model$subgroup_names)]][j, 2L] == 1
-      status <- if (observed) "observed" else if (length(unique(as.vector(values))) == 1L) "constant" else if (ncol(values) < 2L) "single_chain" else if (any(constant)) "constant_in_chain" else "computed"
-      computed <- status == "computed"
-      data.frame(
-        family = block$family, group = block$group,
-        parameter = dimnames(x)[[3L]][j],
-        rhat = if (computed) posterior::rhat(values) else NA_real_,
-        ess_bulk = if (computed) posterior::ess_bulk(values) else NA_real_,
-        ess_tail = if (computed) posterior::ess_tail(values) else NA_real_,
-        mcse_mean = if (computed) posterior::mcse_mean(values) else NA_real_,
-        status = status, stringsAsFactors = FALSE
-      )
-    }))
-  })
+  }
+  # Short chains rarely recover the cost of starting and loading workers.
+  work <- sum(vapply(blocks, function(block) {
+    prod(dim(block$draws)[1:2]) * sum(!block$observed)
+  }, 0))
+  workers <- if (work >= 1e6) object$control$mcmc$workers else 1L
+  result <- .imr_map_tasks(blocks, .imr_diagnostic_block, workers)
   out <- do.call(rbind, result)
   rownames(out) <- NULL
   out
+}
+
+.imr_diagnostic_block <- function(block) {
+  x <- block$draws
+  if (!dim(x)[3L]) {
+    return(NULL)
+  }
+  do.call(rbind, lapply(seq_len(dim(x)[3L]), function(j) {
+    values <- matrix(x[, , j], nrow = dim(x)[1L], ncol = dim(x)[2L])
+    constant <- apply(values, 2L, function(v) all(v == v[1L]))
+    status <- if (block$observed[j]) "observed" else if (length(unique(as.vector(values))) == 1L) "constant" else if (ncol(values) < 2L) "single_chain" else if (any(constant)) "constant_in_chain" else "computed"
+    computed <- status == "computed"
+    data.frame(
+      family = block$family, group = block$group,
+      parameter = dimnames(x)[[3L]][j],
+      rhat = if (computed) posterior::rhat(values) else NA_real_,
+      ess_bulk = if (computed) posterior::ess_bulk(values) else NA_real_,
+      ess_tail = if (computed) posterior::ess_tail(values) else NA_real_,
+      mcse_mean = if (computed) posterior::mcse_mean(values) else NA_real_,
+      status = status, stringsAsFactors = FALSE
+    )
+  }))
 }
 
 .imr_warn_diagnostics <- function(x) {

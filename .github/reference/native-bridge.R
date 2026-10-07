@@ -1,6 +1,6 @@
 native_chain <- function(groups, feature_platform, nu, draws=30000L, burnin=2000L,
                          seed=1L, model_variant='imr', initial='empty', keep_latent=TRUE,
-                         interaction_prior=c(shape=2,rate=2)) {
+                         interaction_prior=c(shape=2,rate=2), thin=1L, kernel=NULL) {
  n_groups<-length(groups);n_platforms<-length(nu)
  spec<-lapply(groups,function(g) list(design=unname(g$X),response=as.double(g$y),
   status=if(is.null(g$status))integer()else as.integer(g$status),
@@ -18,12 +18,13 @@ native_chain <- function(groups, feature_platform, nu, draws=30000L, burnin=2000
   selected<-switch(initial,empty=rep(0,length(g$feature_index)),full=rep(1,length(g$feature_index)),alternating=as.integer((g$feature_index+s)%%2==0))
   c(rep(.1,g$n_forced),.1*selected)})
  theta<-lapply(block,function(b){x<-matrix(if(model_variant=='bms')0 else .25,length(b$groups),length(b$groups));diag(x)<-0;x})
- settings<-list(draws=as.integer(draws),burnin=as.integer(burnin),thin=1L,
+ settings<-list(draws=as.integer(draws),burnin=as.integer(burnin),thin=as.integer(thin),
    sharing=as.integer(model_variant=='imr'),keep_latent=as.integer(keep_latent),verbose=0L,
    theta_step=.4,swap_rate=.5,interaction_prior=as.double(interaction_prior))
  initial_state<-list(coefficients=beta,variance=vapply(groups,function(g)g$residual_prior[['rate']]/(g$residual_prior[['shape']]+1),0),interaction=theta)
  set.seed(seed)
- result<-.Call('imr_joint_sample',spec,block,settings,initial_state,PACKAGE='IntegMultiReg')
+ if(is.null(kernel)) kernel<-getNativeSymbolInfo('imr_joint_sample',PACKAGE='IntegMultiReg')$address
+ result<-.Call(kernel,spec,block,settings,initial_state)
  names(result$coefficients)<-names(groups)
  selection<-matrix(NA_integer_,draws,n_groups*length(feature_platform))
  for(s in seq_along(groups)) {

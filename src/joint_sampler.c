@@ -10,10 +10,10 @@
 /* One chain of the joint pMOM/MRF posterior. All scratch allocations belong to
  * R; an unwind handler returns RNG ownership on interrupts and numerical errors. */
 typedef struct {
-    int n, p, forced, outcome;
+    int n, p, forced, outcome, predictor_valid;
     const double *x, *observed, *scale;
     const int *status;
-    double *beta, *latent, *column_squares, *residual;
+    double *beta, *latent, *column_squares, *residual, *predictor;
     double variance, residual_shape, residual_rate;
     double *saved_beta, *saved_latent;
 } imr_group;
@@ -162,13 +162,16 @@ static void set_coefficient(imr_group *g, int column, double value)
     for (int i = 0; i < g->n; ++i)
         g->residual[i] -= g->x[i + (R_xlen_t)g->n * column] * delta;
     g->beta[column] = value;
+    /* A retained density evaluation can cache X beta for the next response update. */
+    g->predictor_valid = 0;
 }
 
 static void update_response_and_forced(imr_group *g)
 {
     for (int i = 0; i < g->n; ++i) {
         double mean = 0;
-        for (int j = 0; j < g->p; ++j) mean += g->x[i + (R_xlen_t)g->n * j] * g->beta[j];
+        if (g->predictor_valid) mean = g->predictor[i];
+        else for (int j = 0; j < g->p; ++j) mean += g->x[i + (R_xlen_t)g->n * j] * g->beta[j];
         if (g->outcome == 1) {
             double sign = g->observed[i] == 1 ? 1 : -1;
             g->latent[i] = sign * lower_normal(sign * mean, sqrt(g->variance), 0);
@@ -324,12 +327,16 @@ static double joint_log_density(const imr_joint *state)
 {
     double value = 0;
     for (int s = 0; s < state->groups; ++s) {
-        const imr_group *g = state->group + s;
+        imr_group *g = state->group + s;
         for (int i = 0; i < g->n; ++i) {
             double mean = 0;
             for (int j = 0; j < g->p; ++j) mean += g->x[i + (R_xlen_t)g->n * j] * g->beta[j];
+            g->predictor[i] = mean;
             value += dnorm4(g->latent[i], mean, sqrt(g->variance), 1);
         }
+        /* Reuse only while coefficients stay unchanged; preserve the original
+         * arithmetic loop above rather than changing its floating-point contraction. */
+        g->predictor_valid = 1;
         for (int j = 0; j < g->p; ++j) if (g->beta[j] != 0)
             value += 2 * log(fabs(g->beta[j])) - log(g->scale[j]) - log(g->variance) +
                 dnorm4(g->beta[j], 0, sqrt(g->scale[j] * g->variance), 1);
@@ -477,6 +484,7 @@ SEXP imr_joint_sample(SEXP groups, SEXP platforms, SEXP settings, SEXP initial)
         g->beta = (double *)R_alloc(g->p, sizeof(double)); memcpy(g->beta, REAL(start), (size_t)g->p * sizeof(double));
         g->latent = (double *)R_alloc(g->n, sizeof(double));
         g->residual = (double *)R_alloc(g->n, sizeof(double));
+        g->predictor = (double *)R_alloc(g->n, sizeof(double));
         g->column_squares = (double *)R_alloc(g->p, sizeof(double));
         covered[s] = (int *)R_alloc(g->p, sizeof(int)); memset(covered[s], 0, (size_t)g->p * sizeof(int));
         for (int j = 0; j < g->p; ++j) {

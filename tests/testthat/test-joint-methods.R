@@ -95,3 +95,28 @@ test_that("infinite R-hat remains a reported diagnostic failure", {
   expect_warning(IntegMultiReg:::.imr_warn_diagnostics(d), "R-hat above 1.01")
   expect_output(IntegMultiReg:::.imr_print_diagnostics(d), "Inf")
 })
+
+test_that("parallel diagnostics preserve constants, numerical values, RNG and sockets", {
+  # Many excluded variables exercise large-block dispatch without requiring a
+  # long inferential run. Constant indicators must still remain undefined.
+  x <- data.frame(id = 1:20, matrix(0, 20, 200))
+  fit <- imr(list(assay = x), data.frame(id = x$id, y = cos(x$id)),
+    outcome_type = "continuous", min_subgroup_size = 0,
+    priors = imr_priors(nu = -100, forced_scale = 1),
+    mcmc = imr_mcmc(
+      draws = 1600, burnin = 20, chains = 2,
+      seed = 91, diagnostics = FALSE
+    )
+  )
+  sockets <- function() sum(showConnections(all = TRUE)[, "class"] == "sockconn")
+  before <- sockets()
+  set.seed(199)
+  rng <- .Random.seed
+  serial <- mcmc_diagnostics(fit)
+  fit$control$mcmc$workers <- 2L
+  parallel <- mcmc_diagnostics(fit)
+  expect_identical(parallel, serial)
+  expect_true(all(parallel$status[parallel$family == "selection"] == "constant"))
+  expect_identical(.Random.seed, rng)
+  expect_identical(sockets(), before)
+})

@@ -41,8 +41,9 @@ imr_priors <- function(nu = -3, molecular_scale = .087, forced_scale = 10000,
 #'   R-hat requires at least two.
 #' @param thin Updates between retained iterations.
 #' @param seed Nonnegative seed, or `NULL` to draw a seed from R's current RNG.
-#' @param workers Number of worker processes for chains. CV distributes folds
-#'   instead and runs their chains serially, avoiding nested parallelism.
+#' @param workers Maximum worker processes for chains and large diagnostic
+#'   tasks. CV distributes folds instead and runs their chains and diagnostics
+#'   serially, avoiding nested parallelism.
 #' @param keep_latent Retain augmented responses for binary/censored models.
 #' @param initial `"dispersed"`, `"empty"`, or `"full"` selection starts, or
 #'   a list of explicitly named starting states, one per chain.

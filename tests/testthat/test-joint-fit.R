@@ -55,16 +55,33 @@ test_that("latent storage changes storage only and respects all likelihood suppo
   }
 })
 
-test_that("thinning changes retained positions without changing the transition sequence", {
-  d <- small_data()
-  common <- list(
-    x = d$platforms, outcome = d$outcome, outcome_type = "continuous",
-    min_subgroup_size = 0, priors = imr_priors(forced_scale = 1)
-  )
-  a <- do.call(imr, c(common, list(mcmc = imr_mcmc(draws = 40, burnin = 20, chains = 2, seed = 22, diagnostics = FALSE))))
-  b <- do.call(imr, c(common, list(mcmc = imr_mcmc(draws = 20, burnin = 20, chains = 2, thin = 2, seed = 22, diagnostics = FALSE))))
-  expect_identical(a$posterior$coefficients[[1]][seq(2, 40, 2), , , drop = FALSE], b$posterior$coefficients[[1]])
-  expect_identical(a$posterior$variance[seq(2, 40, 2), , , drop = FALSE], b$posterior$variance)
+test_that("thinning preserves every retained state for all outcome families", {
+  take <- seq(3L, 12L, 3L)
+  retained <- function(x) {
+    if (is.null(x)) {
+      return(NULL)
+    }
+    if (is.list(x)) {
+      return(lapply(x, retained))
+    }
+    if (length(dim(x)) == 2L) x[take, , drop = FALSE] else x[take, , , drop = FALSE]
+  }
+  for (type in c("continuous", "binary", "right.censored")) {
+    d <- small_data(type)
+    common <- list(
+      x = d$platforms, outcome = d$outcome, outcome_type = type,
+      min_subgroup_size = 0, priors = imr_priors(forced_scale = 1)
+    )
+    a <- do.call(imr, c(common, list(mcmc = imr_mcmc(
+      draws = 12, burnin = 4, chains = 2, seed = 22,
+      keep_latent = TRUE, diagnostics = FALSE
+    ))))
+    b <- do.call(imr, c(common, list(mcmc = imr_mcmc(
+      draws = 4, burnin = 4, chains = 2, thin = 3, seed = 22,
+      keep_latent = TRUE, diagnostics = FALSE
+    ))))
+    expect_identical(retained(a$posterior), b$posterior)
+  }
 })
 
 test_that("draw budgets, priors and old APIs fail before expensive computation", {

@@ -93,9 +93,19 @@ jobs:
           R CMD INSTALL --preclean --install-tests .
           Rscript .github/scripts/verify-tests.R
 
+      - name: Preserve sampler results across the performance refactor
+        shell: bash
+        run: |
+          replay_base=68724ab48da344cf1ca03c54f62895f8e016c7bc
+          git fetch --no-tags --depth=1 origin "$replay_base"
+          git show "$replay_base:src/joint_sampler.c" > "$RUNNER_TEMP/joint-sampler-baseline.c"
+          Rscript .github/scripts/verify-sampler-replay.R "$RUNNER_TEMP/joint-sampler-baseline.c"
+
       - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: tests-${{ matrix.config.os }}-${{ matrix.config.r }}
-          path: ${{ runner.temp }}/test-evidence
+          path: |
+            ${{ runner.temp }}/test-evidence
+            ${{ runner.temp }}/sampler-replay-evidence
           if-no-files-found: warn

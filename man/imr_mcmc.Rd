@@ -31,8 +31,9 @@ R-hat requires at least two.}
 
 \item{seed}{Nonnegative seed, or \code{NULL} to draw a seed from R's current RNG.}
 
-\item{workers}{Number of worker processes for chains. CV distributes folds
-instead and runs their chains serially, avoiding nested parallelism.}
+\item{workers}{Maximum worker processes for chains and large diagnostic
+tasks. CV distributes folds instead and runs their chains and diagnostics
+serially, avoiding nested parallelism.}
 
 \item{keep_latent}{Retain augmented responses for binary/censored models.}
 

@@ -19,7 +19,8 @@ have status \code{observed}, not a convergence assessment.
 Reports rank-normalized split/folded R-hat, bulk/tail effective sample sizes
 and mean Monte Carlo standard errors using the posterior package. A fit's
 cached diagnostics are returned when available; otherwise stored draws are
-inspected without running MCMC.
+inspected without running MCMC. Large diagnostic tasks use the fit's
+\code{imr_mcmc(workers = ...)} limit; short tasks run serially.
 }
 \section{Diagnostic quantities}{
 
