@@ -3,12 +3,12 @@
 
 #include <stdbool.h>
 
-enum imr_sampler_method { IMR_SAMPLER_LEGACY, IMR_SAMPLER_PAPER };
+enum imr_selection_update { IMR_UPDATE_UNADJUSTED, IMR_UPDATE_MRF_HASTINGS };
 
 /* The symmetric MRF convention in Appendix D counts each edge twice. */
 double imr_gamma_log_odds(int n_groups, int group, int feature,
                           const double *interaction, _Bool **selection,
-                          double nu, int sampler_method);
+                          double nu, int selection_update);
 
 /* Reverse/forward probability for the existing boundary-aware flip/swap
  * proposal. Swaps leave the selected count unchanged and are symmetric. */

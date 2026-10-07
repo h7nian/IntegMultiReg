@@ -8,28 +8,29 @@
 \alias{print.imr_posterior}
 \title{Summarize Coefficient and Latent-Response Draws}
 \usage{
-\method{summary}{imr_posterior}(object, level = 0.95, parm = c("coefficients", "latent"), ...)
+\method{summary}{imr_posterior}(object, level = 0.95, parm = "coefficients", ...)
 
-\method{confint}{imr_posterior}(object, parm = c("coefficients", "latent"), level = 0.95, ...)
+\method{confint}{imr_posterior}(object, parm = "coefficients", level = 0.95, ...)
 
 \method{coef}{imr_posterior}(object, ...)
 
 \method{print}{imr_posterior}(x, ...)
 }
 \arguments{
-\item{object, x}{An \code{imr_posterior} object returned by \code{\link[=posterior_draws]{posterior_draws()}}.}
+\item{object, x}{An \code{imr_posterior} object returned by \code{\link[=sample_regression_posterior]{sample_regression_posterior()}}.}
 
 \item{level}{Equal-tail credible level, between zero and one.}
 
-\item{parm}{\code{"coefficients"} for the regression coefficients, or \code{"latent"}
-for the augmented response of a binary or right-censored fit. \code{"latent"}
-requires draws retained with \code{posterior_draws(latent = TRUE)} and gives one
+\item{parm}{\code{"coefficients"} for regression coefficients, \code{"variance"} for
+residual variance, or \code{"latent"} for a binary/censored augmented response. \code{"latent"}
+requires draws retained with \code{sample_regression_posterior(latent = TRUE)} and gives one
 row per subject, without a \code{probability_nonzero} column.}
 
-\item{...}{Unused.}
+\item{...}{Unused arguments are rejected.}
 }
 \value{
-\code{summary()} and \code{confint()} return coefficient tables by subgroup.
+\code{summary()} and \code{confint()} return tables for the requested parameter
+set, by subgroup.
 \code{coef()} returns posterior mean coefficient vectors. \code{print()} returns
 its argument invisibly. Effects are on subgroup-standardized predictor
 scales. Intervals include zero-mass from inactive selection models.
@@ -53,7 +54,7 @@ Here \eqn{L} is \code{level}, \eqn{\mathcal D}{data} denotes the observed data,
 and quantiles use \code{stats::quantile(type = 7)}. The interval includes the
 point mass at zero from inactive models. \code{confint()} reuses \code{summary()};
 neither method runs further MCMC. \code{print()} reports the stored approximation
-and maximum conditional R-hat described in \code{\link[=posterior_draws]{posterior_draws()}}.
+and maximum conditional R-hat described in \code{\link[=sample_regression_posterior]{sample_regression_posterior()}}.
 
 With \code{parm = "latent"}, the same mean, standard deviation and quantiles are
 computed per subject, without a nonzero-probability column. For log-time

@@ -31,7 +31,7 @@ subgroup), ranked by their maximum inclusion probability.
 }
 \section{Selection and ranking}{
 
-Let \eqn{\widehat\pi_{lsj}}{mPIP_lsj} denote the subgroup mPIP defined in \code{\link[=coef.imr]{coef.imr()}}.
+Let \eqn{\widehat\pi_{lsj}}{mPIP_lsj} denote the subgroup mPIP defined in \code{\link[=inclusion_probabilities]{inclusion_probabilities()}}.
 For each platform-feature pair, the ranking score and selected set are
 \deqn{r_{lj}=\max_{s\in\mathcal S_l}\widehat\pi_{lsj},}{r_lj = maximum subgroup mPIP for feature j on platform l,}
 \deqn{\mathcal A_l(t)=\{j:r_{lj}>t\},}{A_l(t) contains features with r_lj > t,}

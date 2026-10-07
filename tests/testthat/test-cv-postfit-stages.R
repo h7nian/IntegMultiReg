@@ -7,7 +7,7 @@ test_that("post-fit task stages preserve full native results and partition order
     for (method in c("imr", "bms")) {
       fit <- imr(simIMR$platforms, outcomes[[outcome_type]],
                  covariates = simIMR$covariates, outcome_type = outcome_type,
-                 method = method, draws = 12, burnin = 6,
+                 model_variant = method, draws = 12, burnin = 6,
                  min_subgroup_size = 30, seed = 53)
       for (importance in c(FALSE, TRUE)) {
         context <- paste(outcome_type, method, importance)
@@ -16,8 +16,8 @@ test_that("post-fit task stages preserve full native results and partition order
         plan <- run(stage = "plan")
         expect_identical(plan$folds, reference$folds, info = context)
         expect_true(all(is.na(plan$predictions)), info = context)
-        expect_true(all(is.na(plan$total_cindex)), info = context)
-        expect_true(all(is.na(plan$subset_cindex)), info = context)
+        expect_true(all(is.na(plan$pooled_score)), info = context)
+        expect_true(all(is.na(plan$mean_fold_score)), info = context)
         merged <- plan$predictions
         # Nonconsecutive batches deliberately include the second round first.
         # Survival's censored shuffle is carried across rounds, not reset.
@@ -31,7 +31,7 @@ test_that("post-fit task stages preserve full native results and partition order
             expected[!tasks[reference$folds[, round], round], round] <- NA_real_
           }
           expect_identical(partial$predictions, expected, info = context)
-          expect_true(all(is.na(partial$total_cindex)), info = context)
+          expect_true(all(is.na(partial$pooled_score)), info = context)
           use <- !is.na(partial$predictions)
           merged[use] <- partial$predictions[use]
         }

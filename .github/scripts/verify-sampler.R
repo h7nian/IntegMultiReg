@@ -56,11 +56,11 @@ x <- data.frame(id = 1:n, a = rnorm(n), b = rnorm(n))
 y <- data.frame(id = 1:n, y = rnorm(n))
 states <- expand.grid(a = 0:1, b = 0:1)
 results <- list()
-for (method in c("original", "corrected")) {
-  fit <- imr(list(A = x), y, outcome_type = "continuous", method = "bms",
+for (method in "symmetric_mrf_hastings") {
+  fit <- imr(list(A = x), y, outcome_type = "continuous", model_variant = "bms",
     nu = 0, forced_prior_scale = 1, molecular_prior_scale = 1,
     residual_prior = c(shape = 1, rate = 1), min_subgroup_size = 0,
-    draws = 100000L, burnin = 1000L, seed = 12, sampler_method = method)
+    draws = 100000L, burnin = 1000L, seed = 12)
   ll <- apply(states, 1, function(mask) probe("review_loglik",
     fit$preprocessing$features[[1]][[1]][, mask == 1, drop = FALSE], y$y, 1, 1, 1, 1))
   normalize <- function(z) exp(z - max(z)) / sum(exp(z - max(z)))
@@ -68,7 +68,7 @@ for (method in c("original", "corrected")) {
   legacy_target <- normalize(ll - log(ifelse(rowSums(states) %in% c(0, 2), 1, .5)))
   sampled <- vapply(fit$posterior$selection_draws, function(s) sum(s[[1]][1, ] * c(1L, 2L)), 0)
   empirical <- tabulate(sampled + 1L, 4) / length(sampled)
-  expected <- if (method == "corrected") target else legacy_target
+  expected <- target
   stopifnot(max(abs(empirical - expected)) < .006)
   results[[method]] <- data.frame(method, states, target, legacy_target, empirical)
 }

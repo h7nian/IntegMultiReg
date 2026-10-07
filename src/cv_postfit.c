@@ -1233,8 +1233,8 @@ SEXP imr_cv_postfit(SEXP forced_scale_R, SEXP molecular_scale_R,
     SET_VECTOR_ELT(list, 4, row_order_R);
     PROTECT(list_names = allocVector(STRSXP, list_size));
     protect_count++;
-    SET_STRING_ELT(list_names, 0, mkChar("total_cindex"));
-    SET_STRING_ELT(list_names, 1, mkChar("subset_cindex"));
+    SET_STRING_ELT(list_names, 0, mkChar("pooled_score"));
+    SET_STRING_ELT(list_names, 1, mkChar("mean_fold_score"));
     SET_STRING_ELT(list_names, 2, mkChar("predictions"));
     SET_STRING_ELT(list_names, 3, mkChar("folds"));
     SET_STRING_ELT(list_names, 4, mkChar("row_order"));

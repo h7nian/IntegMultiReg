@@ -1,101 +1,92 @@
 # Methods and reproducibility
 
-This guide distinguishes the published model, released code and package
-conventions. The package preserves its existing defaults. The optional arguments below
-express separate computational decisions through the same fit and CV engines.
-`cv_method` is a set of defaults; it does not override explicit arguments.
+`IntegMultiReg` separates the model variant from its numerical calculation.
+`model_variant = "imr"` couples subgroup selection indicators through an MRF;
+`"bms"` fits the availability subgroups independently. Both use the same outcome
+families and coefficient priors.
 
-| Decision | Paper-oriented setting | Released-code setting | Package default |
-|---|---|---|---|
-| Selection update | `sampler_method="corrected"` | `"original"` | `"original"` |
-| Prior precision block boundary | `prior_indexing="standard"` | `"original"` | `"standard"` |
-| Laplace iteration caps: initial/selection/latent/prediction | 25/40/25/40 (numerical choice) | 25/40/25/25 | 25/40/25/40 |
-| CV states | `model_set="draws"` | `"ranked_unique"`, maximum 100 | depends on CV mode |
-| CV coefficient penalty | `ridge=0` | `ridge=0` | 0.001 |
-| Predictive df | `df_method="fractional"` | `"integer"` | depends on CV mode |
-| Scoring | state the desired tie convention | `score_method="original"` | depends on CV mode |
-| Post-fit fold random stream | no mathematical requirement | `fold_rng="continue"` | `"reset"` |
-| Historical partition replay | `folds` with `row_order` | same | generated from fit seed |
-| Specified chain starting points | `initial` selection/interaction matrices | historical starting values unavailable | original random selection start and fixed interactions |
+## Fitting and uncertainty
 
-The symmetric MRF has conditional log-odds `nu + 2 * sum(theta * gamma)`.
-The original selection update uses a factor of one and omits the Hastings ratio
-when a flip crosses a boundary between empty/full and interior states. Its
-stationary distribution is therefore different from the stated posterior.
-The corrected sampler includes these corrections and a corrected Gamma rate sign
-in the diagnostic log density. Original behavior remains explicit and testable.
+Ordinary fitting uses the stated symmetric-MRF conditional log-odds,
+`nu + 2 * sum(theta * gamma)`, and the Hastings correction for flip proposals at
+empty/full selection boundaries. Its Gamma log-prior score has the negative
+rate term and includes the log term for every positive interaction. Prior
+precision follows coefficient roles: intercept and clinical effects use the
+forced scale; molecular effects use the molecular scale.
 
-`prior_indexing="original"` preserves an index-boundary discrepancy in the
-released precision calculation; it is a historical computational option, not
-an alternative coherent prior. Conditional uncertainty from `posterior_draws()`
-uses the stated pMOM priors; it inherits selection weights from the fitted
-sampler but does not reproduce this historical precision discrepancy.
+The fitting engine integrates coefficients and residual variance using its
+Laplace-based model scores. `inclusion_probabilities()` extracts retained
+selection frequencies. `selection_summary()` summarizes selection indicators
+and MRF interactions. Neither returns regression effects.
 
-## Examples with ordinary argument lists
+`sample_regression_posterior()` performs additional conditional pMOM sampling.
+Its model weights inherit the fitted selection chain and its Laplace
+approximation. `output_draws` controls returned samples;
+`min_draws_per_model_chain` controls the minimum conditional-chain length.
+The recorded `draws_per_model_chain` is the actual length. Conditional split
+R-hat does not diagnose the original selection chain or remove its uncertainty.
 
-```r
-paper_fit_args <- list(sampler_method = "corrected", prior_indexing = "standard")
-code_fit_args <- list(sampler_method = "original", prior_indexing = "original",
-  laplace_max_iter = c(initial = 25, selection = 40, latent = 25, prediction = 25))
-paper_cv_args <- list(cv_method = "importance", ridge = 0,
-  model_set = "draws", df_method = "fractional", score_method = "standard")
-code_cv_args <- list(cv_method = "postfit_original", ridge = 0,
-  model_set = "ranked_unique", max_models = 100,
-  df_method = "integer", score_method = "original", fold_rng = "continue")
-# fit <- do.call(imr, c(list(x = platforms, outcome = outcome), paper_fit_args))
-# cv <- do.call(cv_imr, c(list(object = fit), paper_cv_args))
-# replay <- cv_imr(fit, folds = cv$control$folds, ridge = 0,
-#                  model_set = "draws", df_method = "fractional")
-```
+## Predictive validation
 
-A zero penalty requires a nonsingular training design. Singular fits stop with
-round/fold/subgroup context. Supplied folds match IDs, not input row positions;
-`row_order` retains the original summation order. Scoring changes do not alter
-predictions. Refit CV accepts scoring and supplied folds, but rejects explicit
-post-fit-only options. Its preprocessing and selection are fitted on training
-subjects; tuning still needs outer validation.
+| Choice | Computation | Scope |
+|---|---|---|
+| `cv_method = "refit"` (default) | Refit preprocessing, formula encoding, selection MCMC and prediction in every training fold | Evaluate the fitting procedure with fixed hyperparameters |
+| `cv_method = "reweight"` | Reuse the full-data fit and apply inverse-density weights to its selection states | Post-fit approximation conditional on full-fit preprocessing and latent-response means |
+| `model_set = "all_draws"` | Retain every sampled state and its multiplicity | Default state collection for reweighting |
+| `model_set = "top_unique"` | Keep at most `max_models` ranked distinct states | A truncated collection for the same reweighting engine |
 
-## What the checks establish
+Held-out outcomes enter reweighting as an importance correction; their use alone
+does not identify an error. The full-fit augmented-response mean plug-in is
+stated in Section 4.1 of Chekouo et al. (2017). It does not make this procedure
+an independent training-fold refit.
 
-* Default regression: six fit configurations and eighteen CV combinations
-  compared against an independently installed frozen package revision.
-* Conditional CV: archived `pred_aftcv()` compiled separately; predictions agree
-  to floating-point precision for fixed states, latent responses and ordered
-  partitions with ridge zero and integer df. This does not test the original
-  full sampler or its top-100 model ranking.
-* Mathematical reference: independent linear algebra tests ridge and df choices;
-  finite-state transitions verify detailed balance; long native chains are
-  checked against enumerated conditional targets, and Gamma increments against
-  `dgamma()` including interactions below 0.001.
-* Fold replay, caches, worker execution and old-object fallbacks are tested.
+For reweighting, `ridge = 0.001` is the default coefficient penalty, including
+the intercept. The article's unpenalized estimate requires `ridge = 0` explicitly
+and a full-column-rank training design for every state. Singular systems stop
+with fold/subgroup context. A positive ridge can stabilize them but changes the
+estimator. `df_method = "fractional"` retains numeric predictive degrees of
+freedom; `"integer"` truncates them. Scores use the same standard pair and tie
+rules in both public CV algorithms.
 
-These are component and algorithm checks. They do not establish reproduction
-of published Table 1 or Figure 3. That additionally requires matching inputs,
-preprocessing, starting states, update order, seeds, simulation replicates and
-aggregation. Continuing the package's random stream does not imply that its
-preceding random draws match the historical standalone program. The supplement
-has 778 gene columns, whereas the article reports 776; results must state which
-source was used. Full experiments and historical-digit agreement are separate
-validation levels, never inferred from the presence of an option.
+Actual folds, summation order and refit seeds are recorded for replay. Refit uses
+R's RNG and reweighting uses GSL; identical seeds across those generators do not
+imply identical partitions. Supplied folds match subject IDs. Tuning or formula
+selection requires an outer validation layer, illustrated in the
+[covariate comparison guide](https://h7nian.github.io/IntegMultiReg/articles/covariate-comparison.html).
 
-`initial=list(selection=..., interaction=...)` supplies named matrices by
-platform. Use `coef(fit)` as the selection-layout template (subgroup rows,
-feature columns) and replace probabilities with zeros/ones. Interaction matrices
-use the corresponding subgroup names on both axes, symmetric positive
-off-diagonals and zero diagonal; they apply only to IMR. Omitted components use
-their original initialization. Specified selection avoids the original random
-initialization draws, so its subsequent RNG trajectory intentionally differs.
-Refit CV reuses the specified start; the values are recorded in fit/CV controls.
-Eight explicitly different starts can support an Appendix F-style diagnostic,
-but the exact historical starts are not supplied by the published supplement.
+## Historical implementations
 
-### Unpenalized validation requires full-rank training designs
+The released selection update used a neighbour coefficient of one and omitted
+boundary Hastings ratios. These changes affect its stationary distribution.
+Its diagnostic log score also used a positive Gamma rate term and omitted log
+terms below 0.001. The theta acceptance calculation used the negative rate sign;
+the score error should not be described as a reversed Gamma sampling prior.
+An additional precision-index boundary assigned molecular precision to the last
+forced coefficient in the released calculation.
 
-With `ridge = 0`, every evaluated selection state needs a full-column-rank
-training design. A state with more coefficients than training subjects is
-necessarily singular; collinearity can also cause singularity with fewer
-coefficients. The post-fit calculation stops with the affected fold and
-subgroup rather than dropping states or silently changing the inverse.
-A positive ridge penalty can stabilize the solve but changes the estimator.
-Validation of one state collection or numerical convention does not establish
-the behavior of another; report the actual options used.
+These historical conventions are not alternative choices in the ordinary fitting
+interface. Retain the exact archived source and its scripts for replay.
+`upgrade_imr_object()` converts stored structure and labels without recomputing
+draws. It does not turn historical draws into samples from the current target.
+The [migration guide](https://h7nian.github.io/IntegMultiReg/migration.html) identifies renamed quantities and controls.
+
+## What validation establishes
+
+Independent tests check the MRF increments and proposal ratios against enumerated
+conditional targets, Gamma increments against log densities, and conditional CV
+against independently compiled archived code. Other tests cover fold replay,
+worker equality, numerical failures and object boundaries. Source-specific
+manifests and logs identify which build and environment each result belongs to.
+
+Those checks do not establish reproduction of an entire study or convergence of
+its long chains. Historical Table 1 and Figure 3 additionally depend on data,
+preprocessing, starting states, seeds, replicate design and aggregation. The
+supplement contains 778 gene columns whereas the article reports 776; an analysis
+must identify its data source. Historical starting values and replicate seeds
+are not fully recorded. A new reference table does not retroactively explain an
+old unexplained discrepancy.
+
+The [replay guide](https://h7nian.github.io/IntegMultiReg/articles/reproducibility.html) describes a record connecting
+source identity, data, parameters, actual seeds/folds, generating code and
+unrounded results. Computational repeatability and scientific validation remain
+different claims.

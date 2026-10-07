@@ -6,6 +6,16 @@
   stop(message, call. = FALSE)
 }
 
+.imr_reject_dots <- function(...) {
+  dots <- list(...)
+  if (length(dots)) {
+    name <- names(dots)[1L]
+    if (is.null(name) || is.na(name) || !nzchar(name)) name <- "unnamed argument"
+    .imr_abort(sprintf("Unused argument: `%s`.", name))
+  }
+  invisible(NULL)
+}
+
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
 #' @keywords internal
@@ -25,6 +35,9 @@
 .imr_check_fit <- function(object) {
   if (!inherits(object, "imr")) {
     .imr_abort("`object` must be an `imr` object returned by `imr()`.")
+  }
+  if (!identical(object$schema_version, 3L)) {
+    .imr_abort("Use `upgrade_imr_object()` before inspecting a saved fit from an earlier schema.")
   }
   invisible(object)
 }
@@ -178,11 +191,11 @@
 
 #' @keywords internal
 #' @noRd
-.imr_empty_predictions <- function(model_names) {
-  out <- lapply(model_names, function(x) {
+.imr_empty_predictions <- function(subgroup_names) {
+  out <- lapply(subgroup_names, function(x) {
     data.frame(id = character(0), prediction = numeric(0))
   })
-  names(out) <- paste0("model:", model_names)
+  names(out) <- paste0("subgroup:", subgroup_names)
   out
 }
 

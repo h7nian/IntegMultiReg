@@ -34,16 +34,17 @@ installed first:
 * Fedora/RHEL: `sudo dnf install gsl-devel`
 * Windows: GSL is provided by Rtools.
 
-The tutorial examples use the 0.2.0 source snapshot
-[`641ca7a`](https://github.com/h7nian/IntegMultiReg/tree/641ca7a5bdb5b4004442732c5359ddeffa0e972e).
-Install that commit for a fixed source version:
+To install the source snapshot used by these examples:
 
 ```r
 install.packages("remotes")
-remotes::install_github(
-  "h7nian/IntegMultiReg", ref = "641ca7a5bdb5b4004442732c5359ddeffa0e972e"
-)
+remotes::install_github("h7nian/IntegMultiReg",
+                        ref = "be38715b95568854e1a89140381ed4274f3102b2")
 ```
+
+For numerical replication, use the source snapshot and checksum recorded with
+the analysis. The [replay guide](https://h7nian.github.io/IntegMultiReg/articles/reproducibility.html)
+explains which inputs and settings to retain.
 
 The CRAN release, 0.1.3, uses the earlier API. The 0.2.0 examples on this
 site require the GitHub version. See the
@@ -62,9 +63,9 @@ install.packages("IntegMultiReg_0.2.0.tar.gz", repos = NULL, type = "source")
 
 ## Quick start
 
-The compatibility default is `sampler_method = "original"`. Use
-`sampler_method = "corrected"` for the stated posterior updates. For training-fold
-preprocessing and fitting, select `cv_method = "refit"` explicitly.
+Fitting uses the symmetric MRF conditional and Hastings-adjusted selection
+moves. `model_variant = "imr"` shares selection information across subgroups;
+`"bms"` fits them independently. CV refits each training fold by default.
 
 ```r
 library(IntegMultiReg)
@@ -83,12 +84,12 @@ fit <- imr(
   analysis, nu = c(-4, -3, -4),
   draws = 2000, burnin = 1000,
   min_subgroup_size = 30,
-  seed = 1, sampler_method = "corrected"
+  seed = 1
 )
 
 fit                       # short summary
 summary(fit)              # selected biomarkers per platform
-coef(fit)                 # per-platform mPIP matrices
+inclusion_probabilities(fit) # per-platform mPIP matrices
 plot(fit, type = "selection")
 plot_top_features(fit)    # ranked biomarker bar chart
 new_data <- imr_data(simIMR$platforms[1:2], covariates = simIMR$covariates)
@@ -121,7 +122,7 @@ kirc_fit <- imr(
   nu = c(-4, -3, -4),
   draws = 4000, burnin = 1000,
   min_subgroup_size = 30,
-  seed = 1, sampler_method = "corrected"
+  seed = 1
 )
 ```
 
@@ -141,27 +142,29 @@ Institute Genomic Data Commons, and UCSC Xena as the public data sources.
 
 ## Coefficient and predictive uncertainty
 
-After fitting, `posterior_draws(fit)` adds conditional pMOM coefficient and
+`coef(fit)` does not return inclusion probabilities or silently run another
+sampler. Use `inclusion_probabilities(fit)` for variable-selection probabilities.
+After fitting, `sample_regression_posterior(fit)` explicitly adds conditional pMOM coefficient and
 variance draws to the retained selection models. `summary(draws)` and
 `confint(draws)` report coefficient intervals including point mass at zero for
 inactive molecular features. Clinical covariates remain always included.
 
 ```r
 # Use an adequately explored fit and inspect both stages of diagnostics.
-draws <- posterior_draws(fit, seed = 2)
+draws <- sample_regression_posterior(fit, seed = 2)
 draws$diagnostics
 confint(draws)
 predict(draws, simIMR$platforms, covariates = simIMR$covariates,
-        type = "mean")       # uncertainty in the conditional response mean
+        quantity = "conditional_mean")       # uncertainty in the conditional response mean
 predict(draws, simIMR$platforms, covariates = simIMR$covariates,
-        type = "response")   # uncertainty in a future outcome
+        quantity = "new_observation")   # uncertainty in a future outcome
 ```
 
 These are approximate model-averaged intervals: selection weights retain the
 original Laplace approximation. Conditional split R-hat does not assess the
 original selection chain; increase simulation effort when diagnostics are poor.
 Coefficients use subgroup-standardized predictor scales. Binary probability
-intervals use `type = "mean"`; binary response intervals are discrete.
+intervals use `quantity = "conditional_mean"`; binary new-observation draws are zero/one, with interval endpoints obtained by interpolated empirical quantiles.
 
 ## Survival migration from 0.1.2
 
@@ -173,8 +176,8 @@ reproduces the historical raw-time implementation. CV partitioning is unchanged.
 For log-time fits, `predict(fit, ...)` returns a log-time point prediction.
 `predict(draws, ...)` returns time-scale intervals and median point summaries.
 The time-scale posterior mean need not exist under the variance mixture; it is
-not estimated by averaging exponentiated draws. With `type = "mean"` the interval
-summarizes conditional mean time, whereas `type = "response"` includes future
+not estimated by averaging exponentiated draws. With `quantity = "conditional_mean"` the interval
+summarizes conditional mean time, whereas `quantity = "new_observation"` includes future
 outcome variability. The censoring process for future observations is not modeled.
 
 ## Inspect numerical computation
@@ -186,48 +189,47 @@ prediction-stage optimization.
 
 ## Cross-validation algorithms
 
-`cv_imr(fit, cv_method = "postfit_original")` is the default. It restores the 0.1.0
-post-fit algorithm using ranked distinct selection models and historical
-scoring. Historical numerical reproduction also requires the original fit.
+`cv_imr(fit, cv_method = "refit")` is the default. It rebuilds preprocessing,
+selection MCMC and prediction inside every training fold, at approximately
+`k * rounds` full fits.
 
-Use `cv_method = "refit"` for the 0.1.4 procedure: preprocessing, selection
-MCMC and prediction weights are recomputed within each training fold. This
-costs approximately `k * rounds` full fits.
+`cv_method = "reweight"` reuses the full-data fit with inverse-density
+importance weights. The separate `model_set` argument chooses the state collection:
 
-Use `cv_method = "importance"` for a paper-derived importance average over
-all retained states, preserving their empirical multiplicities. It conditions
-on full-fit preprocessing and augmented response means, and defaults to ridge
-stabilization (`ridge = 0` requests the unpenalized estimate). Its use of held-out responses in inverse-density weights is
-an importance correction, not by itself evidence of an implementation error.
-The augmented response mean plug-in is explicitly part of the paper's Section
-4.1, whereas the 0.001 ridge penalty differs from its unpenalized coefficient
-estimate. This is not an exact reproduction of the original study.
+```r
+cv_imr(fit, cv_method = "reweight", model_set = "all_draws")
+cv_imr(fit, cv_method = "reweight", model_set = "top_unique", max_models = 100)
+```
 
-`ridge`, `model_set`, `df_method`, `score_method`, `folds`, and `fold_rng`
-can override individual CV decisions. Fit-time `sampler_method`,
-`prior_indexing`, `laplace_max_iter`, and `laplace_tolerance` express the
-corresponding sampling and numerical conventions. Existing defaults are
-preserved. See [the coverage guide](https://h7nian.github.io/IntegMultiReg/method-coverage.html) for paper and
-released-code combinations, known differences, and validation limits.
+`all_draws` preserves every retained draw and its multiplicity. `top_unique`
+uses at most `max_models` ranked distinct selection models. Reweighting conditions
+on full-fit preprocessing and augmented-response means. Held-out responses enter
+its importance correction; their presence alone does not show an algorithm error.
+This approximation does not refit the training folds. Its default ridge penalty
+is 0.001; `ridge = 0` requires every training design to have full column rank.
+`df_method = "fractional"` keeps the numeric predictive degrees of freedom;
+`"integer"` truncates them. Both CV algorithms use the same standard scores.
 
-Use `initial=list(selection=..., interaction=...)` for explicitly different
-chain starts. Matrices are named by platform and subgroup; selection uses
-zero/one entries in the layout returned by `coef(fit)`. Interaction starts are
-IMR-only symmetric matrices with positive off-diagonals and zero diagonals.
-Omitting `initial` preserves the original initialization. Refit CV reuses an
-explicit start. Different starts support convergence assessment, but do not
-recover unknown historical starting values or establish convergence by themselves.
+The [methods guide](https://h7nian.github.io/IntegMultiReg/method-coverage.html)
+describes these approximations and separates them from archived computations.
+Prior scales, `laplace_max_iter` and `laplace_tolerance` are recorded in the fit.
 
-`cv$control` records effective settings and folds for replay.
-Refit CV also records `cv$control$refit_seeds`; replaying its saved folds uses
-the same fitting seeds under the same runtime and RNG kind.
-`cv$validation` identifies the algorithm; `cv$predictions` records actual folds
-and predictions. The post-fit GSL and refit R generators produce different
-partitions, even with the same seed. Data-driven tuning requires outer validation.
+Use `initial=list(selection=..., interaction=...)` for different chain starts.
+Selection matrices follow `inclusion_probabilities(fit)` and contain zero/one
+entries. Interaction matrices are symmetric, with positive off-diagonals and
+zero diagonal. Refit CV reuses specified starts. Different starts and longer
+chains support convergence assessment; they do not establish convergence by
+themselves.
 
-All three methods accept `workers = 2L` (or another positive integer) for
+`cv$control` records effective settings and actual folds. Refit CV also records
+`refit_seeds`. Use `folds = cv$control$folds` to replay partitions and fitting
+seeds within the same runtime and RNG kind. Matching seed numbers across the
+R and GSL generators does not imply identical partitions. Data-driven tuning
+requires an outer validation layer.
+
+Both methods accept `workers = 2L` (or another positive integer) for
 PSOCK process parallelism. The default `workers = 1L` remains serial. Each
-method preserves its own partitions, seeds, prediction order and scoring;
+algorithm preserves its own partitions, seeds, prediction order and scoring;
 changing the worker count does not select a different validation algorithm.
 Process startup may outweigh the benefit for short runs, and each worker needs
 its own fit/workspace memory. Avoid nesting CV workers inside parallel experiment
@@ -245,7 +247,7 @@ causal confounder selection.
 
 ```r
 source(system.file("examples", "compare-covariates.R", package = "IntegMultiReg"))
-comparison <- run_covariate_comparison(sampler_method = "corrected")
+comparison <- run_covariate_comparison()
 comparison$paired_summary
 comparison$nested_summary
 ```
@@ -253,9 +255,8 @@ comparison$nested_summary
 Follow the [worked guide](https://h7nian.github.io/IntegMultiReg/articles/covariate-comparison.html)
 for paired folds, inner selection and outer evaluation. The full example uses
 synthetic data, writes fold and seed records, and is repeated in CI. Use
-`quick = TRUE` only for a smoke run. The script's `"original"` default preserves
-the archived manuscript example; the call above explicitly selects `"corrected"`
-and produces a separate teaching result.
+`quick = TRUE` only for a smoke run. Earlier covariate-example results generated
+with historical updates remain in their versioned replication archive.
 
 ## Development
 

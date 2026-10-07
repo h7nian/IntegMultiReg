@@ -1,5 +1,5 @@
 test_that("the public workers argument preserves all CV modes and validates inputs", {
-  for (mode in c("postfit_original", "refit", "importance")) {
+  for (mode in c("refit", "reweight")) {
     reference <- cv_imr(fit_bin, k = 2, rounds = 1, max_models = 4, cv_method = mode)
     expect_identical(cv_imr(fit_bin, k = 2, rounds = 1, max_models = 4,
                             cv_method = mode, workers = 2L), reference)
@@ -66,7 +66,7 @@ test_that("one-draw zero-burnin fits preserve all parallel CV modes", {
   for (type in names(outcomes)) {
     fit <- imr(list(assay = platform), outcomes[[type]], outcome_type = type,
                draws = 1, burnin = 0, min_subgroup_size = 0, seed = 3)
-    for (mode in c("postfit_original", "refit", "importance")) {
+    for (mode in c("refit", "reweight")) {
       expect_identical(cv_imr(fit, k = 2, rounds = 1, cv_method = mode, workers = 2L),
                        cv_imr(fit, k = 2, rounds = 1, cv_method = mode),
                        info = paste(type, mode))

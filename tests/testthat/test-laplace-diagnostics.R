@@ -1,7 +1,7 @@
 test_that("fitting records Laplace limits by subgroup and stage", {
   id <- 1:40
   fit <- imr(list(a = data.frame(id, a = sin(id), b = cos(id))),
-    data.frame(id, y = sin(id / 4)), outcome_type = "continuous", method = "bms",
+    data.frame(id, y = sin(id / 4)), outcome_type = "continuous", model_variant = "bms",
     draws = 10, burnin = 5, laplace_max_iter = 1L,
     laplace_tolerance = 1e-12, seed = 31)
   d <- fit$control$laplace_diagnostics
@@ -12,5 +12,5 @@ test_that("fitting records Laplace limits by subgroup and stage", {
   expect_true(all(d$iteration_limit <= d$calls))
   expect_true(all(d$nonfinite == 0))
   expect_true(all(d$factorization_failures == 0))
-  expect_true(validate_imr(fit))
+  expect_true(validate_imr_object(fit))
 })

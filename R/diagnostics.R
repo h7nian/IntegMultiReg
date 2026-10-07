@@ -1,17 +1,17 @@
-#' Validate a Fitted IMR Model
+#' Check the Structure of an IMR Object
 #'
-#' Checks the public structure, dimensions and numerical ranges of a fitted IMR
-#' object. This is useful after loading a saved fit or before comparing fits.
+#' Checks the stored structure, dimensions and numerical ranges of an IMR fit
+#' or regression-posterior draw object. This is useful after loading a saved fit or before comparing fits.
 #'
 #' @section Validation scope:
 #' Validation checks the fitted-object schema, data dimensions, subgroup/platform
 #' mappings, parameter ranges and consistency of retained-draw counts. It does
 #' not rerun MCMC or establish posterior convergence. For statistical inspection,
-#' use [plot.imr()] and [posterior_summary()] for the selection stage and
-#' [posterior_draws()] for conditional coefficient sampling and its diagnostics.
+#' use [plot.imr()] and [selection_summary()] for the selection stage and
+#' [sample_regression_posterior()] for conditional coefficient sampling and its diagnostics.
 #' The statistical model and computational conventions are described in [imr()].
 #'
-#' @param object A fitted `"imr"` object.
+#' @param object An `imr` fit or `imr_posterior` regression-draw object.
 #' @return `TRUE`, invisibly. Invalid objects fail with an informative error.
 #' @examples
 #' x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
@@ -19,14 +19,15 @@
 #' fit <- imr(list(assay = x), y, outcome_type = "continuous",
 #'            forced_prior_scale = 1, draws = 500, burnin = 250, seed = 1)
 #'
-#' validate_imr(fit)
+#' validate_imr_object(fit)
 #'
 #' # A damaged object is rejected rather than used.
 #' damaged <- fit
 #' damaged$posterior <- NULL
-#' try(validate_imr(damaged))
+#' try(validate_imr_object(damaged))
 #' @export
-validate_imr <- function(object) {
+validate_imr_object <- function(object) {
+  if (inherits(object, "imr_posterior")) return(.imr_validate_regression_draws(object))
   if (!inherits(object, "imr") || !is.list(object)) {
     .imr_abort("`object` must be an `imr` object returned by `imr()`.")
   }
@@ -36,8 +37,8 @@ validate_imr <- function(object) {
     .imr_abort(if (length(missing)) sprintf("The fitted object is missing `%s`.", missing[1L]) else
       "The fitted object contains unsupported top-level fields.")
   }
-  if (!identical(object$schema_version, 2L)) {
-    .imr_abort("Unsupported fit schema; use `upgrade_imr_fit()` for a 0.1.x object.")
+  if (!identical(object$schema_version, 3L)) {
+    .imr_abort("Unsupported fit schema; use `upgrade_imr_object()` for a saved object from an earlier version.")
   }
   control <- object$control
   model <- object$model
@@ -46,8 +47,8 @@ validate_imr <- function(object) {
   if (!is.list(control) || !is.list(model) || !is.list(prep) || !is.list(posterior)) {
     .imr_abort("Fit schema sections must be lists.")
   }
-  required_control <- c("call", "outcome_type", "response_scale", "method",
-    "min_subgroup_size", "priors", "mcmc", "seed")
+  required_control <- c("call", "outcome_type", "response_scale", "model_variant", "selection_update",
+    "min_subgroup_size", "priors", "mcmc", "seed", "numerical", "standardize")
   required_model <- c("n_platforms", "platform_names", "feature_names",
     "covariate_names", "subgroup_names", "sample_sizes",
     "subgroup_platforms", "platform_subgroups")
@@ -69,16 +70,16 @@ validate_imr <- function(object) {
   }
   if (length(control$outcome_type) != 1L || is.na(control$outcome_type) ||
       !control$outcome_type %in% c("right.censored", "binary", "continuous") ||
-      length(control$method) != 1L || is.na(control$method) ||
-      !control$method %in% c("imr", "bms")) {
+      length(control$model_variant) != 1L || is.na(control$model_variant) ||
+      !control$model_variant %in% c("imr", "bms")) {
     .imr_abort("The fit has an invalid outcome type or method.")
   }
   .imr_fit_numerical_control(control)
   if (!is.null(control$standardize)) .imr_check_flag(control$standardize, "standardize")
-  if (!is.null(control$sampler_method) &&
-      (!is.character(control$sampler_method) || length(control$sampler_method) != 1L ||
-       is.na(control$sampler_method) || !control$sampler_method %in% c("original", "corrected")))
-    .imr_abort("The fit has an invalid `sampler_method`; use `upgrade_imr_fit()` for a saved fit with retired convention names.")
+  if (!is.character(control$selection_update) || length(control$selection_update) != 1L ||
+      is.na(control$selection_update) ||
+      !control$selection_update %in% c("symmetric_mrf_hastings", "unadjusted_flip_swap"))
+    .imr_abort("The fit has an invalid selection-update record.")
   if (!is.list(control$priors) ||
       !all(c("nu", "molecular_scale", "forced_scale", "residual", "interaction") %in%
            names(control$priors)) || !is.list(control$mcmc)) {
@@ -173,7 +174,7 @@ validate_imr <- function(object) {
       .imr_abort(sprintf("Interaction means for platform %d are invalid.", l))
     }
     samples <- posterior$interaction_draws[[l]]
-    if (identical(control$method, "bms")) {
+    if (identical(control$model_variant, "bms")) {
       if (!is.null(samples)) {
         .imr_abort("BMS fits must not contain sampled theta interactions.")
       }
@@ -185,8 +186,8 @@ validate_imr <- function(object) {
     theta <- posterior$interaction_means[[l]]
     if (!isTRUE(all.equal(theta, t(theta), tolerance = 0)) ||
         any(diag(theta) != 0) ||
-        (control$method == "imr" && any(theta[row(theta) != col(theta)] <= 0)) ||
-        (control$method == "bms" && any(theta != 0))) {
+        (control$model_variant == "imr" && any(theta[row(theta) != col(theta)] <= 0)) ||
+        (control$model_variant == "bms" && any(theta != 0))) {
       .imr_abort(sprintf("Interaction means for platform %d are invalid.", l))
     }
   }
@@ -234,7 +235,61 @@ validate_imr <- function(object) {
   invisible(TRUE)
 }
 
-#' Upgrade a Legacy IMR Fit
+.imr_validate_regression_draws <- function(object) {
+  validate_imr_object(object$fit)
+  groups <- object$fit$model$subgroup_names
+  n <- object$control$output_draws
+  if (!.imr_is_integerish(n) || length(n) != 1L || n < 2L ||
+      !is.list(object$beta) || !identical(names(object$beta), groups) ||
+      !is.list(object$variance) || !identical(names(object$variance), groups)) {
+    .imr_abort("The regression posterior has inconsistent groups or output-draw controls; upgrade an older saved object explicitly.")
+  }
+  for (g in seq_along(groups)) {
+    b <- object$beta[[g]]; v <- object$variance[[g]]
+    if (!is.matrix(b) || !is.numeric(b) || nrow(b) != n ||
+        any(!is.finite(b)) || !is.numeric(v) || length(v) != n ||
+        any(!is.finite(v)) || any(v <= 0)) {
+      .imr_abort("The regression posterior has invalid coefficient or variance draws.")
+    }
+    expected <- colnames(.imr_posterior_design(object$fit, g))
+    if (!identical(colnames(b), expected)) {
+      .imr_abort("Regression coefficient columns do not match the fitted design.")
+    }
+    if (!is.null(object$latent)) {
+      z <- object$latent[[g]]
+      if (!is.matrix(z) || !is.numeric(z) ||
+          !identical(dim(z), as.integer(c(n, object$fit$model$sample_sizes[g]))) ||
+          any(!is.finite(z))) .imr_abort("The regression posterior has invalid latent-response draws.")
+    }
+  }
+  if (!.imr_is_integerish(object$selection_draw_index) || length(object$selection_draw_index) != n ||
+      any(object$selection_draw_index > object$fit$control$mcmc$draws | object$selection_draw_index < 1)) {
+    .imr_abort("Regression posterior source-draw indices are invalid.")
+  }
+  required <- c("subgroup", "selection_model", "output_draws", "draws_per_model_chain", "max_split_rhat")
+  if (!is.data.frame(object$diagnostics) ||
+      !all(required %in% names(object$diagnostics))) {
+    .imr_abort("The regression posterior has incomplete conditional-chain diagnostics.")
+  }
+  invisible(TRUE)
+}
+
+# Old objects may be inspected after explicit structural conversion. Reusing
+# their draws for a new inference must not silently change the target model.
+.imr_require_current_updates <- function(object) {
+  numerical <- .imr_fit_numerical_control(object$control)
+  if (!identical(object$control$selection_update, "symmetric_mrf_hastings") ||
+      !identical(numerical$prior_indexing, "coefficient_blocks")) {
+    .imr_abort(paste0(
+      "This saved fit uses historical updates or precision indexing. ",
+      "Use its archived source for numerical replay, or refit with `imr()`. ",
+      "Upgrading metadata does not correct posterior draws."
+    ))
+  }
+  invisible(TRUE)
+}
+
+#' Upgrade Stored IMR Objects
 #'
 #' Convert a structurally complete 0.1.x `imr` object to the current named
 #' schema, or update convention names in an earlier 0.2.0 fit. Corrupted or
@@ -243,17 +298,19 @@ validate_imr <- function(object) {
 #' @section What conversion preserves:
 #' The conversion reorganizes an existing fit into the current named schema and
 #' then validates it. It does not refit the model, regenerate random draws or
-#' replace original sampler behavior with the corrected convention. Stored
-#' `"paper"` and `"legacy"` sampler labels become `"corrected"` and `"original"`;
-#' the `"code2017"` prior-indexing label becomes `"original"`. The recorded
-#' original call is preserved as provenance. Statistical
+#' replace a historical update rule with the current model target. Stored
+#' earlier convention labels become explicit update and precision records.
+#' Regression-draw controls and diagnostic column names are also updated when
+#' needed. The recorded original call is preserved as provenance. Historical
+#' draws remain inspectable; new prediction, refitting and conditional sampling
+#' require a fit produced under the current model conventions. Statistical
 #' interpretation remains tied to the original fit's outcome scale and
 #' computational settings. [imr()] documents those conventions; missing data or
 #' insufficient response-scale information can require refitting before later
 #' operations are available.
 #'
-#' @param object A fitted `imr` object created by an earlier IntegMultiReg version.
-#' @return A validated schema-version-2 `imr` object.
+#' @param object A saved `imr` fit or `imr_posterior` regression-draw object.
+#' @return The validated object, with schema-version-3 fit metadata.
 #' @examples
 #' x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
 #' y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
@@ -262,23 +319,63 @@ validate_imr <- function(object) {
 #'
 #' # A current fit already uses the named schema, so it is returned unchanged
 #' # after validation.
-#' identical(upgrade_imr_fit(fit), fit)
+#' identical(upgrade_imr_object(fit), fit)
 #' @export
-upgrade_imr_fit <- function(object) {
+upgrade_imr_object <- function(object) {
+  if (inherits(object, "imr_posterior")) {
+    object$fit <- upgrade_imr_object(object$fit)
+    if (!is.null(object$model_draw) && is.null(object$selection_draw_index)) {
+      object$selection_draw_index <- object$model_draw
+      object$model_draw <- NULL
+    }
+    rename <- function(x, old, new) {
+      if (old %in% names(x) && !new %in% names(x)) names(x)[names(x) == old] <- new
+      x
+    }
+    object$control <- rename(object$control, "draws", "output_draws")
+    object$control <- rename(object$control, "conditional_draws", "min_draws_per_model_chain")
+    object$diagnostics <- rename(object$diagnostics, "model", "selection_model")
+    object$diagnostics <- rename(object$diagnostics, "returned_draws", "output_draws")
+    object$diagnostics <- rename(object$diagnostics, "conditional_draws", "draws_per_model_chain")
+    validate_imr_object(object)
+    return(object)
+  }
   if (!inherits(object, "imr") || !is.list(object)) {
     .imr_abort("`object` must be a legacy `imr` fit.")
   }
+  if (identical(object$schema_version, 3L)) {
+    validate_imr_object(object)
+    return(object)
+  }
   if (identical(object$schema_version, 2L)) {
-    if (identical(object$control$sampler_method, "paper")) {
-      object$control$sampler_method <- "corrected"
-    } else if (identical(object$control$sampler_method, "legacy")) {
-      object$control$sampler_method <- "original"
+    if ("model_variant" %in% names(object$control)) {
+      .imr_abort("Saved fit has conflicting model-variant fields; it cannot be upgraded.")
     }
-    if (is.list(object$control$numerical) &&
-        identical(object$control$numerical$prior_indexing, "code2017")) {
-      object$control$numerical$prior_indexing <- "original"
+    names(object$control)[names(object$control) == "method"] <- "model_variant"
+    sampler <- object$control$sampler_method %||% "legacy"
+    if (!is.character(sampler) || length(sampler) != 1L || is.na(sampler) ||
+        !sampler %in% c("legacy", "paper", "original", "corrected")) {
+      .imr_abort("Saved fit has an unknown sampler convention; it cannot be upgraded.")
     }
-    validate_imr(object)
+    if ("sampler_method" %in% names(object$control)) {
+      names(object$control)[names(object$control) == "sampler_method"] <- "selection_update"
+    }
+    object$control$selection_update <- if (sampler %in% c("paper", "corrected"))
+      "symmetric_mrf_hastings" else "unadjusted_flip_swap"
+    if (is.null(object$control$standardize)) object$control$standardize <- TRUE
+    if (is.null(object$control$numerical)) {
+      object$control$numerical <- .imr_numerical_control()
+    } else {
+      indexing <- object$control$numerical$prior_indexing
+      if (!is.character(indexing) || length(indexing) != 1L || is.na(indexing) ||
+          !indexing %in% c("standard", "code2017", "original")) {
+        .imr_abort("Saved fit has an unknown precision convention; it cannot be upgraded.")
+      }
+      object$control$numerical$prior_indexing <- if (indexing == "standard")
+        "coefficient_blocks" else "historical_shifted_boundary"
+    }
+    object$schema_version <- 3L
+    validate_imr_object(object)
     return(object)
   }
   required <- c("gam_mean", "theta_mean", "estimate_latent_y", "log_posterior",
@@ -301,17 +398,18 @@ upgrade_imr_fit <- function(object) {
   }
   h <- object$list_hyperpara
   fit <- list(
-    schema_version = 2L,
+    schema_version = 3L,
     control = list(
       call = object$call, outcome_type = object$type_outcome,
       response_scale = object$response_scale,
-      method = tolower(object$method), min_subgroup_size = object$ssize,
+      model_variant = tolower(object$method), selection_update = "unadjusted_flip_swap", min_subgroup_size = object$ssize,
       priors = list(nu = object$nu, molecular_scale = h[[2L]],
         forced_scale = h[[1L]], residual = c(shape = h[[3L]], rate = h[[4L]]),
         interaction = c(shape = h[[5L]], rate = h[[6L]])),
       mcmc = list(draws = unname(object$sample_mcmc[["total"]]),
                   burnin = unname(object$sample_mcmc[["burnin"]])),
-      seed = as.integer(h[[7L]])
+      seed = as.integer(h[[7L]]), numerical = .imr_numerical_control(),
+      standardize = TRUE
     ),
     model = list(
       n_platforms = object$n_platform, platform_names = object$platform_names,
@@ -339,7 +437,7 @@ upgrade_imr_fit <- function(object) {
     )
   )
   class(fit) <- "imr"
-  validate_imr(fit)
+  validate_imr_object(fit)
   fit
 }
 
@@ -347,8 +445,8 @@ upgrade_imr_fit <- function(object) {
 # One credible-interval row per parameter. The identifying columns differ
 # between the selection indicators and the theta interactions; the location,
 # scale and quantile summary does not.
-.imr_draw_interval <- function(draws, probs, ...) {
-  qs <- stats::quantile(draws, probs = probs, names = FALSE, type = 8)
+.imr_draw_interval <- function(draws, probs, quantile_type = 8L, ...) {
+  qs <- stats::quantile(draws, probs = probs, names = FALSE, type = quantile_type)
   data.frame(..., mean = mean(draws), sd = stats::sd(draws),
              lower = qs[1L], median = qs[2L], upper = qs[3L],
              row.names = NULL, stringsAsFactors = FALSE)
@@ -382,12 +480,12 @@ upgrade_imr_fit <- function(object) {
 #' This function summarizes the original fitted selection and interaction
 #' draws without additional sampling. Its `sd` is posterior spread, not a
 #' Monte Carlo standard error. For regression coefficient intervals, first
-#' create an object with [posterior_draws()] and use its `confint()` method.
+#' create an object with [sample_regression_posterior()] and use its `confint()` method.
 #'
 #' @param object A fitted `"imr"` object.
 #' @param level Credible interval level between zero and one (default `0.95`).
 #' @param ... Unused; present for future methods.
-#' @return An object of class `"posterior_summary.imr"` containing `selection`
+#' @return An object of class `"selection_summary.imr"` containing `selection`
 #'   and `theta` tables.
 #' @examples
 #' x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
@@ -397,17 +495,18 @@ upgrade_imr_fit <- function(object) {
 #'
 #' # Posterior mean, standard deviation and interval for every indicator,
 #' # alongside the MRF interactions that link the availability subgroups.
-#' summaries <- posterior_summary(fit)
+#' summaries <- selection_summary(fit)
 #' head(summaries$selection$assay)
 #' @export
-posterior_summary <- function(object, ...) {
-  UseMethod("posterior_summary")
+selection_summary <- function(object, ...) {
+  UseMethod("selection_summary")
 }
 
-#' @rdname posterior_summary
+#' @rdname selection_summary
 #' @export
-posterior_summary.imr <- function(object, level = 0.95, ...) {
-  validate_imr(object)
+selection_summary.imr <- function(object, level = 0.95, ...) {
+  .imr_reject_dots(...)
+  validate_imr_object(object)
   .imr_check_interval_level(level)
   probs <- c((1 - level) / 2, 0.5, 1 - (1 - level) / 2)
 
@@ -453,14 +552,17 @@ posterior_summary.imr <- function(object, level = 0.95, ...) {
   })
   names(theta) <- object$model$platform_names
 
-  out <- list(level = level, selection = selection, theta = theta)
-  class(out) <- "posterior_summary.imr"
+  out <- list(level = level, selection = selection, theta = theta,
+              selection_update = object$control$selection_update)
+  class(out) <- "selection_summary.imr"
   out
 }
 
 #' @export
-print.posterior_summary.imr <- function(x, ...) {
-  cat(sprintf("IMR posterior summary (%.1f%% credible intervals)\n", 100 * x$level))
+print.selection_summary.imr <- function(x, ...) {
+  cat(sprintf("Selection and interaction summary (%.1f%% intervals)\n", 100 * x$level))
+  if (!identical(x$selection_update, "symmetric_mrf_hastings"))
+    cat("Stored historical draws; metadata conversion has not changed their target.\n")
   for (nm in names(x$selection)) {
     cat(sprintf(
       "  %s: %d selection indicators; %d theta interaction(s)\n",
@@ -473,33 +575,39 @@ print.posterior_summary.imr <- function(x, ...) {
 
 #' Credible Intervals for Selection and Interaction Parameters
 #'
-#' Standard `confint()` interface to [posterior_summary()].
+#' Standard `confint()` interface to [selection_summary()].
 #'
 #' @section Which parameters are summarized:
 #' For an `imr` fit, this method extracts the selection-indicator and/or MRF
-#' interaction tables computed by [posterior_summary()]. That page defines
+#' interaction tables computed by [selection_summary()]. That page defines
 #' the posterior mean, standard deviation and equal-tail quantiles. Calling
 #' `confint(fit)` does not sample regression coefficients. Their intervals
-#' are obtained by `confint(posterior_draws(fit))`; see
+#' are obtained by `confint(sample_regression_posterior(fit))`; see
 #' [imr_posterior_methods] for the different parameter set.
 #'
 #' @param object A fitted `"imr"` object.
-#' @param parm Either `"all"`, `"selection"` or `"theta"`.
+#' @param parm Required parameter set: `"all"`, `"selection"` or `"theta"`.
+#'   Naming the set explicitly distinguishes these intervals from regression
+#'   coefficient intervals, available after [sample_regression_posterior()].
 #' @param level Credible interval level.
-#' @param ... Additional arguments passed to [posterior_summary()].
+#' @param ... Additional arguments passed to [selection_summary()].
 #' @return A list of per-platform credible-interval tables, or a list with both
 #'   selection and theta results when `parm = "all"`.
 #' @export
-confint.imr <- function(object, parm = c("all", "selection", "theta"),
+confint.imr <- function(object, parm,
                         level = 0.95, ...) {
-  parm <- match.arg(parm)
-  out <- posterior_summary(object, level = level, ...)
+  if (missing(parm)) .imr_abort(paste0(
+    "Specify `parm = \"selection\"`, `\"theta\"` or `\"all\"`. ",
+    "For regression coefficient intervals, first use `sample_regression_posterior()`."
+  ))
+  parm <- match.arg(parm, c("all", "selection", "theta"))
+  out <- selection_summary(object, level = level, ...)
   if (parm == "all") return(list(selection = out$selection, theta = out$theta))
   out[[parm]]
 }
 
 
-#' Compare Fitted IMR Models
+#' Compare Descriptive Summaries of IMR Fits
 #'
 #' Creates a compact descriptive comparison of compatible IMR fits. The table
 #' deliberately does not treat raw log-posterior values as likelihood criteria;
@@ -511,15 +619,13 @@ confint.imr <- function(object, parm = c("all", "selection", "theta"),
 #' \deqn{N_{\mathrm{selected}}(t)=\sum_l |\mathcal A_l(t)|,}{Selected-feature count = sum over platforms of the number of features passing the common threshold.}
 #' using the strict maximum-subgroup mPIP threshold set defined in
 #' [summary.imr()]. Counts are by platform-feature pair. Other columns describe
-#' the fitted method, dimensions and retained sampling budget.
+#' the model variant, response scale, dimensions and retained sampling budget.
 #'
 #' The returned table is descriptive: it computes no Bayes factor, information
 #' criterion or predictive ranking. Comparability checks require the same
-#' outcome type, platforms, feature names and availability subgroups. They do
-#' not check `response_scale`, identical subject samples or CV folds. In
-#' particular, log-time and identity-scale survival fits pass these structural
-#' checks. Confirm that survival fits use the same working response scale
-#' before interpreting their differences. For predictive model
+#' outcome type and response scale, platforms, feature names and availability
+#' subgroups. They do not check identical subject samples or CV folds. Fits on
+#' log-time and identity scales cannot be combined in this table. For predictive model
 #' comparison, evaluate prespecified candidates on matched subjects and folds
 #' with [cv_imr()]. Choosing a specification from the data requires an outer
 #' validation layer when estimating the performance of that choice.
@@ -537,9 +643,9 @@ confint.imr <- function(object, parm = c("all", "selection", "theta"),
 #'               draws = 500, burnin = 250, seed = 1)
 #'
 #' # One row per fit: structure, and how many features clear the threshold.
-#' compare_imr(default = fit, sparser_prior = sparse)
+#' compare_fit_summaries(default = fit, sparser_prior = sparse)
 #' @export
-compare_imr <- function(..., threshold = 0.5) {
+compare_fit_summaries <- function(..., threshold = 0.5) {
   fits <- list(...)
   if (length(fits) == 1L && is.list(fits[[1L]]) &&
       !inherits(fits[[1L]], "imr")) {
@@ -549,17 +655,18 @@ compare_imr <- function(..., threshold = 0.5) {
     .imr_abort("Supply at least two fitted `imr` objects.")
   }
   threshold <- .imr_check_threshold(threshold)
-  invisible(lapply(fits, validate_imr))
+  invisible(lapply(fits, validate_imr_object))
   reference <- fits[[1L]]
   compatible <- vapply(fits[-1L], function(fit) {
     identical(fit$control$outcome_type, reference$control$outcome_type) &&
+      identical(fit$control$response_scale, reference$control$response_scale) &&
       identical(fit$model$platform_names, reference$model$platform_names) &&
       identical(fit$model$feature_names, reference$model$feature_names) &&
       identical(fit$model$subgroup_names, reference$model$subgroup_names)
   }, logical(1L))
   if (any(!compatible)) {
     .imr_abort(paste0(
-      "Fits must have the same outcome type, platforms, features and ",
+      "Fits must have the same outcome type, response scale, platforms, features and ",
       "availability subgroups."
     ))
   }
@@ -575,7 +682,8 @@ compare_imr <- function(..., threshold = 0.5) {
     ))
     data.frame(
       fit = fit_names[i], outcome = fit$control$outcome_type,
-      method = fit$control$method,
+      model_variant = fit$control$model_variant,
+      response_scale = fit$control$response_scale %||% NA_character_,
       platforms = fit$model$n_platforms,
       subgroups = length(fit$model$subgroup_names),
       retained_draws = fit$control$mcmc$draws,

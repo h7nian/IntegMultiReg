@@ -2,37 +2,27 @@
 % Please edit documentation in R/methods.R
 \name{coef.imr}
 \alias{coef.imr}
-\title{Marginal Posterior Inclusion Probabilities of an IMR Fit}
+\title{Regression Coefficients Require Regression Posterior Samples}
 \usage{
 \method{coef}{imr}(object, ...)
 }
 \arguments{
-\item{object}{A fitted object of class \code{"imr"}.}
+\item{object}{A fitted \code{imr} object.}
 
-\item{...}{Unused; present for S3 compatibility.}
+\item{...}{Unused.}
 }
 \value{
-A named list with one matrix per platform.  Rows are the subgroups
-containing that platform (labelled by their availability bitstrings) and
-columns are the platform features.
+No value is returned: the method stops with instructions for sampling
+regression coefficients. \code{coef()} on the resulting \code{imr_posterior} object
+returns posterior mean regression coefficients.
 }
 \description{
-Extracts the posterior mean variable-selection probabilities (the marginal
-posterior inclusion probabilities, mPIP) of a fitted model.
+An \code{imr} fit stores selection draws and integrates regression coefficients
+out of its model scores. It does not store regression coefficient estimates.
+This method reports that limitation instead of returning inclusion
+probabilities as coefficients or starting an additional sampler implicitly.
 }
-\section{Statistical definition}{
-
-For platform \eqn{l}, subgroup \eqn{s} and feature \eqn{j}, the returned
-entry is the retained-chain average of its binary selection indicator:
-\deqn{\widehat\pi_{lsj} = \frac{1}{B}\sum_{b=1}^{B}\gamma_{lsj}^{(b)}.}{mPIP_lsj = sum_b gamma_lsj[b] / B.}
-Here \eqn{B} excludes burn-in. This estimates a marginal inclusion
-probability under the fitted sampler and its approximations. It is not a
-regression coefficient; \code{coef()} on an \code{imr_posterior} object instead
-returns coefficient posterior means (see \link{imr_posterior_methods}). Use \code{\link[=posterior_summary]{posterior_summary()}} for
-selection-indicator and interaction summaries, or \code{\link[=posterior_draws]{posterior_draws()}} for
-coefficient uncertainty.
-}
-
 \seealso{
-\code{\link[=imr]{imr()}}
+\code{\link[=inclusion_probabilities]{inclusion_probabilities()}}, \code{\link[=sample_regression_posterior]{sample_regression_posterior()}},
+\link{imr_posterior_methods}
 }

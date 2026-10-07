@@ -130,7 +130,7 @@ test_that("imr_data can carry prediction platforms and covariates", {
     covariates = simIMR$covariates
   )
   out <- predict(fit_bin, newdata = pred_data)
-  expect_equal(nrow(out[["model:011"]]), 12L)
+  expect_equal(nrow(out[["subgroup:011"]]), 12L)
 })
 
 test_that("prediction imr_data maps named platforms to the fitted model", {
@@ -138,7 +138,7 @@ test_that("prediction imr_data maps named platforms to the fitted model", {
     metabolomic = simIMR$platforms$metabolomic[1:12, ]
   ), covariates = simIMR$covariates)
   out <- predict(fit_bin, newdata = pred_data)
-  expect_equal(nrow(out[["model:100"]]), 12L)
+  expect_equal(nrow(out[["subgroup:100"]]), 12L)
 
   wrong <- imr_data(platforms = list(
     unknown = simIMR$platforms$proteomic[1:12, ]

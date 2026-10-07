@@ -26,19 +26,19 @@ test_that("cv_imr validates cross-validation controls", {
   expect_error(cv_imr(cv_method = "refit", fit_bin, k = max(fit_bin$model$sample_sizes) + 1), "sample size")
   expect_error(cv_imr(cv_method = "refit", fit_bin, rounds = 0), "`rounds`")
   expect_error(cv_imr(cv_method = "refit", fit_bin, max_models = 0), "`max_models`")
-  expect_error(cv_imr(cv_method = "refit", fit_bin, method = "lasso"), "should be one of")
-  expect_error(cv_imr(cv_method = "refit", fit_bin, method = "bms"), "must match the fitted object")
+  expect_error(cv_imr(cv_method = "refit", fit_bin, method = "lasso"), "unused argument")
+  expect_error(cv_imr(cv_method = "refit", fit_bin, model_variant = "bms"), "unused argument")
 })
 
-test_that("cv_imr accepts an explicitly matching fitted method", {
+test_that("CV retains the model variant of its fitted object", {
   fit_bms <- imr(
     simIMR$platforms, simIMR$outcome.binary, covariates = simIMR$covariates,
-    outcome_type = "binary", method = "bms", nu = c(-4, -3, -4),
+    outcome_type = "binary", model_variant = "bms", nu = c(-4, -3, -4),
     draws = 80, burnin = 40, min_subgroup_size = 30, seed = 14
   )
-  cv <- cv_imr(cv_method = "refit", fit_bms, k = 5, rounds = 1, method = "bms")
+  cv <- cv_imr(cv_method = "refit", fit_bms, k = 5, rounds = 1)
   expect_identical(cv, cv_imr(fit_bms, k = 5, rounds = 1, cv_method = "refit"))
-  expect_error(cv_imr(fit_bms, method = "imr"), "must match the fitted object")
+  expect_error(cv_imr(fit_bms, model_variant = "imr"), "unused argument")
   expect_identical(cv$metric, "AUC")
   expect_true(all(vapply(fit_bms$posterior$interaction_draws, is.null, logical(1))))
 })
@@ -56,13 +56,15 @@ test_that("cross-validation results carry a class and print a summary", {
   expect_true(any(grepl("IMR cross-validation", out)))
   expect_true(any(grepl(cv$metric, out, fixed = TRUE)))
   expect_true(any(grepl("1 round of 2-fold", out, fixed = TRUE)))
-  # the post-fit settings line appears only for post-fit validation
-  expect_true(any(grepl("model set", out)))
+  expect_true(any(grepl("refit preprocessing", out)))
+  expect_identical(cv$control$model_variant, "imr")
   capture.output(expect_invisible(print(cv)))
 
   refit <- cv_imr(f, k = 2, rounds = 1, cv_method = "refit")
   expect_s3_class(refit, "imr_cv")
-  expect_false(any(grepl("model set", capture.output(print(refit)))))
+  expect_false(any(grepl("States:", capture.output(print(refit)))))
+  weighted <- cv_imr(f, k = 2, rounds = 1, cv_method = "reweight")
+  expect_true(any(grepl("all retained draws", capture.output(print(weighted)))))
 })
 
 test_that("the printed scores keep significant digits, not decimal places", {

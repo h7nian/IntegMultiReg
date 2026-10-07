@@ -9,10 +9,10 @@ test_that("importance matches a multi-platform R reference for every outcome", {
     for (method in c("imr", "bms")) {
       fit <- imr(simIMR$platforms, outcomes[[outcome_type]],
                  covariates = simIMR$covariates, outcome_type = outcome_type,
-                 method = method, nu = c(-4, -3, -4),
+                 model_variant = method, nu = c(-4, -3, -4),
                  residual_prior = c(shape = 0.37, rate = 0.21),
                  draws = 8, burnin = 4, min_subgroup_size = 30, seed = 47)
-      result <- cv_imr(fit, k = 2, rounds = 1, cv_method = "importance")
+      result <- cv_imr(fit, k = 2, rounds = 1, cv_method = "reweight")
       for (subgroup in seq_along(fit$model$subgroup_names)) {
         name <- fit$model$subgroup_names[subgroup]
         records <- result$predictions[result$predictions$subgroup == name, ]

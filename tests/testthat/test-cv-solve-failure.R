@@ -2,7 +2,7 @@ test_that("zero ridge rejects exact singularity and positive ridge recovers", {
   id <- seq_len(40L)
   fit <- imr(list(assay = data.frame(id = id, a = sin(id), b = cos(id))),
     data.frame(id = id, y = sin(id / 3)), outcome_type = "continuous",
-    method = "bms", draws = 4L, burnin = 2L,
+    model_variant = "bms", draws = 4L, burnin = 2L,
     min_subgroup_size = 0L, seed = 31L)
   # A selected all-zero column gives an exactly zero Gram diagonal in every
   # training fold, independent of rounding or the randomly sampled models.
@@ -10,15 +10,15 @@ test_that("zero ridge rejects exact singularity and positive ridge recovers", {
   both <- fit$posterior$selection_draws[[1L]]
   both[[1L]][] <- 1L
   fit$posterior$selection_draws <- rep(list(both), 4L)
-  expect_true(validate_imr(fit))
+  expect_true(validate_imr_object(fit))
   set.seed(731)
   rng <- .Random.seed
-  for (mode in c("postfit_original", "importance")) {
+  for (mode in "reweight") {
     for (cache_bytes in c(0, 256, 4096, 128 * 1024^2)) {
       settings <- IntegMultiReg:::.imr_cv_settings(mode, ridge = 0)
       expect_error(IntegMultiReg:::.imr_call_cv_postfit_native(
         fit, k = 2L, rounds = 1L, max_models = 4L, verbose = FALSE,
-        importance = mode == "importance", cache_bytes = cache_bytes,
+        use_all_draws = mode == "reweight", cache_bytes = cache_bytes,
         settings = settings), "CV Cholesky solve failed")
       expect_identical(.Random.seed, rng)
     }
@@ -41,7 +41,7 @@ test_that("post-fit solve failures stop cleanly without partial results", {
   id <- seq_len(120L)
   fit <- imr(list(assay = data.frame(id = id, a = sin(id), b = cos(id))),
     data.frame(id = id, y = sin(id / 3)), outcome_type = "continuous",
-    method = "bms", draws = 4L, burnin = 2L,
+    model_variant = "bms", draws = 4L, burnin = 2L,
     min_subgroup_size = 0L, seed = 31L)
   zero <- fit$posterior$selection_draws[[1L]]
   zero[[1L]][] <- 0L
@@ -55,15 +55,15 @@ test_that("post-fit solve failures stop cleanly without partial results", {
     broken$preprocessing$features[[1L]][[1L]][, 1L]
   broken$preprocessing$features[[1L]][[1L]] <-
     broken$preprocessing$features[[1L]][[1L]] * 1e8
-  expect_true(validate_imr(broken))
+  expect_true(validate_imr_object(broken))
   set.seed(731)
   rng <- .Random.seed
   # Force the bounded path as well as the ordinary row path on the same object.
-  for (importance in c(FALSE, TRUE)) {
+  for (use_all_draws in c(FALSE, TRUE)) {
     native_failure <- function(cache_bytes) tryCatch(
       IntegMultiReg:::.imr_call_cv_postfit_native(
         broken, k = 2L, rounds = 2L, max_models = 4L, verbose = FALSE,
-        importance = importance, cache_bytes = cache_bytes), error = identity)
+        use_all_draws = use_all_draws, cache_bytes = cache_bytes), error = identity)
     # Floating-point tools can reject different folds of this near-singular
     # fixture. Require every budget to match this platform's ordinary path.
     reference_failure <- native_failure(128 * 1024^2)
@@ -80,7 +80,7 @@ test_that("post-fit solve failures stop cleanly without partial results", {
   # (including the native sanitizer suite) also exercise three workers.
   limited <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))
   worker_counts <- if (nzchar(limited) && limited != "false") 1:2 else 1:3
-  for (mode in c("postfit_original", "importance")) {
+  for (mode in "reweight") {
     expected <- cv_imr(fit, k = 2L, rounds = 2L, cv_method = mode)
     for (workers in worker_counts) {
       connections <- rownames(showConnections(all = TRUE))

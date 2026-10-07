@@ -7,33 +7,42 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-A version label alone does not identify a development build. The tutorials use
-[source commit `641ca7a`](https://github.com/h7nian/IntegMultiReg/tree/641ca7a5bdb5b4004442732c5359ddeffa0e972e),
-which names the sampler conventions `corrected` and `original` and uses
-`postfit_original` for the original post-fit CV preset. The
-[migration guide](../migration.html) maps values used in earlier snapshots.
+A version label alone does not identify a development build. Install the source
+snapshot recorded with an analysis, and retain the corresponding scripts and
+reference outputs. The [migration guide](https://h7nian.github.io/IntegMultiReg/migration.html) maps interfaces used
+in earlier snapshots to the current behavior-based names.
 
 # Fix the source and environment
 
+The source snapshot used by the current examples is
+[`be38715b95568854e1a89140381ed4274f3102b2`](https://github.com/h7nian/IntegMultiReg/tree/be38715b95568854e1a89140381ed4274f3102b2). Install that immutable revision:
+
 ```{r install-snapshot, eval = FALSE}
-remotes::install_github(
-  "h7nian/IntegMultiReg", ref = "641ca7a5bdb5b4004442732c5359ddeffa0e972e"
-)
+remotes::install_github("h7nian/IntegMultiReg",
+                        ref = "be38715b95568854e1a89140381ed4274f3102b2")
+```
+
+The locally built source archive used for the manuscript replay has SHA-256
+`d86737a6dd51ef7589af941b100969bfaf26e984becd42f1016b0fa3f89400b7`.
+This checksum identifies that exact built tarball, including generated vignettes;
+a separately rebuilt archive or GitHub's automatic source download can have a
+different checksum. Retain the original file when replaying the archived run.
+
+Record the installed `RemoteSha` for a GitHub installation. For a source tarball,
+keep the file and its SHA-256 checksum: `sha256sum IntegMultiReg_0.2.0.tar.gz` on
+Linux, or `shasum -a 256 IntegMultiReg_0.2.0.tar.gz` on macOS. Also record R, GSL
+and compiler versions. Fixed seeds do not guarantee identical floating-point
+arithmetic across compilers and platforms.
+
+```{r record-environment, eval = FALSE}
 packageDescription("IntegMultiReg")$RemoteSha
 sessionInfo()
 ```
 
-For an analysis installed from a source tarball, retain that exact tarball and
-its SHA-256 checksum alongside the generating scripts. On Linux use
-`sha256sum IntegMultiReg_0.2.0.tar.gz`; on macOS use
-`shasum -a 256 IntegMultiReg_0.2.0.tar.gz`. Also record the R, GSL and compiler
-versions. A fixed seed does not guarantee identical floating-point arithmetic
-across compilers and platforms.
-
 # Keep data, transformations and actual partitions
 
 The [getting started guide](IntegMultiReg.html) creates `analysis`, `fit` and
-`cv` using the corrected sampler and training-fold refits. Save the validated
+`cv` using the current symmetric-MRF updates and training-fold refits. Save the validated
 inputs and full objects, not just rounded console output:
 
 ```{r retain-analysis, eval = FALSE}
@@ -59,7 +68,7 @@ stopifnot(identical(replay$predictions, saved$cv$predictions))
 ```
 
 For a saved fit with retired convention names, explicitly call
-`upgrade_imr_fit()` before using it. The upgrade changes labels and validates
+`upgrade_imr_object()` before using it. The upgrade changes labels and validates
 the structure; it preserves the original call and posterior draws. For exact
 historical replay, retain the original source and scripts as well.
 

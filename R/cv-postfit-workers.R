@@ -4,7 +4,7 @@
 .imr_cv_postfit_parallel <- function(object, k, rounds, max_models, verbose,
                                       settings, workers, partitions) {
   plan <- .imr_call_cv_postfit_native(object, k, rounds, max_models, FALSE,
-                                      settings$model_set == "draws", stage = "plan",
+                                      settings$model_set == "all_draws", stage = "plan",
                                       settings = settings, folds = partitions$folds,
                                       row_order = partitions$row_order)
   n_tasks <- k * rounds
@@ -31,7 +31,7 @@
     return(plan)
   }
   result <- .imr_call_cv_postfit_native(object, k, rounds, max_models, verbose,
-                                        settings$model_set == "draws", stage = "score",
+                                        settings$model_set == "all_draws", stage = "score",
                                         predictions = predictions, settings = settings,
                                         folds = partitions$folds, row_order = partitions$row_order)
   if (!identical(result$folds, plan$folds))
@@ -53,7 +53,7 @@
     tasks <- matrix(FALSE, k, rounds)
     tasks[batch] <- TRUE
     result <- .imr_call_cv_postfit_native(object, k, rounds, max_models, verbose,
-                                          settings$model_set == "draws", stage = "predict", tasks = tasks,
+                                          settings$model_set == "all_draws", stage = "predict", tasks = tasks,
                                           settings = settings, folds = partitions$folds,
                                           row_order = partitions$row_order)
     if (!identical(result$folds, folds) || !identical(result$row_order, row_order))

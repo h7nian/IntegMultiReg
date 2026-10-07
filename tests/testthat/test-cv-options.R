@@ -1,25 +1,22 @@
-test_that("CV options are independent and retain mode defaults", {
+test_that("reweighting exposes independent state and density choices", {
   fit <- fit_demo("continuous", total = 12, burn = 6, seed = 53)
-  fields <- c("pooled", "fold_mean", "predictions", "metric")
-  defaults <- cv_imr(fit, k = 3, rounds = 2)
-  explicit <- cv_imr(fit, k = 3, rounds = 2, ridge = .001,
-    model_set = "ranked_unique", df_method = "integer", score_method = "original")
+  defaults <- cv_imr(fit, k = 3, rounds = 2, cv_method = "reweight")
+  explicit <- cv_imr(fit, k = 3, rounds = 2, cv_method = "reweight", ridge = .001,
+                    model_set = "all_draws", df_method = "fractional")
   expect_identical(explicit, defaults)
-  importance <- cv_imr(fit, k = 3, rounds = 2, cv_method = "importance")
-  mixed <- cv_imr(fit, k = 3, rounds = 2, cv_method = "postfit_original",
-    model_set = "draws", df_method = "fractional", score_method = "standard")
-  expect_identical(mixed[fields], importance[fields])
-  historical_score <- cv_imr(fit, k = 3, rounds = 2, cv_method = "importance",
-    score_method = "original")
-  expect_identical(historical_score$predictions, importance$predictions)
-  expect_null(importance$control$max_models)
-  expect_identical(importance$control$model_set, "draws")
+  expect_null(defaults$control$max_models)
+  expect_identical(defaults$control$model_set, "all_draws")
+  ranked <- cv_imr(fit, k = 3, rounds = 2, cv_method = "reweight",
+                  model_set = "top_unique", max_models = 2, df_method = "integer")
+  expect_identical(ranked$control$max_models, 2L)
+  expect_identical(ranked$control$df_method, "integer")
+  expect_identical(ranked$control$score_rule, "mean_squared_error")
 })
 
 test_that("saved post-fit membership and row order replay every prediction", {
   for (type in c("continuous", "binary", "right.censored")) {
     fit <- fit_demo(type, total = 12, burn = 6, seed = 53)
-    for (mode in c("postfit_original", "importance")) {
+    for (mode in "reweight") {
       original <- cv_imr(fit, k = 3, rounds = 2, cv_method = mode)
       folds <- original$control$folds
       folds <- folds[rev(seq_len(nrow(folds))), ]
@@ -38,7 +35,7 @@ test_that("ridge and predictive degrees of freedom match independent linear alge
   id <- seq_len(40)
   x <- data.frame(id, a = sin(id), b = cos(id / 3))
   y <- data.frame(id, y = sin(id / 2) + cos(id / 5))
-  fit <- imr(list(assay = x), y, outcome_type = "continuous", method = "bms",
+  fit <- imr(list(assay = x), y, outcome_type = "continuous", model_variant = "bms",
     draws = 6, burnin = 2, seed = 17, min_subgroup_size = 0,
     residual_prior = c(shape = .37, rate = .21))
   empty <- fit$posterior$selection_draws[[1]]
@@ -48,7 +45,7 @@ test_that("ridge and predictive degrees of freedom match independent linear alge
   both[[1]][] <- 1L
   fit$posterior$selection_draws <- list(empty, first, first, both, empty, first)
   for (ridge in c(0, .001, .3)) for (df_method in c("fractional", "integer")) {
-    result <- cv_imr(fit, k = 2, rounds = 1, cv_method = "importance",
+    result <- cv_imr(fit, k = 2, rounds = 1, cv_method = "reweight",
                      ridge = ridge, df_method = df_method)
     records <- result$predictions
     observed <- fit$posterior$latent_response_mean[[1]]
@@ -81,12 +78,12 @@ test_that("ridge and predictive degrees of freedom match independent linear alge
 
 test_that("explicit options work through parallel and bounded-cache paths", {
   fit <- fit_demo("binary", total = 12, burn = 6, seed = 53)
-  settings <- IntegMultiReg:::.imr_cv_settings("postfit_original", ridge = .2,
-    model_set = "draws", df_method = "integer", score_method = "standard")
-  result <- cv_imr(fit, k = 2, rounds = 1, ridge = .2, model_set = "draws",
-                   df_method = "integer", score_method = "standard")
-  replay <- cv_imr(fit, ridge = .2, model_set = "draws", df_method = "integer",
-    score_method = "standard", folds = result$control$folds, workers = 2)
+  settings <- IntegMultiReg:::.imr_cv_settings("reweight", ridge = .2,
+    model_set = "all_draws", df_method = "integer")
+  result <- cv_imr(fit, k = 2, rounds = 1, cv_method = "reweight", ridge = .2, model_set = "all_draws",
+                   df_method = "integer")
+  replay <- cv_imr(fit, cv_method = "reweight", ridge = .2, model_set = "all_draws", df_method = "integer",
+    folds = result$control$folds, workers = 2)
   expect_identical(replay[1:5], result[1:5])
   for (bytes in c(0, 256, 128 * 1024^2)) {
     native <- IntegMultiReg:::.imr_call_cv_postfit_native(fit, 2L, 1L, 12L,
@@ -94,7 +91,7 @@ test_that("explicit options work through parallel and bounded-cache paths", {
     expect_identical(as.vector(native$predictions), result$predictions$prediction)
   }
   refit <- cv_imr(fit, cv_method = "refit", folds = result$control$folds,
-    max_models = 4, score_method = "original")
+    max_models = 4)
   expect_identical(refit$predictions[c("id", "round", "fold")],
     cv_imr(fit, cv_method = "refit", folds = result$control$folds,
       max_models = 4)$predictions[c("id", "round", "fold")])
@@ -102,16 +99,16 @@ test_that("explicit options work through parallel and bounded-cache paths", {
 
 test_that("invalid CV options and fold tables fail before computation", {
   for (value in list(-1, Inf, NA_real_, numeric(), c(0, 1), "0"))
-    expect_error(cv_imr(fit_bin, ridge = value), "ridge")
-  for (name in c("model_set", "df_method", "score_method")) {
-    args <- list(object = fit_bin)
+    expect_error(cv_imr(fit_bin, cv_method = "reweight", ridge = value), "ridge")
+  for (name in c("model_set", "df_method")) {
+    args <- list(object = fit_bin, cv_method = "reweight")
     args[[name]] <- "unknown"
     expect_error(do.call(cv_imr, args), name)
   }
   for (name in c("ridge", "model_set", "df_method")) {
     args <- list(object = fit_bin, cv_method = "refit")
-    args[[name]] <- if (name == "ridge") 0 else "draws"
-    expect_error(do.call(cv_imr, args), "post-fit CV")
+    args[[name]] <- if (name == "ridge") 0 else "all_draws"
+    expect_error(do.call(cv_imr, args), "only to reweighting")
   }
   folds <- cv_imr(fit_bin, k = 2, rounds = 1)$control$folds
   expect_error(cv_imr(fit_bin, folds = folds, k = 3), "agree")

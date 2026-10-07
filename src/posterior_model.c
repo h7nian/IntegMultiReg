@@ -212,7 +212,7 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
     /* Theta is fixed across ranked states. Its prior contributes a common
      * constant, so retain historical arithmetic here for both samplers. */
     post[l] = log_posterior(loglik, gamma_sample[n_draws - 1 - l1], nu, theta, mrf, alpha0, betaTh, n_subgroups,
-                      n_platforms, G, n_platform_models_c, IMR_SAMPLER_LEGACY);
+                      n_platforms, G, n_platform_models_c, IMR_UPDATE_UNADJUSTED);
   } // end number of models l=0
 
   sort_descending_index(n_unique_models, post, high_model_index);

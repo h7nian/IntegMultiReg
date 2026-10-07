@@ -46,8 +46,8 @@ test_that("subjects are routed to the correct availability subgroup", {
   new_p <- simIMR$platforms$proteomic[1:30, ]
   pr <- predict(fit_bin, newdata = list(new_x, new_p),
                 covariates = simIMR$covariates)
-  expect_equal(nrow(pr[["model:011"]]), 30L)
-  expect_equal(nrow(pr[["model:100"]]), 0L)
+  expect_equal(nrow(pr[["subgroup:011"]]), 30L)
+  expect_equal(nrow(pr[["subgroup:100"]]), 0L)
 })
 
 test_that("continuous predictions correlate with the truth", {
@@ -56,7 +56,7 @@ test_that("continuous predictions correlate with the truth", {
   new_p <- simIMR$platforms$proteomic[simIMR$platforms$proteomic$id <= 120, ]
   pr <- predict(fit, newdata = list(new_x, new_p),
                 covariates = simIMR$covariates)
-  d <- merge(pr[["model:011"]], simIMR$outcome.continuous, by = "id")
+  d <- merge(pr[["subgroup:011"]], simIMR$outcome.continuous, by = "id")
   expect_gt(stats::cor(d$prediction, d$y), 0.5)
 })
 
@@ -133,7 +133,7 @@ test_that("predict returns empty model outputs when no subjects can be routed", 
     res <- predict(fit_bin, newdata = list(new_x), covariates = simIMR$covariates),
     "No subjects"
   )
-  expect_named(res, paste0("model:", fit_bin$model$subgroup_names))
+  expect_named(res, paste0("subgroup:", fit_bin$model$subgroup_names))
   expect_true(all(vapply(res, nrow, integer(1)) == 0L))
 })
 
@@ -157,8 +157,8 @@ test_that("predict preserves character ids while keeping predictions numeric", {
     covariates = covariates
   )
 
-  expect_type(pr[["model:011"]]$id, "character")
-  expect_type(pr[["model:011"]]$prediction, "double")
+  expect_type(pr[["subgroup:011"]]$id, "character")
+  expect_type(pr[["subgroup:011"]]$prediction, "double")
 })
 
 test_that("predict works for fits without clinical covariates", {
@@ -173,8 +173,8 @@ test_that("predict works for fits without clinical covariates", {
     newdata = list(simIMR$platforms$genomic[1:12, ],
                    simIMR$platforms$proteomic[1:12, ])
   )
-  expect_type(pr[["model:011"]]$prediction, "double")
-  expect_equal(nrow(pr[["model:011"]]), 12L)
+  expect_type(pr[["subgroup:011"]]$prediction, "double")
+  expect_equal(nrow(pr[["subgroup:011"]]), 12L)
 
   expect_warning(
     predict(
@@ -197,11 +197,11 @@ test_that("predict uses the fitted non-local prior scale during model averaging"
     list(platform = platform), outcome, outcome_type = "continuous",
     nu = 2, molecular_prior_scale = 0.02, draws = 120, burnin = 60, min_subgroup_size = 5, seed = 21
   )
-  base <- predict(fit, newdata = list(platform[1:12, ]))[["model:1"]]$prediction
+  base <- predict(fit, newdata = list(platform[1:12, ]))[["subgroup:1"]]$prediction
 
   changed <- fit
   changed$control$priors$molecular_scale <- 20
-  shifted <- predict(changed, newdata = list(platform[1:12, ]))[["model:1"]]$prediction
+  shifted <- predict(changed, newdata = list(platform[1:12, ]))[["subgroup:1"]]$prediction
 
   expect_false(isTRUE(all.equal(base, shifted, tolerance = 1e-12)))
 })

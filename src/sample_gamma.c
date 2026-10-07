@@ -29,7 +29,7 @@ void sample_gamma_indicators(
     int *n_platform_models, int **platform_models, double **accept_gamma,
     gsl_rng *rng, const char *likelihood_type, double slab_scale,
     double covariate_scale, double intercept_scale, double first_platform_scale,
-    int n_covariates, double alpha, double psi, int sampler_method, const imr_numerical_control *numerical)
+    int n_covariates, double alpha, double psi, int selection_update, const imr_numerical_control *numerical)
 {
     (void)n_platforms;
 
@@ -180,7 +180,7 @@ void sample_gamma_indicators(
                 changed_feature_index[d] = g;
                 double tx = imr_gamma_log_odds(n_platform_models[platform_index],
                     platform_model_index, g, theta[platform_index][platform_model_index],
-                    gamma[platform_index], nu[platform_index], sampler_method);
+                    gamma[platform_index], nu[platform_index], selection_update);
                 log_prior_ratio += dif * tx;
                 d++;
             }
@@ -188,7 +188,7 @@ void sample_gamma_indicators(
 
         /* The paper target requires the reverse/forward proposal probability.
          * Preserve the published-code transition when explicitly using legacy. */
-        double log_proposal_ratio = sampler_method == IMR_SAMPLER_PAPER ?
+        double log_proposal_ratio = selection_update == IMR_UPDATE_MRF_HASTINGS ?
             imr_gamma_log_hastings(n_features[platform_index], old_n_selected_features,
                                   new_n_selected_features, 0.5) : 0;
         double u_val = gsl_ran_flat(rng, 0, 1);

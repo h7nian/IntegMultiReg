@@ -3,7 +3,7 @@ test_that("the fitted object has the expected class and structure", {
   expect_named(fit_bin, c(
     "schema_version", "control", "model", "preprocessing", "posterior"
   ))
-  expect_identical(fit_bin$schema_version, 2L)
+  expect_identical(fit_bin$schema_version, 3L)
   expect_equal(fit_bin$model$n_platforms, 3L)
   expect_equal(length(fit_bin$posterior$inclusion_probabilities), 3L)
 })
@@ -29,7 +29,7 @@ test_that("subgroup structure matches the simulated availability patterns", {
 })
 
 test_that("inclusion probabilities are valid and dimensions are right", {
-  mp <- coef(fit_bin)
+  mp <- inclusion_probabilities(fit_bin)
   expect_equal(names(mp), c("genomic", "proteomic", "metabolomic"))
   expect_equal(ncol(mp$genomic), 20L)
   expect_equal(ncol(mp$proteomic), 10L)
@@ -67,7 +67,7 @@ test_that("seed = NULL follows the ambient RNG (set.seed reproducibility)", {
 test_that("the model recovers planted signal above null features", {
   # deterministic given the seed; use a moderate run
   fit <- fit_demo("continuous", total = 800, burn = 300, seed = 5)
-  mp <- coef(fit)
+  mp <- inclusion_probabilities(fit)
   # genomic truth = G01,G02,G03; compare best true vs best null feature
   true_max <- max(apply(mp$genomic[, 1:3, drop = FALSE], 2, max))
   null_max <- max(apply(mp$genomic[, 8:20, drop = FALSE], 2, max))
@@ -79,7 +79,7 @@ test_that("the model recovers planted signal above null features", {
 test_that("BMS fits keep theta fixed at zero and return empty theta samples", {
   fit <- imr(
     simIMR$platforms, simIMR$outcome.binary, covariates = simIMR$covariates,
-    outcome_type = "binary", method = "bms", nu = c(-4, -3, -4),
+    outcome_type = "binary", model_variant = "bms", nu = c(-4, -3, -4),
     draws = 80, burnin = 40, min_subgroup_size = 30, seed = 16
   )
 

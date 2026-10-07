@@ -20,7 +20,7 @@
 #'
 #' @section Statistical interpretation:
 #' The selection heatmap displays \eqn{\widehat\pi_{lsj}}{mPIP_lsj}, the retained-chain
-#' indicator average defined in [coef.imr()]. The theta heatmap displays
+#' indicator average defined in [inclusion_probabilities()]. The theta heatmap displays
 #' \deqn{\frac{1}{B}\sum_{b=1}^{B}\theta_{l,sh}^{(b)}.}{mean_b theta_l,sh[b].}
 #'
 #' An MRF interaction measures
@@ -32,7 +32,7 @@
 #' fitted sampler's density convention. These plots can reveal mixing or drift,
 #' but a flat trace alone does not establish convergence. They display the
 #' original selection stage; the separate conditional coefficient-stage
-#' diagnostic is defined in [posterior_draws()].
+#' diagnostic is defined in [sample_regression_posterior()].
 #'
 #' @param x A fitted object of class `"imr"`.
 #' @param type Character; one of `"selection"` (default), `"theta"`,
@@ -378,7 +378,7 @@ plot_top_features <- function(object, top = 10, base_cex = 1,
   }
   ## Collect every feature's best mPIP (and the subgroup achieving it).
   rows <- list()
-  validate_imr(object)
+  validate_imr_object(object)
   for (l in seq_len(object$model$n_platforms)) {
     m <- .imr_mpip(object, l)
     if (nrow(m) == 0 || ncol(m) == 0) next
@@ -519,7 +519,7 @@ plot_subgroup_sizes <- function(object, base_cex = 1, cex_axis = NULL,
   )
   dots <- sz$dots
   .imr_check_flag(show_values, "show_values")
-  validate_imr(object)
+  validate_imr_object(object)
   sizes <- as.integer(object$model$sample_sizes)
   names(sizes) <- object$model$subgroup_names
   if (is.null(ylim)) {

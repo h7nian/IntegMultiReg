@@ -2,10 +2,10 @@
 #'
 #' @description
 #' `cv_imr()` evaluates predictive accuracy of a model fitted with [imr()] using
-#' repeated \eqn{K}-fold splits. `cv_method` selects historical post-fit
-#' validation (`"postfit_original"`, the default), training-fold refitting (`"refit"`),
-#' or a paper-derived importance average over retained draws (`"importance"`).
-#' Fit a separate object with `method = "bms"` for a no-borrowing comparison.
+#' repeated \eqn{K}-fold splits. `cv_method = "refit"` (the default) fits each
+#' training fold independently. `"reweight"` reuses a full-data fit and applies
+#' inverse-density importance weights to its selection states.
+#' Fit a separate object with `model_variant = "bms"` for a no-borrowing comparison.
 #' The accuracy measure depends on the outcome type: the concordance index
 #' (C-index) for right-censored outcomes, the area under the ROC curve (AUC) for
 #' binary outcomes, and the mean squared error (MSE) for continuous outcomes.
@@ -19,8 +19,8 @@
 #' preprocessing, selection sampling and ranked-model prediction weights;
 #' the point-prediction rule is described in [predict.imr()].
 #'
-#' The two post-fit modes instead reuse full-fit selection states, transformed
-#' predictors and augmented-response means. Within each state, their fold
+#' Reweighting reuses full-fit selection states, transformed predictors and
+#' augmented-response means. Within each state, its fold
 #' coefficient estimate is
 #' \deqn{\widehat b_m=(Z_{-f,m}^{T}Z_{-f,m}+\lambda I)^{-1}
 #'                      Z_{-f,m}^{T}\bar y_{-f}^{*},}{beta_m = inverse(transpose(Z_train,m) * Z_train,m + ridge * I) * transpose(Z_train,m) * mean_working_y_train.}
@@ -31,18 +31,16 @@
 #' \deqn{w_m=\frac{\exp(a_m-a_{\max})}
 #'                  {\sum_h\exp(a_h-a_{\max})}.}{w_m = exp(a_m - a_max) / sum_h exp(a_h - a_max).}
 #' Predictions average the fold model predictions with these weights, applying
-#' the probit link before averaging for binary outcomes. `model_set = "draws"`
-#' retains every state occurrence; `model_set = "ranked_unique"` uses at most
-#' `max_models` ranked distinct states. These are the respective defaults for
-#' `"importance"` and `"postfit_original"` modes, but `model_set` can override either default.
-#' Importance mode's default empirical reweighting is motivated by equations
-#' 6--7 of Chekouo et al. (2017). Both post-fit calculations are distinct from
-#' training-fold refitting.
+#' the probit link before averaging for binary outcomes. `model_set = "all_draws"`
+#' retains every state occurrence; `model_set = "top_unique"` uses at most
+#' `max_models` ranked distinct states. The empirical `"all_draws"` calculation
+#' is motivated by equations 6--7 of Chekouo et al. (2017). Both collections
+#' reuse the full-data fit and therefore differ from training-fold refitting.
 #'
 #' @section Accuracy measures:
 #' For a scored set of \eqn{n} subjects, continuous-outcome error is
 #' \deqn{\mathrm{MSE}=\frac{1}{n}\sum_i(y_i-\widehat y_i)^2.}{MSE = sum_i (y_i - prediction_i)^2 / n.}
-#' With `score_method = "standard"`, binary AUC is
+#' Binary AUC gives half credit to tied predictions:
 #' \deqn{\mathrm{AUC}=\frac{1}{n_1n_0}
 #'       \sum_{i:y_i=1}\sum_{j:y_j=0}
 #'       \{I(\widehat p_i>\widehat p_j)+\frac{1}{2} I(\widehat p_i=\widehat p_j)\}.}{AUC = sum over positive-negative pairs of [I(p_positive > p_negative) + 0.5 * I(equal predictions)], divided by n_positive * n_negative.}
@@ -57,8 +55,7 @@
 #'       \{I(\widehat y_i<\widehat y_j)+\frac{1}{2} I(\widehat y_i=\widehat y_j)\}.}{C-index = sum over ordered comparable pairs of [I(prediction_i < prediction_j) + 0.5 * I(equal predictions)], divided by the number of comparable pairs.}
 #' Larger predicted working survival times mean longer survival. AUC is
 #' undefined for a single class, and C is undefined without comparable pairs;
-#' these return `NA`. The historical AUC/concordance tie rules selected by
-#' `score_method = "original"` are not represented by the two standard formulas.
+#' these return `NA`. The same scoring rules apply to both validation methods.
 #'
 #' @section Pooled scores and fold means:
 #' Each output row is one validation round. If \eqn{A} is the chosen scoring
@@ -76,36 +73,30 @@
 #'   `k` subjects.
 #' @param rounds Integer number of independent cross-validation rounds to
 #'   average over (default `2`).  Must be positive.
-#' @param method Optional check of the fitted model type, `"imr"` or `"bms"`.
-#'   Leave `NULL` to use the method stored in `object`. Supplying a value only
-#'   checks that it matches the fit; it cannot change an IMR fit into a BMS fit
-#'   or choose the validation algorithm. Fit a separate BMS model with
-#'   `imr(..., method = "bms")`, and use `cv_method` to choose validation.
 #' @param max_models Integer maximum number of selection models used for
-#'   Bayesian model averaging with `model_set = "ranked_unique"` and for refit
-#'   prediction (default `100`). Must be positive. `model_set = "draws"` uses
+#'   Bayesian model averaging with `model_set = "top_unique"` and for refit
+#'   prediction (default `100`). Must be positive. `model_set = "all_draws"` uses
 #'   every retained draw, including repeated states, and ignores this limit.
-#' @param cv_method Validation preset: `"postfit_original"` (default), `"refit"`,
-#'   or `"importance"`. This is independent of the fitted IMR/BMS `method`.
+#' @param cv_method `"refit"` (default) rebuilds preprocessing and MCMC inside
+#'   every training fold. `"reweight"` reuses the fitted selection draws with
+#'   importance weights. To compare IMR and BMS, first fit separate
+#'   `model_variant = "imr"` and `"bms"` objects.
 #' @param verbose Logical; if `TRUE`, print fold progress and sampler
 #'   diagnostics.  Defaults to `FALSE`.
 #' @param workers Positive integer number of PSOCK worker processes (default
-#'   `1L`, serial). Applies to all three CV methods. At most `k * rounds`
+#'   `1L`, serial). Applies to both CV methods. At most `k * rounds`
 #'   processes are used; no automatic CPU detection is performed.
 #' @param ridge Nonnegative post-fit diagonal penalty, including the intercept.
 #'   `NULL` uses `0.001`; `0` requests the unpenalized estimate in the paper and
 #'   original code. A singular solve stops with fold and subgroup context; no
 #'   penalty or generalized inverse is silently substituted. Not used by refit.
-#' @param model_set Post-fit states to average: `"ranked_unique"` (`"postfit_original"`
-#'   default) ranks distinct states and keeps at most `max_models`; `"draws"`
-#'   (importance default) retains empirical multiplicities and draw order.
-#' @param df_method Predictive-density degrees of freedom: `"integer"`
-#'   (`"postfit_original"` default) truncates `2 * shape + n_train` to an integer;
-#'   `"fractional"` (importance default) keeps its numeric value. Post-fit only.
-#' @param score_method Metric convention, independent of predictions:
-#'   `"original"` (`"postfit_original"` default) retains historical AUC/concordance rules;
-#'   `"standard"` (refit and importance default) uses current tie and comparable
-#'   pair rules. MSE has the same definition in both. `NULL` selects the default.
+#' @param model_set For reweighting, `"all_draws"` (default) retains every
+#'   selection draw, including repeated states. `"top_unique"` ranks distinct
+#'   selection models by their observed frequency and retains at most
+#'   `max_models`. These are state collections, not different CV algorithms.
+#' @param df_method For reweighting, `"fractional"` (default) keeps the numeric
+#'   predictive degrees of freedom `2 * shape + n_train`; `"integer"` truncates
+#'   them to an integer. Not used by refit.
 #' @param folds Optional data frame with `id`, `round`, and `fold`. Every
 #'   modelled subject must occur once per round; labels are consecutive integers
 #'   starting at one. Every subgroup-fold needs training and test subjects.
@@ -146,37 +137,26 @@
 #' prediction weights are recomputed on training rows. Runtime is roughly
 #' `k * rounds` full fits. This is the algorithm used by version 0.1.4.
 #'
-#' Legacy mode restores the post-fit CV algorithm from version 0.1.0: ranked
-#' distinct full-fit selection models, full-fit standardization and augmented
-#' response means, fold-specific ridge coefficient estimates (penalty 0.001),
-#' inverse predictive-density weights and historical AUC/concordance scoring.
-#' It uses the supplied fit; reproducing a 0.1.0 run also requires its original
-#' fit and preprocessing. Undefined metrics return NA instead of NaN.
+#' Reweighting with `model_set = "all_draws"` follows the empirical importance
+#' average in equations 6--7 of the paper. It conditions on full-fit predictor
+#' transformations and posterior-mean augmented responses. The response plug-in
+#' is part of Section 4.1; the default ridge penalty of 0.001 differs from the
+#' paper's unpenalized coefficient estimate. Set `ridge = 0` explicitly for that
+#' estimate, provided every training design has full column rank.
 #'
-#' Importance mode follows the empirical importance average in equations 6--7
-#' of Chekouo et al. (2017), retaining MCMC state multiplicities rather than
-#' selecting equally weighted distinct models. It uses fractional predictive
-#' degrees of freedom and the current scoring definitions. The full-fit
-#' augmented response mean plug-in is explicitly part of Section 4.1 of the
-#' paper. Its default 0.001 ridge stabilization differs from the unpenalized
-#' coefficient estimate; set `ridge = 0` to select that estimate.
-#' Binary and continuous outcomes extend the survival procedure.
+#' Held-out outcomes enter inverse-density weights as an importance correction;
+#' their use alone does not identify an error. This approximation has a different
+#' scope from training-fold refitting. Choosing `model_set = "top_unique"`
+#' replaces the empirical draw collection with selected distinct states.
+#' Historical bundles of settings are documented with their archived sources;
+#' a mode label alone never establishes historical numerical reproduction.
 #'
-#' Mode names provide defaults. `ridge`, `model_set`, `df_method`, and
-#' `score_method` can be chosen independently. Explicit post-fit-only arguments
-#' are rejected in refit mode. The original released CV code combines `ridge = 0`,
-#' `model_set = "ranked_unique"`, `df_method = "integer"`,
-#' `score_method = "original"` and `max_models = 100`. Paper equations 6--7 use
-#' `ridge = 0`, `model_set = "draws"` and `df_method = "fractional"`.
-#' Neither combination alone reproduces a historical experiment: sampler,
-#' numerical controls, data, initial states and random stream also matter.
-#'
-#' Both post-fit modes use the historical GSL fold generator, stratified by
-#' event status for survival. Refit uses R's generator and additionally
-#' stratifies binary outcomes by class. Identical seeds therefore do not give
-#' identical partitions across refit and post-fit modes. Within each mode,
-#' results are reproducible and the caller's R RNG state is preserved.
-#' Hyperparameters are fixed; data-driven tuning needs an outer validation layer.
+#' Supplied folds replay actual partitions. Refit uses R's generator and
+#' stratifies binary outcomes by class. Generated reweighting folds use GSL and
+#' stratify survival outcomes by event status. Matching seed numbers across the
+#' two generators does not imply matching partitions. Within each method the
+#' caller's R RNG state is preserved. Hyperparameters are fixed; tuning needs an
+#' outer validation layer.
 #'
 #' Parallel execution preserves each method's partitions, seeds and output
 #' ordering. Each process holds its own fit and training-fold workspace, with
@@ -209,20 +189,20 @@
 #'   nu = c(-4, -3, -4), draws = 200, burnin = 100,
 #'   min_subgroup_size = 5, seed = 1
 #' )
-#' cv <- cv_imr(fit, k = 5, rounds = 2, cv_method = "postfit_original")
+#' cv <- cv_imr(fit, k = 5, rounds = 2, cv_method = "reweight")
 #' cv$pooled
 #' }
 #' @export
 cv_imr <- function(object, k = 5, rounds = 2,
-                   method = NULL,
                    max_models = 100, verbose = FALSE,
-                   cv_method = c("postfit_original", "refit", "importance"),
+                   cv_method = c("refit", "reweight"),
                    workers = 1L, ridge = NULL, model_set = NULL,
-                   df_method = NULL, score_method = NULL, folds = NULL,
+                   df_method = NULL, folds = NULL,
                    fold_rng = NULL) {
-  validate_imr(object)
+  validate_imr_object(object)
+  .imr_require_current_updates(object)
   cv_method <- match.arg(cv_method)
-  settings <- .imr_cv_settings(cv_method, ridge, model_set, df_method, score_method, fold_rng)
+  settings <- .imr_cv_settings(cv_method, ridge, model_set, df_method, fold_rng)
   if (!is.null(folds) && !is.null(fold_rng))
     .imr_abort("`fold_rng` cannot be supplied with explicit `folds`.")
   if (cv_method != "refit") .imr_cv_rng_state(object, settings$fold_rng)
@@ -244,14 +224,6 @@ cv_imr <- function(object, k = 5, rounds = 2,
   control <- object$control
   model <- object$model
   preprocessing <- object$preprocessing
-  if (!is.null(method)) {
-    method <- match.arg(method, c("imr", "bms"))
-    if (!identical(method, control$method)) {
-      .imr_abort(
-        "`method` must match the fitted object; fit a separate `imr(..., method = \"bms\")` object for BMS validation."
-      )
-    }
-  }
   if (any(model$sample_sizes < k)) {
     .imr_abort(
       "`k` must not exceed the sample size of any modelled availability subgroup."
@@ -278,9 +250,9 @@ cv_imr <- function(object, k = 5, rounds = 2,
 #'
 #' @section Interpreting the scores:
 #' The display reads the stored `pooled` and `fold_mean` matrices and reports
-#' the validation algorithm and fold design. For post-fit modes it also shows
-#' the resolved penalty, model set, degrees-of-freedom and scoring choices.
-#' `max_models` is not printed; refit scoring overrides are not printed either.
+#' the validation algorithm, fold design and scoring rule. For reweighting it
+#' also shows the resolved penalty, state collection and degrees of freedom.
+#' The model cap is shown when refitting or using top-ranked distinct states.
 #' Consult `x$control` for all recorded settings. [cv_imr()] defines the
 #' scoring formulas and explains why a pooled score can differ from the mean
 #' fold score. `digits` changes significant digits in the display only;
@@ -303,24 +275,46 @@ cv_imr <- function(object, k = 5, rounds = 2,
 #' }
 print.imr_cv <- function(x, digits = 3, ...) {
   control <- x$control
-  cat("IMR cross-validation:", x$metric, "by availability subgroup\n")
-  cat(sprintf("  %s validation, %d %s of %d-fold, %s folds\n",
-              x$validation, control$rounds,
-              if (control$rounds == 1L) "round" else "rounds", control$k,
-              switch(control$fold_source, supplied = "supplied",
-                     gsl = "GSL-generated", r = "R-generated",
-                     control$fold_source)))
-  if (!identical(x$validation, "refit")) {
-    cat(sprintf("  ridge %s, model set \"%s\", df \"%s\", score \"%s\"\n",
-                format(control$ridge), control$model_set, control$df_method,
-                control$score_method))
+  label <- if (is.null(control$model_variant)) "IntegMultiReg" else toupper(control$model_variant)
+  cat(label, "cross-validation:", x$metric, "by availability subgroup\n")
+  if (identical(x$validation, "refit")) {
+    cat("  Algorithm: refit preprocessing and MCMC within each training fold.\n")
+  } else if (identical(x$validation, "reweight")) {
+    cat("  Algorithm: reuse the full-data fit and reweight selection states.\n")
+  } else {
+    cat("  Archived validation configuration:", x$validation, "\n")
+  }
+  cat(sprintf("  %d %s of %d-fold validation; %s folds.\n",
+              control$rounds, if (control$rounds == 1L) "round" else "rounds", control$k,
+              switch(control$fold_source, supplied = "supplied", gsl = "GSL-generated",
+                     r = "R-generated", control$fold_source)))
+  if (identical(x$validation, "reweight")) {
+    if (identical(control$model_set, "all_draws")) {
+      cat("  States: all retained draws, preserving repeated-state counts.\n")
+    } else {
+      cat(sprintf("  States: at most %d top-ranked distinct selection models.\n", control$max_models))
+    }
+    cat(sprintf("  Ridge penalty: %s; predictive df: %s.\n", format(control$ridge),
+                if (identical(control$df_method, "fractional")) "unrounded" else "integer-truncated"))
+  } else if (identical(x$validation, "refit")) {
+    cat(sprintf("  Prediction cap per fit: %d distinct selection models.\n", control$max_models))
+  }
+  if (!is.null(control$score_rule)) {
+    description <- switch(control$score_rule,
+      auc_half_ties = "pairwise AUC, with half credit for tied predictions",
+      concordance_comparable_pairs = "C-index over comparable pairs, with half credit for tied predictions",
+      mean_squared_error = "mean squared prediction error", control$score_rule)
+    cat("  Scoring:", description, "\n")
+  } else if (identical(control$score_method, "standard")) {
+    cat("  Scoring: standard pairwise AUC/C-index or mean squared error.\n")
+  } else {
+    cat("  Scoring: archived rules; consult the recorded source and controls.\n")
   }
   cat("\nPooled out-of-fold score:\n")
   print(signif(x$pooled, digits))
   cat("\nMean fold score:\n")
   print(signif(x$fold_mean, digits))
-  cat(sprintf("\n%d subject predictions in `predictions`;",
-              nrow(x$predictions)))
+  cat(sprintf("\n%d subject predictions in `predictions`;", nrow(x$predictions)))
   cat(" effective settings and a reusable fold table in `control`.\n")
   invisible(x)
 }
@@ -428,8 +422,7 @@ print.imr_cv <- function(x, digits = 3, ...) {
     if (nrow(train_platforms[[p]]) == 0L && length(model$platform_subgroups[[p]]) == 0L)
       train_platforms[[p]] <- dat$platforms[[p]]
   }
-  refit_control <- list(outcome_type = control$outcome_type, method = control$method,
-    sampler_method = control$sampler_method %||% "original",
+  refit_control <- list(outcome_type = control$outcome_type, model_variant = control$model_variant,
     standardize = control$standardize %||% TRUE, initial = control$initial,
     min_subgroup_size = 0L, nu = priors$nu,
     forced_prior_scale = priors$forced_scale,
@@ -439,7 +432,7 @@ print.imr_cv <- function(x, digits = 3, ...) {
     draws = control$mcmc$draws, burnin = control$mcmc$burnin,
     survival_scale = if (control$outcome_type == "right.censored") control$response_scale else "identity",
     seed = seed, verbose = verbose)
-  refit_control <- c(refit_control, .imr_fit_numerical_control(control))
+  refit_control <- c(refit_control, .imr_fit_numerical_control(control)[c("laplace_max_iter", "laplace_tolerance")])
   if (!is.null(preprocessing$terms)) {
     id <- preprocessing$id
     train_platforms <- lapply(train_platforms, function(x) {names(x)[1L] <- id; x})

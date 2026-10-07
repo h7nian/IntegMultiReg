@@ -17,7 +17,7 @@ imr(x, ...)
   outcome,
   covariates = NULL,
   outcome_type = c("right.censored", "binary", "continuous"),
-  method = c("imr", "bms"),
+  model_variant = c("imr", "bms"),
   min_subgroup_size = 30L,
   nu = rep(-3, length(x)),
   molecular_prior_scale = 0.087,
@@ -29,8 +29,6 @@ imr(x, ...)
   seed = NULL,
   verbose = FALSE,
   survival_scale = c("log", "identity"),
-  sampler_method = c("original", "corrected"),
-  prior_indexing = c("standard", "original"),
   laplace_max_iter = c(initial = 25L, selection = 40L, latent = 25L, prediction = 40L),
   laplace_tolerance = 0.001,
   standardize = TRUE,
@@ -77,7 +75,7 @@ to \code{NULL} (no covariates).}
 \item{outcome_type}{Character string specifying the outcome type, one of
 \code{"right.censored"} (default), \code{"binary"} or \code{"continuous"}.}
 
-\item{method}{Character string specifying the method, \code{"imr"} (default) for
+\item{model_variant}{Model variant: \code{"imr"} (default) for
 the integrative model that shares information across subgroups via the MRF
 prior, or \code{"bms"} for the non-integrative Bayesian multi-step variant that
 fits each subgroup independently (MRF interaction parameters set to zero).}
@@ -123,18 +121,6 @@ diagnostics to the console.  Defaults to \code{FALSE} (quiet).}
 the original AFT model. \code{"identity"} reproduces historical package analyses
 and does not fit a log-time AFT model. Ignored for other outcome types.}
 
-\item{sampler_method}{Selection-update convention. \code{"original"} (default)
-retains the existing package and 2017 code updates. \code{"corrected"} uses the
-symmetric MRF conditional log-odds, the boundary flip/swap Hastings
-correction, and the negative Gamma rate term in the log-posterior trace.
-This is a computational convention, separate from IMR/BMS \code{method}.}
-
-\item{prior_indexing}{\code{"standard"} (default) assigns prior precision by
-coefficient block. \code{"original"} reproduces the strict index boundaries
-in the released C code; in particular, the last forced covariate receives
-molecular precision when covariates are present. Use for historical
-comparisons, not as a different scientific prior specification.}
-
 \item{laplace_max_iter}{Maximum coefficient-mode iterations, either a
 positive integer for all stages or a named vector in the order \code{initial},
 \code{selection}, \code{latent}, \code{prediction}. Defaults are 25, 40, 25, 40. The
@@ -171,8 +157,8 @@ interface.}
 \item{id}{Name of the identifier column in \code{data} and \code{platforms}.}
 }
 \value{
-An object of class \code{"imr"} with \code{schema_version = 2L} and four
-named sections: \code{control} (outcome, method, priors, MCMC and seed), \code{model}
+An object of class \code{"imr"} with \code{schema_version = 3L} and four
+named sections: \code{control} (outcome, model variant, update rule, priors, MCMC and seed), \code{model}
 (platform, feature and subgroup metadata), \code{preprocessing} (validated
 inputs, standardized matrices and formula metadata), and \code{posterior}
 (inclusion probabilities, interaction draws, latent-response summaries
@@ -192,7 +178,7 @@ regression coefficients.  The sampler is implemented in C for efficiency.
 
 The arguments are grouped by the orthogonal aspect of the analysis that each
 one controls: the \emph{data} (\code{x}, \code{outcome}, \code{covariates}), the
-\emph{likelihood} (\code{outcome_type}), the \emph{model} (\code{method}), subgroup \emph{filtering}
+\emph{likelihood} (\code{outcome_type}), the \emph{model variant} (\code{model_variant}), subgroup \emph{filtering}
 (\code{min_subgroup_size}), the \emph{priors} (\code{nu}, \code{molecular_prior_scale}, \code{forced_prior_scale}, \code{residual_prior}, \code{interaction_prior}),
 the \emph{computation} (\code{draws}, \code{burnin}, \code{seed}) and the \emph{output} (\code{verbose}).
 }
@@ -212,15 +198,9 @@ remain strictly below that bound. Unsupported censored times are rejected
 before native workspaces are allocated. Large raw times should use the
 default log scale; the bound does not constrain observed event times.
 
-For the symmetric interaction matrix in the paper, the conditional
-log-odds contribution is \code{nu + 2 * sum(theta * neighboring_indicators)}.
-The released code used a factor of one and omitted the proposal ratio when
-a flip moved between an empty/full model and an interior model. These
-conventions remain available as \code{sampler_method = "original"}; they are not
-mathematically equivalent to the stated MRF posterior. The \code{"corrected"} option
-corrects these updates without changing defaults. Exact historical table
-reproduction additionally depends on data, preprocessing, initialization,
-random-number consumption and validation settings.
+See the \href{https://h7nian.github.io/IntegMultiReg/method-coverage.html}{methods and reproducibility guide}
+for the distinction between the stated model and archived implementations.
+Upgrading a saved object's structure does not change its sampling target.
 }
 \section{Outcome models and priors}{
 
@@ -245,7 +225,7 @@ Every active coefficient has the first-order pMOM density
 \deqn{p(b_j\mid v_s) = \frac{b_j^2}{\tau_j v_s}
       \phi(b_j;0,\tau_j v_s),}{p(b_j | v_s) = b_j^2 / (tau_j v_s) * NormalDensity(b_j; 0, tau_j v_s).}
 where \eqn{\phi(\cdot;\mu,v)}{phi(. ; mu, v)} is a normal density with variance \eqn{v}.
-With \code{prior_indexing = "standard"}, the scale \eqn{\tau_j}{tau_j} is
+The scale \eqn{\tau_j}{tau_j} is
 \code{forced_prior_scale} for the intercept and clinical
 effects and \code{molecular_prior_scale} for molecular effects. Inactive molecular
 coefficients are exactly zero.
@@ -254,10 +234,6 @@ The residual prior is
 \deqn{v_s\sim\mathrm{IG}(a,b),}{v_s ~ inverse-Gamma(a, b),}
 parameterized by a density proportional to
 \deqn{v_s^{-a-1}\exp(-b/v_s).}{v_s^(-a - 1) * exp(-b/v_s).}
-
-The \code{original} indexing option preserves a historical precision boundary:
-when clinical covariates are present, the last one receives molecular
-precision. It does not implement the standard scale assignment above.
 
 For feature \eqn{j} on platform \eqn{l}, collect its subgroup selection
 indicators in \eqn{\gamma_{lj}}{gamma_lj}. The published MRF prior is
@@ -269,10 +245,11 @@ off-diagonal interactions with the Gamma shape/rate \code{interaction_prior}.
 For BMS, these interactions are zero. The prior conditional log-odds is
 \deqn{\nu_l+2\sum_{h\ne s}\theta_{l,sh}\gamma_{l,hj}.}{nu_l + 2 * sum over h != s of theta_l,sh * gamma_l,hj.}
 
-This factor of two is used by \code{sampler_method = "corrected"}. The legacy update uses a factor of
-one and omits the Hastings correction at empty/full model boundaries.
-These equations describe the stated model, not a claim that the legacy
-transition targets the same posterior.
+Fitting uses this symmetric-MRF factor of two and the Hastings correction
+for flip proposals at empty/full model boundaries. The logged Gamma prior
+uses its negative rate term. Historical updates with different targets are
+not selectable through the fitting interface; retain their source snapshot
+for numerical replay.
 }
 
 \section{Computation and interpretation}{
@@ -280,9 +257,9 @@ transition targets the same posterior.
 The selection sampler integrates regression coefficients and variances using
 the package's Laplace-based marginal-likelihood calculation. For augmented
 outcomes, this calculation uses the current latent responses. The retained
-selection and interaction draws are summarized by \code{\link[=coef.imr]{coef.imr()}} and
-\code{\link[=posterior_summary]{posterior_summary()}}. Coefficient samples require the separate conditional
-sampling step \code{\link[=posterior_draws]{posterior_draws()}}.
+selection and interaction draws are summarized by \code{\link[=inclusion_probabilities]{inclusion_probabilities()}} and
+\code{\link[=selection_summary]{selection_summary()}}. Coefficient samples require the separate conditional
+sampling step \code{\link[=sample_regression_posterior]{sample_regression_posterior()}}.
 
 With \code{standardize = TRUE}, each predictor uses its training subgroup's
 center and scale:
