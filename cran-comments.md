@@ -31,8 +31,16 @@ eighteen CV results and six conditional regression-posterior sample sets are
 bit-identical to the preceding convention-name snapshot. These comparisons do
 not claim equivalence between the old defaults and the new defaults.
 
-The final review record identifies the source commit, source-package checksum,
-source checks, executed tutorials and manuscript replay artifacts. Older CI
+The source snapshot is `be38715b95568854e1a89140381ed4274f3102b2`; the built archive has
+SHA-256 `d86737a6dd51ef7589af941b100969bfaf26e984becd42f1016b0fa3f89400b7`.
+A complete R-devel source check passes examples (including donttest), 2764
+in-check expectations, rebuilt vignettes and the PDF manual. It has zero errors
+or warnings and one NOTE for unavailable local HTML Tidy/V8 tooling. CRAN
+incoming feasibility is disabled for this local check. GitHub source checks
+supply those tools; the website also validates equations through KaTeX.
+The separate installed-suite run and the in-check run are reported with their
+actual expectation counts. The final review record also binds manuscript
+replay artifacts to this archive. Older CI
 results are not relabelled as checks of this revision.
 
 ## Earlier computational baseline

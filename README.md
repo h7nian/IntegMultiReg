@@ -34,11 +34,12 @@ installed first:
 * Fedora/RHEL: `sudo dnf install gsl-devel`
 * Windows: GSL is provided by Rtools.
 
-To install the development interface from GitHub:
+To install the source snapshot used by these examples:
 
 ```r
 install.packages("remotes")
-remotes::install_github("h7nian/IntegMultiReg")
+remotes::install_github("h7nian/IntegMultiReg",
+                        ref = "be38715b95568854e1a89140381ed4274f3102b2")
 ```
 
 For numerical replication, use the source snapshot and checksum recorded with
@@ -88,7 +89,7 @@ fit <- imr(
 
 fit                       # short summary
 summary(fit)              # selected biomarkers per platform
-inclusion_probabilities(fit)                 # per-platform mPIP matrices
+inclusion_probabilities(fit) # per-platform mPIP matrices
 plot(fit, type = "selection")
 plot_top_features(fit)    # ranked biomarker bar chart
 new_data <- imr_data(simIMR$platforms[1:2], covariates = simIMR$covariates)
