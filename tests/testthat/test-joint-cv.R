@@ -31,6 +31,8 @@ test_that("held-out values cannot alter their training-fold fit or seed", {
   base <- cv_imr(fit, k = 2, rounds = 1, seed = 71)
   heldout <- base$control$folds$id[base$control$folds$fold == 1]
   altered <- fit
+  altered$posterior$coefficients <- lapply(altered$posterior$coefficients, function(x) x + 100)
+  altered$posterior$variance <- altered$posterior$variance * 10
   idx <- match(heldout, altered$preprocessing$input_data$outcome$id)
   altered$preprocessing$input_data$outcome$y[idx] <- 1 - altered$preprocessing$input_data$outcome$y[idx]
   check <- cv_imr(altered, folds = base$control$folds, seed = 71)
@@ -94,4 +96,23 @@ test_that("parallel chains and folds preserve numerical results and close socket
   expect_identical(sockets(), before)
   expect_error(IntegMultiReg:::.imr_map_tasks(list(1, 2), function(task) stop("worker failure"), 2), "worker failure")
   expect_identical(sockets(), before)
+})
+
+
+test_that("importance efficiency warnings are retained with their fold diagnostics", {
+  x <- data.frame(id = 1:12, marker = sin(1:12))
+  fit <- imr(list(assay = x), data.frame(id = x$id, y = cos(x$id)),
+    outcome_type = "continuous", model_variant = "bms", min_subgroup_size = 0,
+    mcmc = imr_mcmc(draws = 20, burnin = 4, chains = 2, seed = 3, diagnostics = FALSE)
+  )
+  messages <- character()
+  cv <- withCallingHandlers(cv_imr(fit, k = 2, rounds = 1, cv_method = "reweight"),
+    warning = function(w) {
+      messages <<- c(messages, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_true(all(grepl("Some PSIS fold estimates are unreliable", messages, fixed = TRUE)))
+  noted <- nzchar(cv$diagnostics$warning)
+  expect_true(all(!cv$diagnostics$reliable[noted]))
 })

@@ -25,7 +25,12 @@ run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = F
   clinical <- clinical[match(cohort$id, clinical$id), ]
   stopifnot(!anyNA(clinical), identical(clinical$id, cohort$id))
   # Both candidate formulas and all settings are fixed before evaluation.
-  formulas <- list(age_only = y ~ age, age_sex_stage = y ~ age + sex + stage)
+  # These formulas use only table columns. A base environment keeps saved
+  # specifications from retaining this runner's unrelated fits and output state.
+  formulas <- list(
+    age_only = stats::as.formula("y ~ age", env = baseenv()),
+    age_sex_stage = stats::as.formula("y ~ age + sex + stage", env = baseenv())
+  )
   draws <- if (quick) c(80, 40) else c(2000, 1000)
   chains <- if (quick) 2L else 4L
   k <- if (quick) 2L else 3L

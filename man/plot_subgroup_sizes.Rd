@@ -75,12 +75,17 @@ They are not posterior estimates or imputed numbers of complete cases.
 
 \examples{
 \donttest{
+# Short plotting example; increase the chain budget for inference.
 data("simIMR", package = "IntegMultiReg")
 fit <- imr(
   x = simIMR$platforms, outcome = simIMR$outcome,
   covariates = simIMR$covariates, outcome_type = "binary",
-  nu = c(-4, -3, -4), draws = 200, burnin = 100,
-  min_subgroup_size = 5, seed = 1
+  priors = imr_priors(nu = c(-4, -3, -4)),
+  mcmc = imr_mcmc(
+    draws = 200, burnin = 100, chains = 2,
+    seed = 1, diagnostics = FALSE
+  ),
+  min_subgroup_size = 5
 )
 plot_subgroup_sizes(fit)
 }

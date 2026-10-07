@@ -1,7 +1,9 @@
 #' Priors for an Integrative Regression Model
 #'
 #' Groups the statistical prior choices independently of MCMC settings.
-#' @param nu Prior inclusion log-odds: one number or one per platform.
+#' @param nu Baseline inclusion log-odds, conditional on the other subgroup
+#'   indicators being zero: one number or one per platform. MRF interactions
+#'   also affect marginal selection probabilities.
 #' @param molecular_scale pMOM scale for molecular regression coefficients.
 #' @param forced_scale pMOM scale for the intercept and clinical coefficients.
 #' @param residual Inverse-gamma shape and rate, or `NULL` for family defaults.

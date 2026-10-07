@@ -26,6 +26,11 @@ for (type in names(outcomes)) for (variant in c("imr", "bms")) {
   for (method in c("refit", "reweight")) {
     reference <- allow_psis_warning(cv_imr(fit, k = 2, rounds = 1, cv_method = method))
     result <- allow_psis_warning(cv_imr(fit, k = 2, rounds = 1, cv_method = method, workers = 2))
+    if (!identical(result, reference)) {
+      saveRDS(list(serial = reference, parallel = result), file.path(
+        Sys.getenv("IMR_VALGRIND_LOG_DIR"), paste(type, variant, method, "difference.rds", sep = "-")))
+      print(all.equal(result, reference, tolerance = 0))
+    }
     stopifnot(identical(result, reference), identical(.Random.seed, rng),
       identical(showConnections(all = TRUE), connections))
     cat(type, variant, method, "EXACT\n")

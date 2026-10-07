@@ -42,8 +42,11 @@ jobs:
           export IMR_VALGRIND_LOG_DIR="${RUNNER_TEMP}/valgrind-workers"
           mkdir -p "${IMR_VALGRIND_LOG_DIR}"
           chmod +x .github/scripts/valgrind-worker-rscript.sh
+          # Exact serial/parallel comparisons require the parent and children
+          # to use the same instrumented execution environment.
           R_LIBS="${RUNNER_TEMP}/worker-library" \
-            Rscript .github/scripts/verify-valgrind-workers.R 2>&1 | \
+            R -d "valgrind --tool=memcheck --leak-check=full --show-leak-kinds=definite --errors-for-leak-kinds=definite --track-origins=yes --error-exitcode=1" \
+              --vanilla -f .github/scripts/verify-valgrind-workers.R 2>&1 | \
             tee "${IMR_VALGRIND_LOG_DIR}/verification.log"
       - name: Upload worker logs
         if: always()

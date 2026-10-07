@@ -13,7 +13,9 @@ imr_priors(
 )
 }
 \arguments{
-\item{nu}{Prior inclusion log-odds: one number or one per platform.}
+\item{nu}{Baseline inclusion log-odds, conditional on the other subgroup
+indicators being zero: one number or one per platform. MRF interactions
+also affect marginal selection probabilities.}
 
 \item{molecular_scale}{pMOM scale for molecular regression coefficients.}
 

@@ -37,6 +37,9 @@
 #' @param verbose Print fold and sampling progress.
 #' @return An `imr_cv` object with pooled/mean-fold score matrices, subject-level
 #'   predictions, actual folds and seeds, and per-fold MCMC or PSIS diagnostics.
+#'   Refit diagnostics give the maximum defined R-hat and minimum defined
+#'   bulk/tail ESS, with counts of unassessed constant parameters. Reweighting
+#'   records warnings from relative-efficiency estimation and PSIS by fold.
 #' @examples
 #' # Short interface example; increase the budget and inspect diagnostics for inference.
 #' x <- data.frame(id = 1:20, marker = sin(1:20))
@@ -112,7 +115,24 @@ cv_imr <- function(object, k = 5L, rounds = 2L,
       )
     })
   }), recursive = FALSE)
-  answers <- .imr_map_tasks(tasks, .imr_cv_task, workers, object = object, method = cv_method, verbose = verbose)
+  # Training-fold fits need raw inputs and settings, not full-data posterior
+  # arrays or transformed design copies. Avoid serializing those to every worker.
+  task_object <- if (cv_method == "refit") {
+    list(
+      control = object$control,
+      model = object$model,
+      preprocessing = list(
+        input_data = object$preprocessing$input_data,
+        terms = object$preprocessing$terms,
+        formula = object$preprocessing$formula,
+        formula_data = object$preprocessing$formula_data,
+        id = object$preprocessing$id
+      )
+    )
+  } else {
+    object
+  }
+  answers <- .imr_map_tasks(tasks, .imr_cv_task, workers, object = task_object, method = cv_method, verbose = verbose)
   labels <- c(object$model$subgroup_names, "all")
   pooled <- fold_mean <- matrix(NA_real_, rounds, length(labels), dimnames = list(NULL, labels))
   records <- vector("list", rounds)
@@ -213,6 +233,8 @@ cv_imr <- function(object, k = 5L, rounds = 2L,
         diagnostics <- data.frame(
           rhat_max = if (is.null(d) || !any(!is.na(d$rhat))) NA_real_ else max(d$rhat, na.rm = TRUE),
           rhat_failed = if (is.null(d)) NA_integer_ else sum(d$rhat > 1.01, na.rm = TRUE),
+          ess_bulk_min = if (is.null(d) || !any(is.finite(d$ess_bulk))) NA_real_ else min(d$ess_bulk, na.rm = TRUE),
+          ess_tail_min = if (is.null(d) || !any(is.finite(d$ess_tail))) NA_real_ else min(d$ess_tail, na.rm = TRUE),
           constant_chain_parameters = if (is.null(d)) NA_integer_ else sum(d$status == "constant_in_chain"),
           constant_parameters = if (is.null(d)) NA_integer_ else sum(d$status == "constant")
         )
@@ -220,14 +242,18 @@ cv_imr <- function(object, k = 5L, rounds = 2L,
         log_likelihood <- .imr_holdout_log_likelihood(object, task$test_ids)
         scaled_likelihood <- exp(log_likelihood - max(log_likelihood))
         chain_id <- rep(seq_len(object$control$mcmc$chains), each = object$control$mcmc$draws)
-        relative <- loo::relative_eff(scaled_likelihood, chain_id = chain_id, cores = 1)
-        if (!is.finite(relative) || relative <= 0) .imr_abort("Cannot estimate relative efficiency for importance weights.")
         messages <- character()
+        record_warning <- function(w) {
+          messages <<- c(messages, conditionMessage(w))
+          invokeRestart("muffleWarning")
+        }
+        relative <- withCallingHandlers(
+          loo::relative_eff(scaled_likelihood, chain_id = chain_id, cores = 1),
+          warning = record_warning
+        )
+        if (!is.finite(relative) || relative <= 0) .imr_abort("Cannot estimate relative efficiency for importance weights.")
         psis <- withCallingHandlers(loo::psis(-log_likelihood, r_eff = relative, cores = 1),
-          warning = function(w) {
-            messages <<- c(messages, conditionMessage(w))
-            invokeRestart("muffleWarning")
-          }
+          warning = record_warning
         )
         weights <- as.vector(stats::weights(psis, normalize = TRUE, log = FALSE))
         inputs <- .imr_prediction_inputs(object, data$platforms, data$platform_names, data$covariates)

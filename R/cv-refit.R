@@ -14,7 +14,6 @@
   control <- object$control
   model <- object$model
   preprocessing <- object$preprocessing
-  priors <- control$priors
   dat <- preprocessing$input_data
   # Keep rows outside the eligible cohort for otherwise unused platforms;
   # .imr_subgroup_data() intersects these with the training outcome IDs before any

@@ -36,6 +36,9 @@ subject must appear exactly once per round.}
 \value{
 An \code{imr_cv} object with pooled/mean-fold score matrices, subject-level
 predictions, actual folds and seeds, and per-fold MCMC or PSIS diagnostics.
+Refit diagnostics give the maximum defined R-hat and minimum defined
+bulk/tail ESS, with counts of unassessed constant parameters. Reweighting
+records warnings from relative-efficiency estimation and PSIS by fold.
 }
 \description{
 The default refits the complete model within each training fold, including
