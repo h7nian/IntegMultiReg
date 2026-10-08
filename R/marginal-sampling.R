@@ -9,8 +9,9 @@
     storage.mode(g$X) <- "double"
     g$y <- as.double(g$y)
     g$status <- as.integer(g$status)
+    g$n_forced <- .imr_check_integer_scalar(g$n_forced, "n_forced", min = 1, max = ncol(g$X))
     g$prior_scale <- as.double(g$prior_scale)
-    g$residual_prior <- as.double(g$residual_prior)
+    g$residual_prior <- as.double(g$residual_prior[c("shape", "rate")])
     g
   })
   if (is.null(initial_state)) {

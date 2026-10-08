@@ -52,3 +52,23 @@ test_that("both native marginal samplers report progress without changing sample
     expect_true(identical(reported$posterior, quiet$posterior, num.eq = FALSE))
   }
 })
+
+test_that("native preparation preserves named priors and numeric index counts", {
+  reference <- marginal_r_reference()
+  groups <- readRDS(testthat::test_path("..", "reference", "marginal-r", "continuous-data.rds"))
+  groups <- lapply(groups, function(g) {
+    g$n_forced <- as.double(g$n_forced)
+    g$residual_prior <- g$residual_prior[c("rate", "shape")]
+    g
+  })
+  for (choice in c("variance", "coefficients")) {
+    name <- paste0(".imr_", choice, "_marginal_sample")
+    arguments <- list(groups = groups, feature_platform = c(1L, 1L), nu = -1,
+      draws = 20L, burnin = 5L, seed = 99L)
+    expected <- do.call(get(name, reference), arguments)
+    expected_rng <- .Random.seed
+    actual <- do.call(get(name, asNamespace("IntegMultiReg")), arguments)
+    expect_true(identical(actual, expected, num.eq = FALSE))
+    expect_identical(.Random.seed, expected_rng)
+  }
+})
