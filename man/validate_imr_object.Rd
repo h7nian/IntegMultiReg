@@ -2,40 +2,31 @@
 % Please edit documentation in R/diagnostics.R
 \name{validate_imr_object}
 \alias{validate_imr_object}
-\title{Check the Structure of an IMR Object}
+\title{Validate an IMR Object}
 \usage{
 validate_imr_object(object)
 }
 \arguments{
-\item{object}{An \code{imr} fit or \code{imr_posterior} regression-draw object.}
+\item{object}{An \code{imr} fit produced by this version of \code{\link[=imr]{imr()}}.}
 }
 \value{
-\code{TRUE}, invisibly. Invalid objects fail with an informative error.
+\code{TRUE}, invisibly; malformed or older selection-only objects fail.
 }
 \description{
-Checks the stored structure, dimensions and numerical ranges of an IMR fit
-or regression-posterior draw object. This is useful after loading a saved fit or before comparing fits.
+Checks object schema, data mappings, chain dimensions and numerical ranges.
+It does not establish statistical convergence.
 }
-\section{Validation scope}{
-
-Validation checks the fitted-object schema, data dimensions, subgroup/platform
-mappings, parameter ranges and consistency of retained-draw counts. It does
-not rerun MCMC or establish posterior convergence. For statistical inspection,
-use \code{\link[=plot.imr]{plot.imr()}} and \code{\link[=selection_summary]{selection_summary()}} for the selection stage and
-\code{\link[=sample_regression_posterior]{sample_regression_posterior()}} for conditional coefficient sampling and its diagnostics.
-The statistical model and computational conventions are described in \code{\link[=imr]{imr()}}.
-}
-
 \examples{
-x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
-y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
-fit <- imr(list(assay = x), y, outcome_type = "continuous",
-           forced_prior_scale = 1, draws = 500, burnin = 250, seed = 1)
-
+# Short interface example; increase the budget and inspect diagnostics for inference.
+x <- data.frame(id = 1:20, marker = sin(1:20))
+y <- data.frame(id = x$id, y = 1 + x$marker + cos(x$id) / 3)
+fit <- imr(list(assay = x), y,
+  outcome_type = "continuous",
+  min_subgroup_size = 0, priors = imr_priors(forced_scale = 1),
+  mcmc = imr_mcmc(
+    draws = 100, burnin = 100, chains = 2,
+    seed = 1, diagnostics = FALSE
+  )
+)
 validate_imr_object(fit)
-
-# A damaged object is rejected rather than used.
-damaged <- fit
-damaged$posterior <- NULL
-try(validate_imr_object(damaged))
 }

@@ -1,36 +1,40 @@
-# Focused child-process gate, supplementary to the full parent-process suite.
-# No private data, custom CV folds, or production instrumentation branches.
+# Instrument chain workers and both CV algorithms for every outcome/variant.
 library(IntegMultiReg)
-options(warn = 2)
 scripts <- file.path(Sys.getenv("GITHUB_WORKSPACE"), ".github", "scripts")
 source(file.path(scripts, "configure-valgrind-workers.R"))
 source(file.path(scripts, "verify-valgrind-logs.R"))
-
 platform <- data.frame(id = 1:12, marker = sin(1:12))
 outcomes <- list(binary = data.frame(id = 1:12, y = rep(0:1, 6)),
-                 continuous = data.frame(id = 1:12, y = cos(1:12)),
-                 right.censored = data.frame(id = 1:12, time = 2:13,
-                                              status = rep(0:1, 6)))
-configurations <- list(refit = list(cv_method = "refit"),
-  reweight_all_draws = list(cv_method = "reweight", model_set = "all_draws"),
-  reweight_top_unique = list(cv_method = "reweight", model_set = "top_unique"))
-for (type in names(outcomes)) {
-  for (method in c("imr", "bms")) {
-    fit <- imr(list(assay = platform), outcomes[[type]], outcome_type = type,
-               model_variant = method, draws = 5, burnin = 2,
-               min_subgroup_size = 0, seed = 3)
-    for (configuration in names(configurations)) {
-      set.seed(912)
-      rng <- .Random.seed
-      connections <- showConnections(all = TRUE)
-      arguments <- c(list(object = fit, k = 2, rounds = 1), configurations[[configuration]])
-      reference <- do.call(cv_imr, arguments)
-      result <- do.call(cv_imr, c(arguments, list(workers = 2L)))
-      stopifnot(identical(result, reference), identical(.Random.seed, rng),
-                identical(showConnections(all = TRUE), connections))
-      cat(type, method, configuration, "EXACT\n")
+  continuous = data.frame(id = 1:12, y = cos(1:12)),
+  right.censored = data.frame(id = 1:12, time = 2:13, status = rep(0:1, 6)))
+# Tiny budgets deliberately make PSIS unreliable; require that warning rather
+# than hiding any unrelated warning from the instrumented process.
+allow_psis_warning <- function(expr) withCallingHandlers(expr, warning = function(w) {
+  if (!grepl("Some PSIS fold estimates are unreliable", conditionMessage(w), fixed = TRUE)) stop(w)
+  invokeRestart("muffleWarning")
+})
+for (type in names(outcomes)) for (variant in c("imr", "bms")) {
+  fit_args <- list(x = list(assay = platform), outcome = outcomes[[type]],
+    outcome_type = type, model_variant = variant, min_subgroup_size = 0)
+  settings <- imr_mcmc(draws = 20, burnin = 4, chains = 2, seed = 3, diagnostics = FALSE)
+  fit <- do.call(imr, c(fit_args, list(mcmc = settings)))
+  set.seed(912); rng <- .Random.seed; connections <- showConnections(all = TRUE)
+  settings$workers <- 2L
+  parallel_fit <- do.call(imr, c(fit_args, list(mcmc = settings)))
+  stopifnot(identical(fit$posterior, parallel_fit$posterior), identical(.Random.seed, rng),
+    identical(showConnections(all = TRUE), connections))
+  for (method in c("refit", "reweight")) {
+    reference <- allow_psis_warning(cv_imr(fit, k = 2, rounds = 1, cv_method = method))
+    result <- allow_psis_warning(cv_imr(fit, k = 2, rounds = 1, cv_method = method, workers = 2))
+    if (!identical(result, reference)) {
+      saveRDS(list(serial = reference, parallel = result), file.path(
+        Sys.getenv("IMR_VALGRIND_LOG_DIR"), paste(type, variant, method, "difference.rds", sep = "-")))
+      print(all.equal(result, reference, tolerance = 0))
     }
+    stopifnot(identical(result, reference), identical(.Random.seed, rng),
+      identical(showConnections(all = TRUE), connections))
+    cat(type, variant, method, "EXACT\n")
   }
 }
-
+# 3 outcomes * 2 variants * (chain fit + refit CV + reweight CV) * 2 workers.
 verify_valgrind_worker_logs(36L)

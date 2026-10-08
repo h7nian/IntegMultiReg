@@ -7,18 +7,19 @@
 #include <math.h>
 
 /*
- * Paper log-posterior or historical diagnostic score, depending on the sampler.
+ * Posterior score, or the retained fixed-theta ranked-model score.
+ * For ranking, theta is fixed across candidate models. Its historical offset
+ * cancels algebraically; retaining its arithmetic preserves old predictions.
  *
  * Components:
  *   1. subgroup marginal log-likelihoods,
  *   2. platform-specific MRF/sparsity prior for gamma,
- *   3. Gamma prior on theta for the paper sampler. The legacy score instead
- *      adds the rate term and omits log(theta) contributions at or below 1e-3;
- *      those historical terms do not define a Gamma log density.
+ *   3. Gamma prior on theta for posterior scores; the retained fixed-theta
+ *      offset for ranked-model scores.
  */
-double log_posterior(double *loglik, _Bool ***gamma, double *nu, double ***theta,
+double imr_model_log_score(double *loglik, _Bool ***gamma, double *nu, double ***theta,
                double *mrf_log_normalizer, double alpha0, double ***betaTh, int n_subgroups,
-               int n_platforms, int *G, int *n_platform_models_c, int selection_update)
+               int n_platforms, int *G, int *n_platform_models_c, enum imr_score_kind score_kind)
 {
     double logPost = 0;
     int g, m, m1;
@@ -57,13 +58,13 @@ double log_posterior(double *loglik, _Bool ***gamma, double *nu, double ***theta
         {
             for (m1 = 0; m1 < m; m1++)
             {
-                if (theta[l][m][m1] > (selection_update == IMR_UPDATE_MRF_HASTINGS ? 0 : pow(10, -3)))
+                if (theta[l][m][m1] > (score_kind == IMR_POSTERIOR_SCORE ? 0 : pow(10, -3)))
                     logPriorTX += log(theta[l][m][m1]);
                 sumTX += theta[l][m][m1] * betaTh[l][m][m1];
             }
         }
         logPriorTX = (alpha0 - 1) * logPriorTX +
-            (selection_update == IMR_UPDATE_MRF_HASTINGS ? -sumTX : sumTX);
+            (score_kind == IMR_POSTERIOR_SCORE ? -sumTX : sumTX);
         logPriorT += logPriorTX;
     }
     return logPost + logPostGam + logPriorT;

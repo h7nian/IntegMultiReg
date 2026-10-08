@@ -10,6 +10,15 @@ on:
 permissions:
   contents: read
 
+# Match the parent and PSOCK workers before their numerical libraries load.
+# Strict replay still compares every number; no tolerance is relaxed.
+env:
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  VECLIB_MAXIMUM_THREADS: '1'
+  BLIS_NUM_THREADS: '1'
+
 jobs:
   sanitizers:
     name: R-devel / ${{ matrix.compiler }} / ${{ matrix.label }}
@@ -89,42 +98,6 @@ jobs:
           test -f "${sanitizer_runtime%%:*}"
           echo "SANITIZER_RUNTIME=${sanitizer_runtime}" >> "${GITHUB_ENV}"
 
-      - name: Check MRF increments and proposal detailed balance
-        shell: bash
-        run: |
-          ${{ matrix.compiler }} -O1 -g -fsanitize=${{ matrix.flags }} \
-            -fno-sanitize-recover=undefined -fno-omit-frame-pointer -Isrc \
-            .github/scripts/test-sampler-math.c src/sampler_math.c -lm \
-            -o "${RUNNER_TEMP}/sampler-math-test"
-          "${RUNNER_TEMP}/sampler-math-test"
-
-      - name: Check fold precision kernel and bounded fallback
-        shell: bash
-        run: |
-          ${{ matrix.compiler }} -O1 -g -fsanitize=${{ matrix.flags }} \
-            -fno-sanitize-recover=undefined -fno-omit-frame-pointer \
-            .github/scripts/test-cv-precision.c src/cv_precision.c \
-            $(pkg-config --cflags --libs gsl) -o "${RUNNER_TEMP}/cv-precision-test"
-          "${RUNNER_TEMP}/cv-precision-test"
-
-      - name: Check prediction-row ownership and allocation failures
-        shell: bash
-        run: |
-          ${{ matrix.compiler }} -O1 -g -fsanitize=${{ matrix.flags }} \
-            -fno-sanitize-recover=undefined -fno-omit-frame-pointer \
-            .github/scripts/test-cv-prediction-rows.c src/cv_prediction_rows.c \
-            -o "${RUNNER_TEMP}/cv-prediction-rows-test"
-          "${RUNNER_TEMP}/cv-prediction-rows-test"
-
-      - name: Check bounded cache eviction and allocation failures
-        shell: bash
-        run: |
-          ${{ matrix.compiler }} -O1 -g -fsanitize=${{ matrix.flags }} \
-            -fno-sanitize-recover=undefined -fno-omit-frame-pointer -Isrc \
-            .github/scripts/test-cv-value-cache.c src/cv_value_cache.c \
-            -o "${RUNNER_TEMP}/cv-value-cache-test"
-          "${RUNNER_TEMP}/cv-value-cache-test"
-
       - name: Install instrumented package and tests
         shell: bash
         run: |
@@ -179,11 +152,7 @@ jobs:
         run: |
           export LD_PRELOAD="${SANITIZER_RUNTIME}"
           R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
-            Rscript .github/scripts/verify-sampler.R "${RUNNER_TEMP}/sampler"
-
-      - name: Check native error cleanup in an isolated fault build
-        shell: bash
-        run: bash .github/scripts/verify-cv-row-failures.sh
+            Rscript .github/scripts/verify-joint-reference.R
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -192,3 +161,4 @@ jobs:
           path: |
             ${{ runner.temp }}/sanitizer-*.log
             ${{ runner.temp }}/test-evidence
+            ${{ runner.temp }}/joint-reference-evidence

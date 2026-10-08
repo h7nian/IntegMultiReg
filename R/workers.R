@@ -1,0 +1,93 @@
+# Task order is fixed before dispatch. Static chunks transmit the fit once per
+# worker, and parLapply returns results in input order, not completion order.
+.imr_map_tasks <- function(tasks, evaluate, workers, ...) {
+  workers <- .imr_check_integer_scalar(workers, "workers", min = 1)
+  if (!length(tasks)) {
+    return(list())
+  }
+  workers <- min(workers, length(tasks))
+  if (workers == 1L) {
+    return(lapply(tasks, evaluate, ...))
+  }
+
+  rng <- .imr_save_rng()
+  on.exit(.imr_restore_rng(rng), add = TRUE)
+  # Children inherit these limits at process startup, before loading a math
+  # library. Bitwise serial/parallel replay requires matching limits before
+  # the parent R process starts too; a loaded BLAS may ignore later env changes.
+  # Restore the parent's environment on success and on every error.
+  thread_variables <- c(
+    "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS",
+    "MKL_NUM_THREADS", "VECLIB_MAXIMUM_THREADS",
+    "BLIS_NUM_THREADS"
+  )
+  thread_settings <- Sys.getenv(thread_variables, unset = NA_character_)
+  on.exit(
+    {
+      missing <- is.na(thread_settings)
+      Sys.unsetenv(thread_variables[missing])
+      if (any(!missing)) do.call(Sys.setenv, as.list(thread_settings[!missing]))
+    },
+    add = TRUE
+  )
+  do.call(Sys.setenv, as.list(stats::setNames(
+    rep("1", length(thread_variables)),
+    thread_variables
+  )))
+  cluster <- parallel::makePSOCKcluster(workers)
+  on.exit(.imr_stop_workers(cluster), add = TRUE)
+  package_path <- getNamespaceInfo(asNamespace("IntegMultiReg"), "path")
+  library_paths <- unique(c(dirname(package_path), .libPaths()))
+  initialize <- function(paths, expected_path, rng_kind, model_options) {
+    .libPaths(paths)
+    do.call(RNGkind, as.list(rng_kind))
+    options(model_options)
+    namespace <- loadNamespace("IntegMultiReg")
+    if (!identical(
+      normalizePath(getNamespaceInfo(namespace, "path")),
+      normalizePath(expected_path)
+    )) {
+      stop("Worker loaded a different IntegMultiReg installation.")
+    }
+    NULL
+  }
+  # Bootstrap must deserialize before the package's library path is known.
+  # A base-only closure also avoids serializing the parent's task/cluster frame.
+  environment(initialize) <- baseenv()
+  # Kept source references can themselves retain the package namespace. Remove
+  # them as well, so deserializing bootstrap cannot load a different install.
+  initialize <- utils::removeSource(initialize)
+  parallel::clusterCall(
+    cluster, initialize, library_paths, package_path,
+    RNGkind(), options()[c("contrasts", "na.action", "matprod")]
+  )
+  results <- parallel::parLapply(cluster, tasks, .imr_worker_result,
+    evaluate = evaluate, ...
+  )
+  lapply(results, function(result) {
+    for (condition in result$warnings) warning(condition)
+    result$value
+  })
+}
+
+.imr_stop_workers <- function(cluster) {
+  # stopCluster() can fail while sending DONE to a dead node, before closing
+  # any sockets. Close each node independently without masking the task error.
+  for (node in cluster) {
+    tryCatch(parallel::stopCluster(structure(list(node), class = class(cluster))),
+      error = function(error) try(close(node$con), silent = TRUE)
+    )
+  }
+  invisible(NULL)
+}
+
+# Child stderr is not a reliable diagnostic channel. Relay conditions through
+# the result transport; the parent emits them in the original task order.
+.imr_worker_result <- function(task, evaluate, ...) {
+  warnings <- list()
+  value <- withCallingHandlers(evaluate(task, ...), warning = function(condition) {
+    warnings[[length(warnings) + 1L]] <<- condition
+    invokeRestart("muffleWarning")
+  })
+  list(value = value, warnings = warnings)
+}

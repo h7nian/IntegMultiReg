@@ -3,262 +3,152 @@
 [![R-CMD-check](https://github.com/h7nian/IntegMultiReg/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/h7nian/IntegMultiReg/actions/workflows/R-CMD-check.yaml)
 [![Package website](https://github.com/h7nian/IntegMultiReg/actions/workflows/pkgdown.yaml/badge.svg)](https://h7nian.github.io/IntegMultiReg/)
 
-**Integrative Bayesian Multiple Regression for Multi-Platform Biomarkers.**
+Integrative Bayesian regression for molecular platforms measured on overlapping
+sets of subjects. Each availability subgroup has its own regression; a Markov
+random field shares feature-selection information across subgroups. Continuous,
+binary and right-censored outcomes use non-local pMOM coefficient priors.
 
-`IntegMultiReg` implements the integrative multi-regression (IMR) model of
-Chekouo, Stingo, Doecke and Do (2017, *Biometrics*) and extends it from
-time-to-event outcomes to continuous (Gaussian) and binary (probit) outcomes.
-
-Given several molecular platforms measured on overlapping but partially missing
-sets of subjects, IMR partitions subjects into the availability subgroups of a
-Venn diagram, fits one regression per subgroup, and shares information across
-availability subgroups through a **Markov random field (MRF) prior** on the
-variable-selection indicators. Each regression uses **non-local product-moment
-priors** on its active coefficients. Subjects can therefore contribute when
-some platforms are missing.
-
-Read the [getting started guide](https://h7nian.github.io/IntegMultiReg/articles/IntegMultiReg.html)
-or browse the [function reference](https://h7nian.github.io/IntegMultiReg/reference/index.html).
-These pages describe the GitHub development version, 0.2.0. The
-[reproducibility guide](https://h7nian.github.io/IntegMultiReg/articles/reproducibility.html)
-explains how to retain the source, settings, folds and results for an analysis.
+The development version, **0.3.0**, offers four sampling choices through
+`imr(..., marginalize = ...)`. The default samples coefficients and residual
+variance together. Two alternatives integrate out either parameter block, and
+a fourth retains the original Laplace-based selection calculation. The first
+three store regression draws for intervals and prediction. The [tutorial](https://h7nian.github.io/IntegMultiReg/articles/IntegMultiReg.html)
+introduces the workflow, and the [reference](https://h7nian.github.io/IntegMultiReg/reference/index.html)
+describes each function.
 
 ## Installation
 
-The package contains C code that links against the
-[GNU Scientific Library (GSL)](https://www.gnu.org/software/gsl/), which must be
-installed first:
-
-* macOS: `brew install gsl`
-* Debian/Ubuntu: `sudo apt-get install libgsl-dev`
-* Fedora/RHEL: `sudo dnf install gsl-devel`
-* Windows: GSL is provided by Rtools.
-
-To install the source snapshot used by these examples:
-
 ```r
 install.packages("remotes")
-remotes::install_github("h7nian/IntegMultiReg",
-                        ref = "be38715b95568854e1a89140381ed4274f3102b2")
+remotes::install_github("h7nian/IntegMultiReg")
 ```
 
-For numerical replication, use the source snapshot and checksum recorded with
-the analysis. The [replay guide](https://h7nian.github.io/IntegMultiReg/articles/reproducibility.html)
-explains which inputs and settings to retain.
+Source installation needs the usual R compilation tools (Rtools on Windows)
+and GSL for the retained Laplace engine. Install `libgsl-dev` on Debian/Ubuntu,
+`gsl-devel` on Fedora/RHEL, or `gsl` with Homebrew on macOS. Windows source
+builds use the GSL libraries supplied with current Rtools. The CRAN release, 0.1.3, has an older interface; these examples
+require the development package. See the
+[migration guide](https://h7nian.github.io/IntegMultiReg/migration.html).
+For numerical replay, install the exact source snapshot recorded with the
+analysis, as explained in the
+[reproducibility guide](https://h7nian.github.io/IntegMultiReg/articles/reproducibility.html).
 
-The CRAN release, 0.1.3, uses the earlier API. The 0.2.0 examples on this
-site require the GitHub version. See the
-[migration guide](https://h7nian.github.io/IntegMultiReg/migration.html)
-when updating existing code. To install the CRAN release:
-
-```r
-install.packages("IntegMultiReg")
-```
-
-Alternatively, install a local source tarball:
-
-```r
-install.packages("IntegMultiReg_0.2.0.tar.gz", repos = NULL, type = "source")
-```
-
-## Quick start
-
-Fitting uses the symmetric MRF conditional and Hastings-adjusted selection
-moves. `model_variant = "imr"` shares selection information across subgroups;
-`"bms"` fits them independently. CV refits each training fold by default.
+## Fit and inspect
 
 ```r
 library(IntegMultiReg)
 data("simIMR")
 
 analysis <- imr_data(
-  platforms = simIMR$platforms,
-  outcome = simIMR$outcome.binary,
+  simIMR$platforms,
+  outcome = simIMR$outcome.continuous,
   covariates = simIMR$covariates,
-  outcome_type = "binary"
+  outcome_type = "continuous"
 )
-analysis
-stopifnot(validate_imr_data(analysis))
+validate_imr_data(analysis)
 
 fit <- imr(
-  analysis, nu = c(-4, -3, -4),
-  draws = 2000, burnin = 1000,
-  min_subgroup_size = 30,
-  seed = 1
+  analysis,
+  priors = imr_priors(nu = c(-4, -3, -4)),
+  mcmc = imr_mcmc(draws = 4000, burnin = 2000, chains = 4, seed = 1)
 )
+fit
+coef(fit)                         # model-averaged regression effects
+confint(fit)                      # coefficient credible intervals
+inclusion_probabilities(fit)      # molecular selection probabilities
+summary(fit, parm = "variance")
+mcmc_diagnostics(fit)
+```
 
-fit                       # short summary
-summary(fit)              # selected biomarkers per platform
-inclusion_probabilities(fit) # per-platform mPIP matrices
-plot(fit, type = "selection")
-plot_top_features(fit)    # ranked biomarker bar chart
+`imr_priors()` contains statistical assumptions; `imr_mcmc()` contains sampling
+and storage choices; `imr_control()` contains numerical settings. `draws` is the retained count **per chain**. Inspect the
+actual diagnostics before interpreting an analysis. Constant indicators have
+undefined R-hat and are reported separately. An illustration budget is not a
+convergence guarantee.
+
+## Choose which regression parameters to integrate out
+
+| `marginalize` | Main-chain regression parameters | Computation |
+|---|---|---|
+| `"none"` (default) | Coefficients and residual variance | Joint pMOM sampling |
+| `"variance"` | Coefficients | Analytic variance integral and weighted-t coefficient updates |
+| `"coefficients"` | Residual variance | Polynomial-exact Gaussian integration; small models only |
+| `"coefficients_and_variance"` | Neither | Original Laplace-based selection sampler |
+
+The first three target the same model without Laplace model scores. The last
+retains the original approximation, numerical tolerances and proposal rules.
+Identical seeds need not give identical draws across different algorithms.
+The [sampler guide](https://h7nian.github.io/IntegMultiReg/articles/marginalization.html)
+explains parameter recovery, computational limits and comparisons.
+
+For a Laplace fit, `predict()` retains the original model-mode calculation,
+with the common response-scale default. Use `type = "link"` to recover its
+original log-time predictions. `sample_regression_posterior(fit, mcmc =
+imr_mcmc(...))` runs optional conditional regression chains.
+Their uncertainty retains the fitted selection weights and their approximation.
+
+`posterior_draws(fit)` returns five named families for every sampler, with
+`NULL` for unavailable families. Use `posterior_draws(fit, "coefficients")` to
+extract coefficient arrays explicitly. `mcmc_diagnostics(fit, type = "sampler")`
+reports update methods and available acceptance counts; Gibbs and integrated
+blocks have no Metropolis acceptance rate. Active controls are recorded in
+`fit$control$effective`.
+
+## Predict and validate
+
+```r
 new_data <- imr_data(simIMR$platforms[1:2], covariates = simIMR$covariates)
-predict(fit, newdata = new_data)
-cv_imr(fit, k = 3, rounds = 1, cv_method = "refit")
+predict(fit, new_data, interval = TRUE)
+predict(fit, new_data, quantity = "new_observation", interval = TRUE)
+
+cv <- cv_imr(fit, k = 3, rounds = 1)
+cv
+cv$diagnostics
 ```
 
-## Real-data example
+Prediction reuses the training transformations and all retained joint samples.
+`conditional_mean` describes expected responses; `new_observation` includes
+outcome noise. For log-time survival, response-scale summaries are medians;
+`type = "link"` gives the working log-time scale.
 
-`kircIMR` is a reduced public UCSC Xena TCGA-KIRC survival example aligned with
-the Biometrics kidney cancer case study: mRNA expression, miRNA expression, DNA
-methylation, clinical covariates and right-censored survival.  It is derived
-from public UCSC Xena TCGA-KIRC sampleMap files, not from controlled-access
-TCGA/GDC files, and contains only a reduced Cox-screened feature panel.
+CV refits the model and preprocessing within every training fold by default.
+Reuse `cv$control$folds` to compare prespecified models on the same subjects and
+partitions. The alternative `cv_method = "reweight"` applies PSIS to joint
+observed-data likelihood ratios for fits that store regression draws and reports unstable weights. It retains
+full-fit preprocessing and does not replace training-fold validation.
 
-The package replaces TCGA barcodes with package-internal IDs such as `KIRC001`
-and does not distribute a barcode mapping.  Users should not attempt
-participant re-identification or linkage to external resources.
+The [covariate comparison guide](https://h7nian.github.io/IntegMultiReg/articles/covariate-comparison.html)
+shows formula/data fitting, paired CV and nested selection.
+
+## Posterior samples and plots
 
 ```r
-data("kircIMR")
-sapply(kircIMR$platforms, dim)
-kircIMR$model_subgroup_sizes
-
-kirc_fit <- imr(
-  kircIMR$platforms,
-  kircIMR$outcome.survival,
-  covariates = kircIMR$covariates,
-  outcome_type = "right.censored",
-  nu = c(-4, -3, -4),
-  draws = 4000, burnin = 1000,
-  min_subgroup_size = 30,
-  seed = 1
-)
+beta <- posterior_draws(fit)      # iteration x chain x coefficient arrays
+plot(fit, type = "coefficient_trace", subgroup = 1, parameter = 1)
+plot(fit, type = "selection")
+plot_top_features(fit)
 ```
 
-See the package vignette `vignette("IntegMultiReg")` for a complete walk-through.
+The fit stores exclusion zeros in molecular coefficient draws. Selection
+histories and probabilities are derived from those zeros, avoiding duplicate
+histories. Optional `imr_mcmc(keep_latent = TRUE)` retains augmented responses
+for binary and censored models. `validate_imr_object()` checks object structure;
+`compare_fit_summaries()` compares descriptive fit summaries.
 
-## Reference
+## Data and methodology
 
-Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). "A Bayesian Integrative
-Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
-*Biometrics*, **73**(2), 615–624. <https://doi.org/10.1111/biom.12587>
+`simIMR` is a synthetic example with known feature truth. `kircIMR` is a reduced
+public UCSC Xena TCGA-KIRC illustration with mRNA, miRNA, methylation and clinical
+covariates. Its globally screened feature panel is suitable for learning the
+interface; it is not an unbiased predictive benchmark. The package uses
+internal subject IDs and does not distribute a TCGA barcode mapping.
 
-[Read paper](https://academic.oup.com/biometrics/article/73/2/615/7537638) ·
-[Publisher PDF](https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf)
-
-When using `kircIMR`, please also acknowledge TCGA, the National Cancer
-Institute Genomic Data Commons, and UCSC Xena as the public data sources.
-
-## Coefficient and predictive uncertainty
-
-`coef(fit)` does not return inclusion probabilities or silently run another
-sampler. Use `inclusion_probabilities(fit)` for variable-selection probabilities.
-After fitting, `sample_regression_posterior(fit)` explicitly adds conditional pMOM coefficient and
-variance draws to the retained selection models. `summary(draws)` and
-`confint(draws)` report coefficient intervals including point mass at zero for
-inactive molecular features. Clinical covariates remain always included.
-
-```r
-# Use an adequately explored fit and inspect both stages of diagnostics.
-draws <- sample_regression_posterior(fit, seed = 2)
-draws$diagnostics
-confint(draws)
-predict(draws, simIMR$platforms, covariates = simIMR$covariates,
-        quantity = "conditional_mean")       # uncertainty in the conditional response mean
-predict(draws, simIMR$platforms, covariates = simIMR$covariates,
-        quantity = "new_observation")   # uncertainty in a future outcome
-```
-
-These are approximate model-averaged intervals: selection weights retain the
-original Laplace approximation. Conditional split R-hat does not assess the
-original selection chain; increase simulation effort when diagnostics are poor.
-Coefficients use subgroup-standardized predictor scales. Binary probability
-intervals use `quantity = "conditional_mean"`; binary new-observation draws are zero/one, with interval endpoints obtained by interpolated empirical quantiles.
-
-## Survival migration from 0.1.2
-
-Version 0.1.3 logs positive event and censoring times once, matching the original
-Biometrics supplementary code. Supply raw times, including positive times below
-one; refit previous survival models. The optional `survival_scale = "identity"`
-reproduces the historical raw-time implementation. CV partitioning is unchanged.
-
-For log-time fits, `predict(fit, ...)` returns a log-time point prediction.
-`predict(draws, ...)` returns time-scale intervals and median point summaries.
-The time-scale posterior mean need not exist under the variance mixture; it is
-not estimated by averaging exponentiated draws. With `quantity = "conditional_mean"` the interval
-summarizes conditional mean time, whereas `quantity = "new_observation"` includes future
-outcome variability. The censoring process for future observations is not modeled.
-
-## Inspect numerical computation
-
-`fit$control$laplace_diagnostics` records fitting-stage calls, iteration-limit
-hits and numerical failures by subgroup. Review these with the selection-chain
-diagnostics. The counters neither establish MCMC convergence nor cover later
-prediction-stage optimization.
-
-## Cross-validation algorithms
-
-`cv_imr(fit, cv_method = "refit")` is the default. It rebuilds preprocessing,
-selection MCMC and prediction inside every training fold, at approximately
-`k * rounds` full fits.
-
-`cv_method = "reweight"` reuses the full-data fit with inverse-density
-importance weights. The separate `model_set` argument chooses the state collection:
-
-```r
-cv_imr(fit, cv_method = "reweight", model_set = "all_draws")
-cv_imr(fit, cv_method = "reweight", model_set = "top_unique", max_models = 100)
-```
-
-`all_draws` preserves every retained draw and its multiplicity. `top_unique`
-uses at most `max_models` ranked distinct selection models. Reweighting conditions
-on full-fit preprocessing and augmented-response means. Held-out responses enter
-its importance correction; their presence alone does not show an algorithm error.
-This approximation does not refit the training folds. Its default ridge penalty
-is 0.001; `ridge = 0` requires every training design to have full column rank.
-`df_method = "fractional"` keeps the numeric predictive degrees of freedom;
-`"integer"` truncates them. Both CV algorithms use the same standard scores.
+Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). “A Bayesian Integrative Approach
+for Multi-Platform Genomic Data: A Kidney Cancer Case Study.” *Biometrics*,
+**73**(2), 615–624. [DOI](https://doi.org/10.1111/biom.12587) ·
+[Publisher page](https://academic.oup.com/biometrics/article/73/2/615/7537638).
 
 The [methods guide](https://h7nian.github.io/IntegMultiReg/method-coverage.html)
-describes these approximations and separates them from archived computations.
-Prior scales, `laplace_max_iter` and `laplace_tolerance` are recorded in the fit.
-
-Use `initial=list(selection=..., interaction=...)` for different chain starts.
-Selection matrices follow `inclusion_probabilities(fit)` and contain zero/one
-entries. Interaction matrices are symmetric, with positive off-diagonals and
-zero diagonal. Refit CV reuses specified starts. Different starts and longer
-chains support convergence assessment; they do not establish convergence by
-themselves.
-
-`cv$control` records effective settings and actual folds. Refit CV also records
-`refit_seeds`. Use `folds = cv$control$folds` to replay partitions and fitting
-seeds within the same runtime and RNG kind. Matching seed numbers across the
-R and GSL generators does not imply identical partitions. Data-driven tuning
-requires an outer validation layer.
-
-Both methods accept `workers = 2L` (or another positive integer) for
-PSOCK process parallelism. The default `workers = 1L` remains serial. Each
-algorithm preserves its own partitions, seeds, prediction order and scoring;
-changing the worker count does not select a different validation algorithm.
-Process startup may outweigh the benefit for short runs, and each worker needs
-its own fit/workspace memory. Avoid nesting CV workers inside parallel experiment
-runs. For custom formula functions, use a serializable local formula environment
-or a package-qualified function name; the global workspace is not exported.
-
-
-### Compare prespecified covariate formulas
-
-A runnable example compares two formulas on identical subject/fold assignments,
-then uses nested cross-validation to evaluate formula selection using only
-inner training data. Clinical terms remain forced within each candidate model.
-Required adjustment terms must appear in every candidate; the example is not
-causal confounder selection.
-
-```r
-source(system.file("examples", "compare-covariates.R", package = "IntegMultiReg"))
-comparison <- run_covariate_comparison()
-comparison$paired_summary
-comparison$nested_summary
-```
-
-Follow the [worked guide](https://h7nian.github.io/IntegMultiReg/articles/covariate-comparison.html)
-for paired folds, inner selection and outer evaluation. The full example uses
-synthetic data, writes fold and seed records, and is repeated in CI. Use
-`quick = TRUE` only for a smoke run. Earlier covariate-example results generated
-with historical updates remain in their versioned replication archive.
-
-## Development
-
-See [CONTRIBUTING](https://github.com/h7nian/IntegMultiReg/blob/main/CONTRIBUTING.md)
-for source organization, documentation generation and local validation.
+distinguishes the statistical model, the four sampling choices and archived
+computational conventions. Historical results remain tied to their recorded source; the new
+sampler is a substantive inference change and can change numerical results.

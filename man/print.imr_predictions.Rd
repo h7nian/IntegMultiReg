@@ -7,8 +7,7 @@
 \method{print}{imr_predictions}(x, row.names = FALSE, ...)
 }
 \arguments{
-\item{x}{An \code{imr_predictions} object returned by \code{\link[=predict.imr]{predict.imr()}} or
-\code{\link[=predict.imr_posterior]{predict.imr_posterior()}}.}
+\item{x}{An \code{imr_predictions} object returned by \code{\link[=predict.imr]{predict.imr()}}.}
 
 \item{row.names}{Whether to print row names in the subgroup tables.}
 

@@ -53,7 +53,7 @@ void sample_binary_latent_response(int model, int n_platforms, int *selected_pla
     int max_iter = numerical->latent_max_iter;
     double tolerance = numerical->tolerance;
     int moment_order = 1;
-    double *precision = build_posterior_precision(k_val, n_covariates, n_selected_features[0], n_subjects, slab_scale, covariate_scale, intercept_scale, first_platform_scale, design, numerical);
+    double *precision = build_posterior_precision(k_val, n_covariates, n_selected_features[0], n_subjects, slab_scale, covariate_scale, intercept_scale, first_platform_scale, design);
     double *precision_copy = imr_copy_symmetric_matrix(precision, k_val);
     gsl_matrix_view m = gsl_matrix_view_array(precision, k_val, k_val);
     if (gsl_linalg_cholesky_decomp(&m.matrix) != 0)

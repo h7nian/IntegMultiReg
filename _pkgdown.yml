@@ -20,7 +20,7 @@ home:
     href: https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf
   - text: Methods and reproducibility
     href: method-coverage.html
-  - text: Migrating to version 0.2.0
+  - text: Migrating to version 0.3.0
     href: migration.html
 
 navbar:
@@ -34,49 +34,56 @@ navbar:
     guides:
       text: Guides
       menu:
+      - text: Choose a sampling algorithm
+        href: articles/marginalization.html
+      - text: Joint posterior computation
+        href: articles/joint-posterior.html
       - text: Compare covariate formulas
         href: articles/covariate-comparison.html
       - text: Record and replay an analysis
         href: articles/reproducibility.html
       - text: Methods and reproducibility
         href: method-coverage.html
-      - text: Migrating to version 0.2.0
+      - text: Migrating to version 0.3.0
         href: migration.html
 
 reference:
 - title: Prepare data and fit models
-  desc: Validate subject identifiers, align platforms, and fit the model.
   contents:
   - imr_data
   - validate_imr_data
   - as.data.frame.imr_data
   - imr
-- title: Inspect and compare fits
+  - imr_priors
+  - imr_mcmc
+  - imr_control
+- title: Inspect posterior samples
+  desc: Extract and summarize the samples stored by the fitted model.
   contents:
   - print.imr
   - summary.imr
-  - inclusion_probabilities
-  - validate_imr_object
-  - compare_fit_summaries
-  - upgrade_imr_object
-- title: Predict and cross-validate
-  contents:
-  - predict.imr
-  - cv_imr
-  - print.imr_cv
-  - print.imr_predictions
-- title: Selection and interaction uncertainty
-  desc: Summarize retained draws from the fitted selection sampler.
-  contents:
-  - selection_summary
+  - coef.imr
   - confint.imr
-- title: Coefficient and predictive uncertainty
-  desc: Run conditional sampling, then summarize the resulting posterior draws or predict.
+  - inclusion_probabilities
+  - posterior_draws
+  - mcmc_diagnostics
+- title: Conditional regression for a Laplace selection fit
+  desc: Sample and summarize regression parameters using the stored selection weights.
   contents:
   - sample_regression_posterior
   - imr_posterior_methods
-  - coef.imr
   - predict.imr_posterior
+- title: Check and compare objects
+  contents:
+  - validate_imr_object
+  - compare_fit_summaries
+- title: Predict and cross-validate
+  contents:
+  - predict.imr
+  - predict.imr_selection
+  - cv_imr
+  - print.imr_cv
+  - print.imr_predictions
 - title: Plot results
   contents:
   - plot.imr

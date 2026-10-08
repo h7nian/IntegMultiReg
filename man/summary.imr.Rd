@@ -3,43 +3,50 @@
 \name{summary.imr}
 \alias{summary.imr}
 \alias{print.summary.imr}
-\title{Summarize an IMR Fit}
+\title{Summarize an IMR Posterior}
 \usage{
-\method{summary}{imr}(object, threshold = 0.5, ...)
+\method{summary}{imr}(object, parm = "all", level = 0.95, ...)
 
-\method{print}{summary.imr}(x, ...)
+\method{print}{summary.imr}(x, digits = 4L, max_rows = 30L, ...)
 }
 \arguments{
-\item{object}{A fitted object of class \code{"imr"}.}
+\item{object}{An \code{imr} fit.}
 
-\item{threshold}{Inclusion-probability threshold for selection (default
-\code{0.5}).}
+\item{parm}{A parameter family, or \code{"all"} for all stored families.}
 
-\item{...}{Unused; present for S3 compatibility.}
+\item{level}{Equal-tail probability level, strictly between zero and one.}
 
-\item{x}{A \code{"summary.imr"} object.}
+\item{...}{Unused arguments are rejected.}
+
+\item{x}{A \code{summary.imr} object.}
+
+\item{digits}{Significant digits for printing.}
+
+\item{max_rows}{Maximum displayed rows; the returned summary retains all rows.}
 }
 \value{
-An object of class \code{"summary.imr"}: a list with the run metadata and,
-for each platform, a data frame of selected features with their maximum
-mPIP and the subgroup achieving it.
+A \code{summary.imr} object with a tidy \code{parameters} table and the fit's
+model/chain description. Quantiles use the empirical inverse CDF (type 1),
+respecting point masses at zero and binary support. Diagnostics are
+computed by the posterior package; undefined values are retained.
 }
 \description{
-Produces a per-platform summary of the selected features (those whose
-marginal posterior inclusion probability exceeds \code{threshold} in at least one
-subgroup), ranked by their maximum inclusion probability.
+Summarizes coefficients, residual variances, selection indicators and
+interactions from the stored draws. Laplace fits contain selection and
+interaction draws without regression parameters. Stored latent responses can be
+included with \code{parm = "latent"} or \code{"all"}.
 }
-\section{Selection and ranking}{
-
-Let \eqn{\widehat\pi_{lsj}}{mPIP_lsj} denote the subgroup mPIP defined in \code{\link[=inclusion_probabilities]{inclusion_probabilities()}}.
-For each platform-feature pair, the ranking score and selected set are
-\deqn{r_{lj}=\max_{s\in\mathcal S_l}\widehat\pi_{lsj},}{r_lj = maximum subgroup mPIP for feature j on platform l,}
-\deqn{\mathcal A_l(t)=\{j:r_{lj}>t\},}{A_l(t) contains features with r_lj > t,}
-where \eqn{\mathcal S_l}{S_l} contains subgroups with platform \eqn{l}, and
-\eqn{t} is \code{threshold}. The inequality is strict. Rows are sorted by
-\eqn{r_{lj}}; the reported subgroup is the first maximizing row in the fitted
-order. This maximum is a ranking score, not the posterior probability of
-selection in at least one subgroup. A common feature is counted once per
-platform, even if it exceeds the threshold in several subgroups.
+\examples{
+# Short interface example; increase the budget and inspect diagnostics for inference.
+x <- data.frame(id = 1:20, marker = sin(1:20))
+y <- data.frame(id = x$id, y = 1 + x$marker + cos(x$id) / 3)
+fit <- imr(list(assay = x), y,
+  outcome_type = "continuous",
+  min_subgroup_size = 0, priors = imr_priors(forced_scale = 1),
+  mcmc = imr_mcmc(
+    draws = 100, burnin = 100, chains = 2,
+    seed = 1, diagnostics = FALSE
+  )
+)
+summary(fit, parm = "variance")
 }
-

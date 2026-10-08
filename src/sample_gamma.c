@@ -24,12 +24,11 @@ void sample_gamma_indicators(
     int subgroup, int n_platforms, int *selected_platforms,
     int n_selected_platforms, int *n_features, int sample_size,
     double *latent_y, double **covariates, double ***features,
-    _Bool ***gamma, double *log_likelihood, double *logdet,
-    double *quadratic_form, double *nu, double ***theta,
+    _Bool ***gamma, double *log_likelihood, double *nu, double ***theta,
     int *n_platform_models, int **platform_models, double **accept_gamma,
-    gsl_rng *rng, const char *likelihood_type, double slab_scale,
+    gsl_rng *rng, double slab_scale,
     double covariate_scale, double intercept_scale, double first_platform_scale,
-    int n_covariates, double alpha, double psi, int selection_update, const imr_numerical_control *numerical)
+    int n_covariates, double alpha, double psi, const imr_numerical_control *numerical)
 {
     (void)n_platforms;
 
@@ -84,46 +83,7 @@ void sample_gamma_indicators(
             selected_feature_index, covariates, features, selected_platforms,
             sample_size);
 
-        double new_logdet = 0;
-        double new_quadratic_form = 0;
         double new_log_likelihood = 0;
-        if (strcmp(likelihood_type, "Local") == 0)
-        {
-            double *Sigma = malloc(
-                (size_t) sample_size * sample_size * sizeof(double));
-            if (!Sigma) Rf_error("malloc failed for Sigma");
-            int total_selected_features = 0;
-            for (int t = 0; t < n_selected_platforms; t++)
-            {
-                total_selected_features += n_selected_features[t];
-            }
-
-            for (int j = 0; j < sample_size; j++)
-            {
-                for (int s = 0; s <= j; s++)
-                {
-                    double a = 0;
-                    for (int f = 0; f < total_selected_features; f++)
-                    {
-                        a += proposed_design[j][f] * proposed_design[s][f];
-                    }
-                    Sigma[j * sample_size + s] =
-                        Sigma[s * sample_size + j] = slab_scale + a;
-                }
-                Sigma[j * sample_size + j] += 1;
-            }
-
-            new_quadratic_form = cholesky_quadratic_form(
-                sample_size, Sigma, latent_y, &new_logdet);
-            new_log_likelihood =
-                -(sample_size / 2.0) * log(2 * IMR_PI) +
-                gsl_sf_lngamma(sample_size / 2.0 + alpha) -
-                gsl_sf_lngamma(alpha) - 0.5 * new_logdet -
-                ((sample_size / 2.0) + alpha) *
-                    log(1 + new_quadratic_form / (2 * psi));
-            free(Sigma);
-        }
-        else
         {
             const int max_iter = numerical->selection_max_iter;
             const int moment_order = 1;
@@ -138,7 +98,7 @@ void sample_gamma_indicators(
             double *precision = build_posterior_precision(
                 k_val, n_covariates, n_selected_features[0], sample_size,
                 slab_scale, covariate_scale, intercept_scale,
-                first_platform_scale, proposed_design, numerical);
+                first_platform_scale, proposed_design);
             double *precision_copy = malloc((size_t) k_val * k_val * sizeof(double));
             if (!precision_copy) Rf_error("malloc failed for precision_copy");
             for (int m = 0; m < k_val; m++)
@@ -180,17 +140,15 @@ void sample_gamma_indicators(
                 changed_feature_index[d] = g;
                 double tx = imr_gamma_log_odds(n_platform_models[platform_index],
                     platform_model_index, g, theta[platform_index][platform_model_index],
-                    gamma[platform_index], nu[platform_index], selection_update);
+                    gamma[platform_index], nu[platform_index]);
                 log_prior_ratio += dif * tx;
                 d++;
             }
         }
 
-        /* The paper target requires the reverse/forward proposal probability.
-         * Preserve the published-code transition when explicitly using legacy. */
-        double log_proposal_ratio = selection_update == IMR_UPDATE_MRF_HASTINGS ?
-            imr_gamma_log_hastings(n_features[platform_index], old_n_selected_features,
-                                  new_n_selected_features, 0.5) : 0;
+        /* Correct the asymmetric boundary flip/swap proposals. */
+        double log_proposal_ratio = imr_gamma_log_hastings(n_features[platform_index],
+            old_n_selected_features, new_n_selected_features, 0.5);
         double u_val = gsl_ran_flat(rng, 0, 1);
         if (log(u_val) < new_log_likelihood - *log_likelihood + log_prior_ratio + log_proposal_ratio)
         {
@@ -199,11 +157,7 @@ void sample_gamma_indicators(
                 gamma[platform_index][platform_model_index][changed_feature_index[g]] = gamma_proposal[changed_feature_index[g]];
             }
             *log_likelihood = new_log_likelihood;
-            if (strcmp(likelihood_type, "Local") == 0)
-            {
-                *logdet = new_logdet;
-                *quadratic_form = new_quadratic_form;
-            }
+
             accept_gamma[platform_index][platform_model_index] += 1;
         }
         else
@@ -224,25 +178,7 @@ void sample_gamma_indicators(
     }
 }
 
-double cholesky_quadratic_form(
-    int n, double matrix[n * n], double vector[n], double *logdet)
-{
-    gsl_matrix_view chol = gsl_matrix_view_array(matrix, n, n);
-    gsl_vector_view rhs = gsl_vector_view_array(vector, n);
-    gsl_vector *solution = gsl_vector_alloc(n);
 
-    gsl_linalg_cholesky_decomp(&chol.matrix);
-    gsl_linalg_cholesky_solve(&chol.matrix, &rhs.vector, solution);
-    *logdet = cholesky_logdet(&chol.matrix);
-
-    double quadratic_form = 0;
-    for (int i = 0; i < n; i++)
-    {
-        quadratic_form += vector[i] * gsl_vector_get(solution, i);
-    }
-    gsl_vector_free(solution);
-    return quadratic_form;
-}
 
 double cholesky_logdet(gsl_matrix *chol)
 {

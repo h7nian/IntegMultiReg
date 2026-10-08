@@ -2,27 +2,35 @@
 % Please edit documentation in R/methods.R
 \name{coef.imr}
 \alias{coef.imr}
-\title{Regression Coefficients Require Regression Posterior Samples}
+\title{Extract Regression Coefficients}
 \usage{
 \method{coef}{imr}(object, ...)
 }
 \arguments{
-\item{object}{A fitted \code{imr} object.}
+\item{object}{An \code{imr} fit.}
 
-\item{...}{Unused.}
+\item{...}{Unused; unsupported arguments fail.}
 }
 \value{
-No value is returned: the method stops with instructions for sampling
-regression coefficients. \code{coef()} on the resulting \code{imr_posterior} object
-returns posterior mean regression coefficients.
+A named list of coefficient vectors by availability subgroup.
 }
 \description{
-An \code{imr} fit stores selection draws and integrates regression coefficients
-out of its model scores. It does not store regression coefficient estimates.
-This method reports that limitation instead of returning inclusion
-probabilities as coefficients or starting an additional sampler implicitly.
+Returns posterior means, including exclusion zeros in model averaging.
+\deqn{\widehat\beta_j=\frac{1}{BC}\sum_{c,b}\beta_j^{(b,c)}.}{Posterior coefficient mean = average over retained iterations and chains.}
+Coefficients use the fitted subgroup predictor scales; log-time survival
+fits describe log time. Extraction performs no sampling.
 }
-\seealso{
-\code{\link[=inclusion_probabilities]{inclusion_probabilities()}}, \code{\link[=sample_regression_posterior]{sample_regression_posterior()}},
-\link{imr_posterior_methods}
+\examples{
+# Short interface example; increase the budget and inspect diagnostics for inference.
+x <- data.frame(id = 1:20, marker = sin(1:20))
+y <- data.frame(id = x$id, y = 1 + x$marker + cos(x$id) / 3)
+fit <- imr(list(assay = x), y,
+  outcome_type = "continuous",
+  min_subgroup_size = 0, priors = imr_priors(forced_scale = 1),
+  mcmc = imr_mcmc(
+    draws = 100, burnin = 100, chains = 2,
+    seed = 1, diagnostics = FALSE
+  )
+)
+coef(fit)
 }

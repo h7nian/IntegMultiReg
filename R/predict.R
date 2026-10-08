@@ -1,136 +1,213 @@
-#' Predict Outcomes for New Subjects
+#' Predict Responses from an IMR Model
 #'
-#' @description
-#' `predict()` method for objects of class `"imr"` produced by [imr()].  New
-#' subjects are matched to the availability subgroup models learned during
-#' training, missing platforms are handled automatically, and the
-#' test features are standardized with the training set's centring and scaling
-#' factors before Bayesian model averaging.
+#' Uses stored regression draws, or model-mode averaging for a selection fit.
+#' Subjects are routed by their measured platforms using training transformations.
+#' `quantity = "conditional_mean"` describes the conditional expected response;
+#' `"new_observation"` additionally simulates outcome noise.
 #'
-#' @section Ranked-model point prediction:
-#' The retained joint selection states are scanned in reverse iteration order
-#' until the chain is exhausted or `100 * max_models` distinct states have
-#' been collected. These states are ranked by recomputed approximate
-#' log-posterior scores. The calculation
-#' uses the full-fit latent-response means and mean MRF interactions. Let
-#' \eqn{\mathcal M}{M} be the retained set of at most `max_models` states and
-#' \eqn{\ell_m}{ell_m} their scores. The prediction weights are
-#' \deqn{w_m=\frac{\exp(\ell_m-\ell_{\max})}
-#'                  {\sum_{h\in\mathcal M}\exp(\ell_h-\ell_{\max})}.}{w_m = exp(ell_m - ell_max) / sum_h exp(ell_h - ell_max), over retained models.}
-#' They are normalized scores of the ranked distinct states, rather than their
-#' empirical MCMC visit frequencies. Let \eqn{\widehat b_{s,m}}{approximate_beta_s,m} be the
-#' approximate coefficient mode from the iteration-limited coordinate-ascent
-#' calculation, and let
-#' \eqn{z} be the new subject's transformed design row. Then
-#' \deqn{\widehat y=\sum_{m\in\mathcal M}w_m z^T\widehat b_{s,m}}{predicted working response = sum_m w_m * z-transpose * approximate_beta_s,m.}
-#' for continuous and working-scale survival responses. Binary predictions
-#' apply the probit link within each model:
-#' \deqn{\widehat p=\sum_{m\in\mathcal M}w_m
-#'       \Phi(z^T\widehat b_{s,m}).}{predicted event probability = sum_m w_m * Phi(z-transpose * approximate_beta_s,m).}
-#' The binary point-prediction path uses the unit-variance probit approximation;
-#' it does not average the conditional variance draws from [sample_regression_posterior()].
-#' For a default survival fit, \eqn{\widehat y}{predicted working response} is on the log-time scale.
+#' @section Predictive quantities:
+#' For a transformed design row x, each draw gives
+#' \deqn{\eta^{(b,c)}=x^T\beta^{(b,c)}.}{eta = transpose(x) * beta for each joint draw.}
+#' Continuous conditional means are eta, and binary probabilities are
+#' \deqn{p^{(b,c)}=\Phi(\eta^{(b,c)}/\sqrt{(\sigma^2)^{(b,c)}}).}{Binary probability = NormalCDF(eta / sqrt(variance)).}
+#' For log-time survival, the draw-wise conditional mean time is
+#' \deqn{\exp(\eta^{(b,c)}+(\sigma^2)^{(b,c)}/2).}{Conditional mean survival time = exp(eta + variance/2).}
+#' `new_observation` samples Gaussian working responses, then applies the binary
+#' threshold or survival exponential where needed. Future censoring is not simulated.
+#' Response-scale log-time survival summaries use posterior medians because an
+#' inverse-gamma variance mixture need not have a finite time-scale mean.
+#' Other point summaries are posterior means. Intervals use empirical inverse
+#' CDF quantiles (type 1), preserving binary values and point masses.
 #'
-#' These are plug-in point predictions. For coefficient uncertainty and
-#' predictive intervals, use [sample_regression_posterior()] followed by
-#' [predict.imr_posterior()], which also uses a different model-averaging
-#' construction. Increasing `max_models` changes this finite ranked-model
-#' approximation; it does not lengthen the fitted MCMC chain.
-#'
-#' @param object A fitted object of class `"imr"` returned by [imr()].
-#' @param newdata A list of data frames with the new platform measurements, or
-#'   an [imr_data()] object created for prediction. When an `imr_data` object is
-#'   supplied, its covariates are used automatically.
-#'   Each data frame must include `id` as the first column, followed by finite
-#'   numeric feature columns matching the corresponding training platform.
-#' @param platform_names A character vector giving, for each element of
-#'   `newdata`, the index (`"1"`, `"2"`, ...) of the corresponding training
-#'   platform.  Defaults to `NULL`, meaning the elements of `newdata` are taken
-#'   to be in the same order as the platforms supplied to [imr()].
-#' @param covariates An optional data frame of clinical covariates for the test
-#'   subjects, including `id` as the first column.  Required when the model was
-#'   fitted with covariates and ignored with a warning when it was not.
-#'   For a formula fit, supply the original predictor columns (including factors
-#'   and variables used in transformations). The training terms, factor levels
-#'   and contrasts are reused. The training identifier name is also accepted.
-#'   Alternatively, an already encoded numeric model matrix may be supplied as
-#'   a data frame with `id` and exactly the fitted covariate column names.
-#' @param max_models Integer; the maximum number of distinct selection models
-#'   (gamma configurations) used for Bayesian model averaging.  Default `100`.
-#' @param verbose Logical; if `TRUE`, print the C routine's diagnostics.
-#'   Defaults to `FALSE`.
+#' @param object An `imr` fit with stored regression draws. Laplace selection
+#'   fits dispatch to [predict.imr_selection()] instead.
+#' @param newdata An [imr_data()] object or list of platform data frames.
+#' @param platform_names Optional training platform names or indices for that list.
+#'   Named lists are matched to fitted names when possible.
+#' @param covariates Clinical predictors; formula fits require the original
+#'   formula columns so the training transformation can be reused.
+#' @param quantity `NULL` selects the available point calculation: conditional_mean
+#'   for regression draws, model_average for a Laplace selection fit. Explicit
+#'   choices are `"conditional_mean"`, `"new_observation"` and `"model_average"`.
+#'   Selection fits require conditional sampling before intervals or observation noise.
+#' @param type `"response"` returns the outcome scale; `"link"` returns the
+#'   Gaussian working scale (latent utility for binary data, log time for AFT).
+#' @param interval Include equal-tail intervals in the prediction tables.
+#' @param level Equal-tail probability level.
+#' @param seed Prediction-noise seed. It does not refit or resample parameters.
+#' @param max_models Maximum distinct models in a Laplace point approximation;
+#'   `NULL` uses 100 there. Other fits reject a non-NULL value.
+#' @param verbose Report prediction progress.
 #' @param ... Unused arguments are rejected.
-#'
-#' @details
-#' Predictions are only produced for subjects observed on at least one platform
-#' (and, when `covariates` is supplied, with covariate data).  For `"binary"`
-#' outcomes the returned `prediction` column is a probability obtained through the
-#' probit link (`pnorm`) within each model before averaging; for `"continuous"` and `"right.censored"` outcomes it
-#' is the predicted working response. For default log-time survival fits it is
-#' on the log-time scale; exponentiating gives a transformed point prediction,
-#' not a posterior mean survival time. Old and identity-scale fits retain their
-#' historical response scale.
-#'
-#' @return A named list with one data frame per active availability subgroup
-#'   model. Each data frame has columns `id` (subject identifier) and `prediction`
-#'   (predicted value or probability at full numeric precision).
-#'
-#' @seealso [imr()], [cv_imr()]
-#'
-#' @examples
-#' \donttest{
-#' data("simIMR", package = "IntegMultiReg")
-#' fit <- imr(
-#'   x = simIMR$platforms, outcome = simIMR$outcome,
-#'   covariates = simIMR$covariates, outcome_type = "binary",
-#'   nu = c(-4, -3, -4), draws = 200, burnin = 100,
-#'   min_subgroup_size = 5, seed = 1
-#' )
-#' new_x <- simIMR$platforms[[1]][1:10, ]
-#' new_z <- simIMR$platforms[[2]][1:7, ]
-#' predict(fit, newdata = list(new_x, new_z), covariates = simIMR$covariates)
-#' }
+#' @return An `imr_predictions` list of data frames by availability subgroup,
+#'   each containing `id`, `prediction` and optional `lower`/`upper` columns.
+#'   The `prediction` attribute records calculation, quantity, scale and summary.
 #' @export
-predict.imr <- function(object, newdata, platform_names = NULL,
-                        covariates = NULL, max_models = 100,
-                        verbose = FALSE, ...) {
+predict.imr <- function(object, newdata, platform_names = NULL, covariates = NULL,
+                        quantity = NULL, type = c("response", "link"), interval = FALSE,
+                        level = .95, seed = 1L, max_models = NULL, verbose = FALSE, ...) {
   .imr_reject_dots(...)
-  validate_imr_object(object)
-  .imr_require_current_updates(object)
-  .imr_check_flag(verbose, "verbose")
-  max_models <- .imr_check_integer_scalar(max_models, "max_models", min = 1)
-  inputs <- .imr_prediction_inputs(object, newdata, platform_names, covariates)
-  if (!is.null(inputs$empty)) return(.imr_prediction_result(inputs$empty, object))
-  x_train <- inputs$x_train
-  x_test <- inputs$x_test
-  cova_test <- inputs$cova_test
-  sample_ids <- inputs$sample_ids
-  samplesize_test <- inputs$samplesize_test
-  subgroup_names <- inputs$subgroup_names
-  n_platforms <- inputs$n_platforms
-  control <- object$control
-  model <- object$model
-  prep <- object$preprocessing
-  posterior <- object$posterior
-  results <- .imr_call_predict_native(
-    control = control, model = model, posterior = posterior,
-    features = x_train, covariates = prep$covariates,
-    test_features = x_test, test_covariates = cova_test,
-    test_sample_sizes = samplesize_test, max_models = max_models,
-    verbose = verbose
+  .imr_predict(
+    object, newdata, platform_names, covariates, quantity, type,
+    interval, level, seed, max_models, verbose
   )
-  names(results) <- subgroup_names
-  res <- mapply(function(x, y) {
-    data.frame(id = x, prediction = y, row.names = NULL, stringsAsFactors = FALSE)
-  }, sample_ids, results, SIMPLIFY = FALSE)
+}
 
-  .imr_prediction_result(res, object)
+.imr_predict <- function(object, newdata, platform_names, covariates, quantity,
+                         type, interval, level, seed, max_models, verbose) {
+  conditional <- inherits(object, "imr_posterior")
+  if (conditional) .imr_check_regression_posterior(object) else .imr_check_fit(object)
+  fit <- if (conditional) object$fit else object
+  view <- if (conditional) .imr_conditional_view(object) else object
+  selection <- is.null(view$posterior$coefficients)
+  if (is.null(quantity)) quantity <- if (selection) "model_average" else "conditional_mean"
+  quantity <- match.arg(quantity, c("conditional_mean", "new_observation", "model_average"))
+  type <- match.arg(type, c("response", "link"))
+  .imr_check_flag(interval, "interval")
+  .imr_check_flag(verbose, "verbose")
+  level <- .imr_check_level(level)
+  seed <- .imr_check_integer_scalar(seed, "seed", min = 0)
+  if (selection && (quantity != "model_average" || interval)) {
+    .imr_abort("A selection fit provides model_average point predictions. Use sample_regression_posterior() for conditional_mean, new_observation or intervals.")
+  }
+  if (!selection && (!is.null(max_models) || quantity == "model_average")) {
+    .imr_abort("`max_models` and quantity = 'model_average' apply only to a Laplace selection fit.")
+  }
+  if (selection) max_models <- .imr_check_integer_scalar(max_models %||% 100L, "max_models", min = 1)
+  inputs <- .imr_prediction_inputs(fit, newdata, platform_names, covariates)
+  saved <- .imr_save_rng()
+  on.exit(.imr_restore_rng(saved), add = TRUE)
+  if (quantity == "new_observation") set.seed(seed)
+  result <- if (selection) {
+    .imr_predict_selection(fit, inputs, max_models, verbose, type)
+  } else {
+    if (verbose) cat("Predicting from stored regression draws.\n")
+    .imr_predict_joint(view, inputs, quantity, type, interval, level)
+  }
+  log_time <- fit$control$outcome_type == "right.censored" && fit$control$response_scale == "log" && type == "response"
+  if (selection && log_time) {
+    result <- lapply(result, function(x) {
+      x$prediction <- exp(x$prediction)
+      if (any(!is.finite(x$prediction))) .imr_abort("Time-scale prediction overflows; use type = 'link'.")
+      x
+    })
+    result <- .imr_prediction_result(result, fit)
+  }
+  attr(result, "prediction") <- list(
+    method = if (selection) "ranked_model_modes" else if (conditional) "conditional_posterior_draws" else "posterior_draws",
+    quantity = quantity, type = type,
+    scale = if (fit$control$outcome_type == "right.censored") {
+      if (type == "link" && fit$control$response_scale == "log") "log_time" else "time"
+    } else if (fit$control$outcome_type == "binary") {
+      if (type == "link") "latent_utility" else if (quantity == "new_observation") "binary_outcome" else "probability"
+    } else {
+      "response"
+    },
+    summary = if (selection) {
+      if (log_time) "transformed_mode_average" else "mode_average"
+    } else if (log_time) "posterior_median" else "posterior_mean",
+    interval = interval, level = if (interval) level else NULL,
+    max_models = max_models
+  )
+  result
+}
+
+.imr_flat_draws <- function(x) {
+  matrix(x,
+    nrow = dim(x)[1L] * dim(x)[2L], ncol = dim(x)[3L],
+    dimnames = list(NULL, dimnames(x)[[3L]])
+  )
+}
+
+
+.imr_predict_joint <- function(object, inputs, quantity = "conditional_mean", type = "response",
+                               interval = FALSE, level = .95, weights = NULL) {
+  if (!is.null(inputs$empty)) {
+    empty <- inputs$empty
+    if (interval) {
+      empty <- lapply(empty, function(x) {
+        x$lower <- numeric()
+        x$upper <- numeric()
+        x
+      })
+    }
+    return(.imr_prediction_result(empty, object))
+  }
+  total <- as.double(object$control$mcmc$draws) * object$control$mcmc$chains
+  if (!is.null(weights) && (length(weights) != total || any(!is.finite(weights)) ||
+    any(weights < 0) || sum(weights) <= 0)) {
+    .imr_abort("Invalid posterior prediction weights.")
+  }
+  if (!is.null(weights)) weights <- weights / sum(weights)
+  outcome <- object$control$outcome_type
+  log_time <- outcome == "right.censored" && object$control$response_scale == "log" && type == "response"
+  result <- lapply(seq_along(object$model$subgroup_names), function(g) {
+    ids <- inputs$sample_ids[[g]]
+    out <- data.frame(id = ids, prediction = rep(NA_real_, length(ids)))
+    if (interval) {
+      out$lower <- rep(NA_real_, length(ids))
+      out$upper <- rep(NA_real_, length(ids))
+    }
+    if (!length(ids)) {
+      return(out)
+    }
+    columns <- c(
+      list(rep(1, length(ids)), inputs$cova_test[[g]]),
+      inputs$x_test[[g]][object$model$subgroup_platforms[[g]]]
+    )
+    design <- do.call(cbind, columns)
+    beta <- .imr_flat_draws(object$posterior$coefficients[[g]])
+    variance <- as.vector(object$posterior$variance[, , g])
+    # A Gaussian expected value is linear: avoid a subject-by-draw matrix when
+    # only its mean is requested. Nonlinear links and intervals use batches.
+    if (quantity == "conditional_mean" && !interval && (outcome == "continuous" || type == "link" ||
+      (outcome == "right.censored" && !log_time))) {
+      coefficients <- if (is.null(weights)) colMeans(beta) else drop(crossprod(weights, beta))
+      out$prediction <- drop(design %*% coefficients)
+      return(out)
+    }
+    batch_size <- max(1L, floor(1e6 / total))
+    for (start in seq.int(1L, length(ids), by = batch_size)) {
+      rows <- seq.int(start, min(length(ids), start + batch_size - 1L))
+      values <- beta %*% t(design[rows, , drop = FALSE])
+      if (quantity == "new_observation") {
+        values <- values +
+          matrix(stats::rnorm(length(values)), nrow = total) * sqrt(variance)
+      }
+      if (type == "response" && outcome == "binary") {
+        if (quantity == "new_observation") {
+          values[] <- as.numeric(values > 0)
+        } else {
+          values[] <- stats::pnorm(values / sqrt(variance))
+        }
+      } else if (log_time && quantity == "conditional_mean") values <- values + variance / 2
+      if (any(!is.finite(values))) .imr_abort("Non-finite posterior predictions; inspect predictor scales and tails.")
+      out$prediction[rows] <- if (log_time) apply(values, 2L, .imr_quantile, probability = .5, weights = weights) else if (is.null(weights)) colMeans(values) else drop(crossprod(weights, values))
+      if (interval) {
+        q <- vapply(seq_along(rows), function(j) {
+          .imr_quantile(
+            values[, j],
+            c((1 - level) / 2, (1 + level) / 2), weights
+          )
+        }, numeric(2L))
+        out$lower[rows] <- q[1L, ]
+        out$upper[rows] <- q[2L, ]
+      }
+    }
+    if (log_time) {
+      for (name in setdiff(names(out), "id")) out[[name]] <- exp(out[[name]])
+      if (any(!is.finite(out$prediction))) .imr_abort("Time-scale prediction overflows; inspect type = 'link' and posterior tails.")
+    }
+    out
+  })
+  .imr_prediction_result(result, object)
 }
 
 .imr_prediction_result <- function(result, fit) {
   names(result) <- paste0("subgroup:", fit$model$subgroup_names)
-  attr(result, "platforms") <- lapply(fit$model$subgroup_platforms, function(index)
-    fit$model$platform_names[index])
+  attr(result, "platforms") <- lapply(fit$model$subgroup_platforms, function(index) {
+    fit$model$platform_names[index]
+  })
   class(result) <- c("imr_predictions", "list")
   result
 }
@@ -141,13 +218,19 @@ predict.imr <- function(object, newdata, platform_names = NULL,
 #' platform names. List keys such as `subgroup:011` identify availability
 #' patterns, not variable-selection models.
 #'
-#' @param x An `imr_predictions` object returned by [predict.imr()] or
-#'   [predict.imr_posterior()].
+#' @param x An `imr_predictions` object returned by [predict.imr()].
 #' @param row.names Whether to print row names in the subgroup tables.
 #' @param ... Arguments passed to the data-frame printing method.
 #' @return `x`, invisibly.
 #' @export
 print.imr_predictions <- function(x, row.names = FALSE, ...) {
+  info <- attr(x, "prediction")
+  if (!is.null(info)) {
+    cat(sprintf(
+      "Prediction: %s; %s scale; %s (%s).\n",
+      info$quantity, info$type, info$method, info$summary
+    ))
+  }
   platforms <- attr(x, "platforms")
   for (g in seq_along(x)) {
     cat(sprintf("%s (%s)\n", names(x)[g], paste(platforms[[g]], collapse = " + ")))
@@ -169,7 +252,8 @@ print.imr_predictions <- function(x, row.names = FALSE, ...) {
   }
   ids <- covariates[[id]]
   .imr_check_id_frame(data.frame(id = ids), "covariates",
-                      require_rows = FALSE, require_features = FALSE)
+    require_rows = FALSE, require_features = FALSE
+  )
   tt <- stats::delete.response(object$preprocessing$terms)
   variables <- all.vars(tt)
   if (!all(variables %in% names(covariates))) {
@@ -178,15 +262,19 @@ print.imr_predictions <- function(x, row.names = FALSE, ...) {
       names(covariates)[names(covariates) == id] <- "id"
       return(covariates[, c("id", object$model$covariate_names), drop = FALSE])
     }
-    .imr_abort(sprintf("`covariates` is missing formula variable(s): %s.",
-                       paste(setdiff(variables, names(covariates)), collapse = ", ")))
+    .imr_abort(sprintf(
+      "`covariates` is missing formula variable(s): %s.",
+      paste(setdiff(variables, names(covariates)), collapse = ", ")
+    ))
   }
-  mf <- stats::model.frame(tt, data = covariates, na.action = stats::na.fail,
-                            xlev = object$preprocessing$xlevels)
+  mf <- stats::model.frame(tt,
+    data = covariates, na.action = stats::na.fail,
+    xlev = object$preprocessing$xlevels
+  )
   mm <- stats::model.matrix(tt, mf, contrasts.arg = object$preprocessing$contrasts)
   mm <- mm[, attr(mm, "assign") != 0L, drop = FALSE]
   if (nrow(mm) != length(ids) ||
-      !identical(colnames(mm), object$model$covariate_names)) {
+    !identical(colnames(mm), object$model$covariate_names)) {
     .imr_abort("Formula covariates do not match the training model matrix.")
   }
   data.frame(id = ids, mm, check.names = FALSE, row.names = NULL)
@@ -232,8 +320,16 @@ print.imr_predictions <- function(x, row.names = FALSE, ...) {
 
   ## Default: the new platforms are supplied in the same order as at training.
   if (is.null(platform_names)) {
-    platform_names <- as.character(seq_along(newdata))
+    supplied_names <- names(newdata)
+    if (!is.null(supplied_names) && all(nzchar(supplied_names)) && all(supplied_names %in% model$platform_names)) {
+      platform_names <- as.character(match(supplied_names, model$platform_names))
+    } else {
+      platform_names <- as.character(seq_along(newdata))
+    }
   } else {
+    if (is.character(platform_names) && all(platform_names %in% model$platform_names)) {
+      platform_names <- as.character(match(platform_names, model$platform_names))
+    }
     if (length(platform_names) != length(newdata)) {
       .imr_abort("`platform_names` must have the same length as `newdata`.")
     }
@@ -266,7 +362,7 @@ print.imr_predictions <- function(x, row.names = FALSE, ...) {
     }
     expected_names <- model$feature_names[[platform_index]]
     if (!is.null(expected_names) &&
-        !identical(colnames(newdata[[i]])[-1], expected_names)) {
+      !identical(colnames(newdata[[i]])[-1], expected_names)) {
       .imr_abort(sprintf(
         "Feature columns in `%s` must match the training feature names.",
         arg
@@ -296,7 +392,7 @@ print.imr_predictions <- function(x, row.names = FALSE, ...) {
     }
     expected_covariates <- model$covariate_names
     if (!is.null(expected_covariates) && length(expected_covariates) > 0L &&
-        !identical(colnames(covariates)[-1], expected_covariates)) {
+      !identical(colnames(covariates)[-1], expected_covariates)) {
       .imr_abort("Columns in `covariates` must match the training covariate names.")
     }
   }
@@ -407,7 +503,73 @@ print.imr_predictions <- function(x, row.names = FALSE, ...) {
     )
   }
 
-  list(x_train = x_train, x_test = x_test, cova_test = cova_test,
-       sample_ids = sample_ids, samplesize_test = samplesize_test,
-       subgroup_names = subgroup_names, n_platforms = n_platforms)
+  list(
+    x_train = x_train, x_test = x_test, cova_test = cova_test,
+    sample_ids = sample_ids, samplesize_test = samplesize_test,
+    subgroup_names = subgroup_names, n_platforms = n_platforms
+  )
 }
+
+#' Model-Averaged Predictions from a Laplace Selection Fit
+#'
+#' Preserves the original ranked-model calculation for a fit that marginalizes
+#' both regression coefficients and residual variance. It uses approximate
+#' coefficient modes and rescored distinct selection states, rather than MCMC
+#' visit-frequency weights. This method returns point predictions without
+#' additional posterior sampling.
+#'
+#' @section Prediction rule:
+#' Candidate states are collected from the end of the stored history until
+#' all draws have been inspected or `100 * max_models` distinct states have
+#' been collected. The highest-scoring `max_models` states receive normalized
+#' exponential weights. For transformed predictor row x, prediction averages
+#' \deqn{\sum_m w_m x^T\widehat\beta_m.}{sum_m weight_m * x-transpose * approximate_beta_m.}
+#' Binary predictions instead average
+#' \deqn{\sum_m w_m\Phi(x^T\widehat\beta_m).}{sum_m weight_m * Phi(x-transpose * approximate_beta_m).}
+#' This is the original unit-variance probit approximation. For a log-time
+#' survival fit, `type = "link"` retains the original log-time prediction.
+#' The common default `type = "response"` exponentiates it. This is a transformed
+#' mode average, not a posterior mean survival time.
+#'
+#' @param object An `imr_selection` fit from
+#'   `imr(..., marginalize = "coefficients_and_variance")`.
+#' @param newdata,platform_names,covariates New-subject inputs as in [predict.imr()].
+#' @param quantity,type,interval,level,seed Common prediction controls as in [predict.imr()].
+#'   This fit supports model_average point predictions; obtain conditional
+#'   regression draws before requesting other quantities or intervals.
+#' @param max_models Maximum retained distinct models; NULL selects 100.
+#' @param verbose Print the native model-scoring diagnostics.
+#' @param ... Unused arguments are rejected.
+#' @return An `imr_predictions` list. Binary predictions are probabilities;
+#'   the default survival prediction uses the response scale. Calculation and
+#'   scale are recorded in the prediction attribute.
+#' @examples
+#' x <- data.frame(id = 1:20, marker = sin(1:20))
+#' y <- data.frame(id = x$id, y = 1 + x$marker + cos(x$id) / 3)
+#' fit <- imr(list(assay = x), y,
+#'   outcome_type = "continuous",
+#'   marginalize = "coefficients_and_variance", min_subgroup_size = 0,
+#'   priors = imr_priors(forced_scale = 1),
+#'   mcmc = imr_mcmc(
+#'     draws = 40, burnin = 20, chains = 1,
+#'     initial = NULL, seed = 1, diagnostics = FALSE
+#'   )
+#' )
+#' predict(fit, list(assay = x))
+#' @export
+predict.imr_selection <- predict.imr
+
+#' Predict from Conditional Regression Posterior Draws
+#'
+#' Uses stored conditional coefficient and variance draws with the predictive
+#' quantities and scaling described in [predict.imr()]. It retains the model
+#' weighting approximation documented in [sample_regression_posterior()].
+#' @param object An `imr_posterior` object.
+#' @param newdata,platform_names,covariates,quantity,type,interval,level,seed,max_models,verbose
+#'   Prediction inputs and quantities as in [predict.imr()]. The common default
+#'   returns point predictions; use interval = TRUE for intervals.
+#' @param ... Unused arguments are rejected.
+#' @return An `imr_predictions` list of predictions and optional intervals.
+#' @example inst/examples/conditional-posterior.R
+#' @export
+predict.imr_posterior <- predict.imr

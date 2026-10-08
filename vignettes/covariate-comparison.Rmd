@@ -15,7 +15,7 @@ library(IntegMultiReg)
 Clinical covariates are forced within an IMR specification; the selection prior
 acts on molecular features. This example compares `y ~ age` with
 `y ~ age + sex + stage` on synthetic continuous outcomes. Both candidates use
-the current symmetric-MRF fitter and training-fold refit CV. The example demonstrates
+the joint posterior sampler and training-fold refit CV. The example demonstrates
 predictive comparison, not causal confounder selection. Required adjustment
 variables must appear in every candidate.
 
@@ -33,7 +33,7 @@ comparison <- run_covariate_comparison(
 )
 ```
 
-This retains 2,000 draws after 500 burn-in iterations in each fit. The paired
+This retains 2,000 draws per chain after 1,000 burn-in iterations, with four chains in each fit. The paired
 comparison uses two rounds of three-fold CV; the nested procedure uses three
 outer folds and three inner folds. `quick = TRUE` reduces these settings for
 a smoke test. Short runs or reproducible output do not establish chain
@@ -45,7 +45,7 @@ They are not silently relabelled as results from this workflow.
 # Compare prespecified candidates
 
 Both candidates receive exactly the same subject/fold assignments. Each fit
-rebuilds preprocessing, formula encoding, selection MCMC and prediction inside
+rebuilds preprocessing, formula encoding, joint MCMC and prediction inside
 the training fold. The pooled MSE combines the held-out predictions for a round.
 
 ```{r paired-results}
@@ -106,7 +106,7 @@ stopifnot(isTRUE(all.equal(
 # Keep the record needed for replay
 
 The output directory contains eight CSV tables, `comparison.rds` and
-`sessionInfo.txt`. The RDS file also records the sampler convention, MCMC
+`sessionInfo.txt`. The RDS file also records the joint sampling algorithm, MCMC
 settings, fit and outer-split seeds, and the complete CV controls for the paired
 and nested fits, including actual folds and refit seeds. Keep the exact package
 source and this record together. A matching version label or seed alone does

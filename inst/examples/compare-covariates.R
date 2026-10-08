@@ -4,38 +4,59 @@
 # not measurements from a clinical study. This is prediction, not confounder selection.
 run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = FALSE) {
   stopifnot(is.logical(quick), length(quick) == 1L, !is.na(quick))
-  if (utils::packageVersion("IntegMultiReg") != "0.2.0") stop("Requires IntegMultiReg 0.2.0")
+  if (utils::packageVersion("IntegMultiReg") != "0.3.0") stop("Requires IntegMultiReg 0.3.0")
   had_rng <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   if (had_rng) saved_rng <- get(".Random.seed", envir = .GlobalEnv)
-  on.exit(if (had_rng) assign(".Random.seed", saved_rng, envir = .GlobalEnv) else
-    if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
-      rm(".Random.seed", envir = .GlobalEnv), add = TRUE)
-  env <- new.env(); utils::data("simIMR", package = "IntegMultiReg", envir = env)
+  on.exit(if (had_rng) {
+    assign(".Random.seed", saved_rng, envir = .GlobalEnv)
+  } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+    rm(".Random.seed", envir = .GlobalEnv)
+  }, add = TRUE)
+  env <- new.env()
+  utils::data("simIMR", package = "IntegMultiReg", envir = env)
   dat <- env$simIMR
   clinical <- merge(dat$outcome.continuous, dat$covariates, by = "id", sort = TRUE)
   input <- IntegMultiReg::imr_data(dat$platforms, dat$outcome.continuous,
-    covariates = dat$covariates, outcome_type = "continuous")
+    covariates = dat$covariates, outcome_type = "continuous"
+  )
   cohort <- as.data.frame(input)
   sizes <- table(cohort$subgroup)
   cohort <- cohort[cohort$subgroup %in% names(sizes)[sizes > 30], ]
   clinical <- clinical[match(cohort$id, clinical$id), ]
   stopifnot(!anyNA(clinical), identical(clinical$id, cohort$id))
   # Both candidate formulas and all settings are fixed before evaluation.
-  formulas <- list(age_only = y ~ age, age_sex_stage = y ~ age + sex + stage)
-  draws <- if (quick) c(80, 40) else c(2000, 500)
+  # These formulas use only table columns. A base environment keeps saved
+  # specifications from retaining this runner's unrelated fits and output state.
+  formulas <- list(
+    age_only = stats::as.formula("y ~ age", env = baseenv()),
+    age_sex_stage = stats::as.formula("y ~ age + sex + stage", env = baseenv())
+  )
+  draws <- if (quick) c(80, 40) else c(2000, 1000)
+  chains <- if (quick) 2L else 4L
   k <- if (quick) 2L else 3L
   rounds <- if (quick) 1L else 2L
   assays <- function(ids) lapply(dat$platforms, function(x) x[x$id %in% ids, , drop = FALSE])
-  fit_candidate <- function(formula, ids, seed) IntegMultiReg::imr(
-    formula, data = clinical[match(ids, clinical$id), , drop = FALSE],
-    platforms = assays(ids), outcome_type = "continuous", min_subgroup_size = 0,
-    nu = c(-4, -3, -4), draws = draws[1], burnin = draws[2], seed = seed)
+  fit_candidate <- function(formula, ids, seed) {
+    IntegMultiReg::imr(
+      formula,
+      data = clinical[match(ids, clinical$id), , drop = FALSE],
+      platforms = assays(ids), outcome_type = "continuous", min_subgroup_size = 0,
+      priors = IntegMultiReg::imr_priors(nu = c(-4, -3, -4)),
+      mcmc = IntegMultiReg::imr_mcmc(
+        draws = draws[1], burnin = draws[2],
+        chains = chains, seed = seed, diagnostics = !quick
+      )
+    )
+  }
   fit_set <- function(ids, seed) lapply(formulas, fit_candidate, ids = ids, seed = seed)
   evaluate <- function(fits, rounds) {
-    first <- IntegMultiReg::cv_imr(fits[[1]], k = k, rounds = rounds,
-                                   cv_method = "refit")
+    first <- IntegMultiReg::cv_imr(fits[[1]],
+      k = k, rounds = rounds,
+      cv_method = "refit"
+    )
     cv <- c(list(first), lapply(fits[-1], IntegMultiReg::cv_imr,
-      k = k, rounds = rounds, cv_method = "refit", folds = first$control$folds))
+      k = k, rounds = rounds, cv_method = "refit", folds = first$control$folds
+    ))
     names(cv) <- names(fits)
     keys <- lapply(cv, function(x) x$predictions[, c("round", "id", "subgroup", "fold")])
     # Identical seeds alone are not evidence of paired folds: check the actual assignments.
@@ -45,13 +66,17 @@ run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = F
   fits <- fit_set(cohort$id, 24019L)
   cv <- evaluate(fits, rounds)
   metrics <- lapply(cv, function(x) x$pooled[, "all"])
-  paired_summary <- data.frame(candidate = names(formulas),
+  paired_summary <- data.frame(
+    candidate = names(formulas),
     formula = vapply(formulas, function(f) paste(deparse(f), collapse = ""), ""),
     mean_mse = vapply(metrics, mean, 0),
-    sd_across_rounds = vapply(metrics, function(x) if (length(x)>1) stats::sd(x) else NA_real_, 0),
-    row.names = NULL)
-  paired_rounds <- data.frame(round = seq_len(rounds), age_only = metrics[[1]],
-    age_sex_stage = metrics[[2]], expanded_minus_age_only = metrics[[2]] - metrics[[1]])
+    sd_across_rounds = vapply(metrics, function(x) if (length(x) > 1) stats::sd(x) else NA_real_, 0),
+    row.names = NULL
+  )
+  paired_rounds <- data.frame(
+    round = seq_len(rounds), age_only = metrics[[1]],
+    age_sex_stage = metrics[[2]], expanded_minus_age_only = metrics[[2]] - metrics[[1]]
+  )
   metadata <- IntegMultiReg::compare_fit_summaries(fits)
 
   # Outer splits use availability groups only; held-out responses never choose a formula.
@@ -64,54 +89,73 @@ run_covariate_comparison <- function(out_dir = "covariate-comparison", quick = F
   prediction <- rep(NA_real_, nrow(cohort))
   selections <- inner_records <- inner_controls <- vector("list", k)
   for (fold in seq_len(k)) {
-    heldout <- which(outer == fold); train <- which(outer != fold)
+    heldout <- which(outer == fold)
+    train <- which(outer != fold)
     candidate_fits <- fit_set(cohort$id[train], 92000L + fold)
     inner <- evaluate(candidate_fits, 1L)
     inner_controls[[fold]] <- lapply(inner, `[[`, "control")
     scores <- vapply(inner, function(x) unname(x$pooled[1, "all"]), 0)
     stopifnot(all(is.finite(scores)))
-    chosen <- which.min(scores)  # deterministic candidate-order tie break
+    chosen <- which.min(scores) # deterministic candidate-order tie break
     records <- inner[[1]]$predictions
-    stopifnot(setequal(records$id, cohort$id[train]),
-      !any(records$id %in% cohort$id[heldout]))
-    inner_records[[fold]] <- data.frame(outer_fold = fold,
-      records[, c("round", "id", "subgroup", "fold")])
+    stopifnot(
+      setequal(records$id, cohort$id[train]),
+      !any(records$id %in% cohort$id[heldout])
+    )
+    inner_records[[fold]] <- data.frame(
+      outer_fold = fold,
+      records[, c("round", "id", "subgroup", "fold")]
+    )
     p <- do.call(rbind, stats::predict(candidate_fits[[chosen]],
       newdata = assays(cohort$id[heldout]),
-      covariates = clinical[match(cohort$id[heldout], clinical$id), , drop = FALSE]))
+      covariates = clinical[match(cohort$id[heldout], clinical$id), , drop = FALSE]
+    ))
     stopifnot(setequal(p$id, cohort$id[heldout]), !anyDuplicated(p$id))
     prediction[heldout] <- p$prediction[match(cohort$id[heldout], p$id)]
-    selections[[fold]] <- data.frame(outer_fold = fold,
+    selections[[fold]] <- data.frame(
+      outer_fold = fold,
       selected = names(formulas)[chosen], n_train = length(train), n_test = length(heldout),
       inner_mse_age_only = scores[1], inner_mse_age_sex_stage = scores[2],
-      outer_mse = mean((prediction[heldout] - clinical$y[heldout])^2), row.names = NULL)
+      outer_mse = mean((prediction[heldout] - clinical$y[heldout])^2), row.names = NULL
+    )
   }
   stopifnot(all(is.finite(prediction)), all(table(outer) > 0))
-  nested_summary <- data.frame(procedure = "inner-CV formula selection",
+  nested_summary <- data.frame(
+    procedure = "inner-CV formula selection",
     n_subjects = nrow(cohort), outer_folds = k, inner_folds = k,
-    pooled_outer_mse = mean((prediction - clinical$y)^2))
-  result <- list(paired_summary = paired_summary, paired_rounds = paired_rounds,
+    pooled_outer_mse = mean((prediction - clinical$y)^2)
+  )
+  result <- list(
+    paired_summary = paired_summary, paired_rounds = paired_rounds,
     model_metadata = metadata, paired_folds = cv[[1]]$predictions[, c("round", "id", "subgroup", "fold")],
     nested_summary = nested_summary, selected_by_fold = do.call(rbind, selections),
     nested_inner_folds = do.call(rbind, inner_records),
     outer_predictions = data.frame(cohort, outer_fold = outer, observed = clinical$y, prediction),
+    fit_diagnostics = lapply(fits, IntegMultiReg::mcmc_diagnostics),
+    paired_cv_diagnostics = lapply(cv, `[[`, "diagnostics"),
     paired_cv_controls = lapply(cv, `[[`, "control"),
     nested_cv_controls = inner_controls,
-    settings = list(quick = quick, draws = draws[1], burnin = draws[2], k = k, rounds = rounds,
-      formulas = formulas, selection_update = "symmetric_mrf_hastings",
+    settings = list(
+      quick = quick, draws = draws[1], burnin = draws[2], k = k, rounds = rounds,
+      formulas = formulas, inference = "joint_pmom_mrf", chains = chains,
       fit_seed = 24019L, outer_seed = 81043L, inner_fit_seeds = 92000L + seq_len(k),
-      version = as.character(utils::packageVersion("IntegMultiReg"))))
+      version = as.character(utils::packageVersion("IntegMultiReg"))
+    )
+  )
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-  for (name in names(result)[vapply(result, is.data.frame, TRUE)])
+  for (name in names(result)[vapply(result, is.data.frame, TRUE)]) {
     utils::write.csv(result[[name]], file.path(out_dir, paste0(name, ".csv")), row.names = FALSE)
+  }
   saveRDS(result, file.path(out_dir, "comparison.rds"))
   writeLines(capture.output(utils::sessionInfo()), file.path(out_dir, "sessionInfo.txt"))
   cat("\nPrespecified candidates: paired CV (MSE; lower is better)\n")
-  print(metadata, row.names = FALSE); print(paired_summary, row.names = FALSE)
+  print(metadata, row.names = FALSE)
+  print(paired_summary, row.names = FALSE)
   cat("\nPaired round differences (not independent inferential replicates)\n")
   print(paired_rounds, row.names = FALSE)
   cat("\nNested selection: the outer responses are used only for scoring\n")
-  print(result$selected_by_fold, row.names = FALSE); print(nested_summary, row.names = FALSE)
+  print(result$selected_by_fold, row.names = FALSE)
+  print(nested_summary, row.names = FALSE)
   invisible(result)
 }
 if (sys.nframe() == 0L) {

@@ -24,8 +24,10 @@ imr.formula <- function(x, data, platforms, id = "id",
 
   # The identifier aligns subjects; it must not become a predictor via `.`.
   formula_data <- data[, setdiff(names(data), id), drop = FALSE]
-  mf <- stats::model.frame(formula, data = formula_data,
-                           na.action = stats::na.fail)
+  mf <- stats::model.frame(formula,
+    data = formula_data,
+    na.action = stats::na.fail
+  )
   response <- stats::model.response(mf)
   terms_object <- stats::terms(mf)
   if (attr(terms_object, "intercept") != 1L) {

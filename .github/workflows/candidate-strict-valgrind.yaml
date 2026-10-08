@@ -1,4 +1,4 @@
-name: Candidate instrumented Valgrind check
+name: Historical 0.2.0 artifact audit
 
 # Test the pinned 0.2.0 candidate without replacing the historical release audit.
 on:

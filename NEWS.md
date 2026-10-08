@@ -1,3 +1,49 @@
+# IntegMultiReg 0.3.0
+
+* All samplers use one draw-family layout, prediction interface and sampler
+  diagnostic table. Prediction results record their calculation and scale;
+  Laplace survival predictions default to the response scale, with the original
+  values available through `type = "link"`.
+* Conditional computation uses `imr_mcmc()` and shares summary and interval
+  handling with fitted draws. Non-default inapplicable controls fail explicitly.
+  See the migration guide for changed extraction defaults and argument grouping.
+* Removed inactive unadjusted selection updates, historical prior indexing and
+  local-prior likelihood branches. The original ranked-score arithmetic remains
+  explicit and separate from the posterior score.
+
+* The variance- and coefficient-marginal samplers now run their updates,
+  conditional recovery and sample storage in C. They share native MRF and
+  storage helpers and preserve the R reference's arithmetic and random stream.
+  Dense algebra continues through R's BLAS/LAPACK interfaces. The reference
+  implementations are retained only in regression tests.
+* `verbose = TRUE` now reports progress for both single-block marginal samplers.
+  Reporting does not consume random numbers or change the sampled states.
+
+* `imr()` exposes four `marginalize` choices: `"none"`, `"variance"`,
+  `"coefficients"` and `"coefficients_and_variance"`. The original Laplace
+  selection calculation remains available with its numerical defaults and
+  proposals. The other paths target the same model through joint or marginal
+  updates. Exact coefficient integration currently supports small models.
+* `imr_priors()`, `imr_mcmc()` and `imr_control()` separate statistical,
+  sampling and numerical settings. Four separately seeded chains are the
+  default. Recorded starts, chain seeds and thinning define replay.
+* Fits from the first three paths store regression draws. `coef()`, `confint()`,
+  `summary()` and `predict()` use these draws; `posterior_draws()` only extracts
+  them. Laplace fits retain their original point prediction and optional
+  `sample_regression_posterior()` computation.
+* Quantiles use an empirical inverse CDF (type 1), preserving point masses.
+  Rank-normalized split/folded R-hat, bulk/tail ESS and MCSE assess chains.
+  Conditional-model diagnostics remain separate from source selection chains.
+* `cv_imr()` defaults to full training-fold refits with the selected sampler.
+  Reweighting uses PSIS on joint observed-data likelihoods and requires stored
+  regression draws. Earlier post-fit ridge and ranked-model CV are retired.
+* A native fitted-mean cache and parallel diagnostic tasks reduce computation
+  without changing the joint sampler's arithmetic, random draws or precision.
+  GSL remains required for the Laplace engine.
+* Earlier fitted-object schemas require refitting. Preserve archived source
+  and outputs for historical replay; renaming an object cannot generate missing
+  draws or change their target. See the migration and sampler guides.
+
 # IntegMultiReg 0.2.0
 
 ## Interface and statistical meaning

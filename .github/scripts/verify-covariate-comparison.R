@@ -6,7 +6,7 @@ first <- run_covariate_comparison(file.path(out, "first"))
 stopifnot(identical(.Random.seed, rng))
 second <- run_covariate_comparison(file.path(out, "repeat"))
 stopifnot(identical(.Random.seed, rng))
-stopifnot(identical(first$settings$selection_update, "symmetric_mrf_hastings"),
+stopifnot(identical(first$settings$inference, "joint_pmom_mrf"),
           identical(first$paired_cv_controls[[2]]$folds,
                     first$paired_cv_controls[[1]]$folds))
 files <- list.files(file.path(out, "first"), pattern = "[.]csv$")

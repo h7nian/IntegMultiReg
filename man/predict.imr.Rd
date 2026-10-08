@@ -2,117 +2,80 @@
 % Please edit documentation in R/predict.R
 \name{predict.imr}
 \alias{predict.imr}
-\title{Predict Outcomes for New Subjects}
+\title{Predict Responses from an IMR Model}
 \usage{
 \method{predict}{imr}(
   object,
   newdata,
   platform_names = NULL,
   covariates = NULL,
-  max_models = 100,
+  quantity = NULL,
+  type = c("response", "link"),
+  interval = FALSE,
+  level = 0.95,
+  seed = 1L,
+  max_models = NULL,
   verbose = FALSE,
   ...
 )
 }
 \arguments{
-\item{object}{A fitted object of class \code{"imr"} returned by \code{\link[=imr]{imr()}}.}
+\item{object}{An \code{imr} fit with stored regression draws. Laplace selection
+fits dispatch to \code{\link[=predict.imr_selection]{predict.imr_selection()}} instead.}
 
-\item{newdata}{A list of data frames with the new platform measurements, or
-an \code{\link[=imr_data]{imr_data()}} object created for prediction. When an \code{imr_data} object is
-supplied, its covariates are used automatically.
-Each data frame must include \code{id} as the first column, followed by finite
-numeric feature columns matching the corresponding training platform.}
+\item{newdata}{An \code{\link[=imr_data]{imr_data()}} object or list of platform data frames.}
 
-\item{platform_names}{A character vector giving, for each element of
-\code{newdata}, the index (\code{"1"}, \code{"2"}, ...) of the corresponding training
-platform.  Defaults to \code{NULL}, meaning the elements of \code{newdata} are taken
-to be in the same order as the platforms supplied to \code{\link[=imr]{imr()}}.}
+\item{platform_names}{Optional training platform names or indices for that list.
+Named lists are matched to fitted names when possible.}
 
-\item{covariates}{An optional data frame of clinical covariates for the test
-subjects, including \code{id} as the first column.  Required when the model was
-fitted with covariates and ignored with a warning when it was not.
-For a formula fit, supply the original predictor columns (including factors
-and variables used in transformations). The training terms, factor levels
-and contrasts are reused. The training identifier name is also accepted.
-Alternatively, an already encoded numeric model matrix may be supplied as
-a data frame with \code{id} and exactly the fitted covariate column names.}
+\item{covariates}{Clinical predictors; formula fits require the original
+formula columns so the training transformation can be reused.}
 
-\item{max_models}{Integer; the maximum number of distinct selection models
-(gamma configurations) used for Bayesian model averaging.  Default \code{100}.}
+\item{quantity}{\code{NULL} selects the available point calculation: conditional_mean
+for regression draws, model_average for a Laplace selection fit. Explicit
+choices are \code{"conditional_mean"}, \code{"new_observation"} and \code{"model_average"}.
+Selection fits require conditional sampling before intervals or observation noise.}
 
-\item{verbose}{Logical; if \code{TRUE}, print the C routine's diagnostics.
-Defaults to \code{FALSE}.}
+\item{type}{\code{"response"} returns the outcome scale; \code{"link"} returns the
+Gaussian working scale (latent utility for binary data, log time for AFT).}
+
+\item{interval}{Include equal-tail intervals in the prediction tables.}
+
+\item{level}{Equal-tail probability level.}
+
+\item{seed}{Prediction-noise seed. It does not refit or resample parameters.}
+
+\item{max_models}{Maximum distinct models in a Laplace point approximation;
+\code{NULL} uses 100 there. Other fits reject a non-NULL value.}
+
+\item{verbose}{Report prediction progress.}
 
 \item{...}{Unused arguments are rejected.}
 }
 \value{
-A named list with one data frame per active availability subgroup
-model. Each data frame has columns \code{id} (subject identifier) and \code{prediction}
-(predicted value or probability at full numeric precision).
+An \code{imr_predictions} list of data frames by availability subgroup,
+each containing \code{id}, \code{prediction} and optional \code{lower}/\code{upper} columns.
+The \code{prediction} attribute records calculation, quantity, scale and summary.
 }
 \description{
-\code{predict()} method for objects of class \code{"imr"} produced by \code{\link[=imr]{imr()}}.  New
-subjects are matched to the availability subgroup models learned during
-training, missing platforms are handled automatically, and the
-test features are standardized with the training set's centring and scaling
-factors before Bayesian model averaging.
+Uses stored regression draws, or model-mode averaging for a selection fit.
+Subjects are routed by their measured platforms using training transformations.
+\code{quantity = "conditional_mean"} describes the conditional expected response;
+\code{"new_observation"} additionally simulates outcome noise.
 }
-\details{
-Predictions are only produced for subjects observed on at least one platform
-(and, when \code{covariates} is supplied, with covariate data).  For \code{"binary"}
-outcomes the returned \code{prediction} column is a probability obtained through the
-probit link (\code{pnorm}) within each model before averaging; for \code{"continuous"} and \code{"right.censored"} outcomes it
-is the predicted working response. For default log-time survival fits it is
-on the log-time scale; exponentiating gives a transformed point prediction,
-not a posterior mean survival time. Old and identity-scale fits retain their
-historical response scale.
-}
-\section{Ranked-model point prediction}{
+\section{Predictive quantities}{
 
-The retained joint selection states are scanned in reverse iteration order
-until the chain is exhausted or \code{100 * max_models} distinct states have
-been collected. These states are ranked by recomputed approximate
-log-posterior scores. The calculation
-uses the full-fit latent-response means and mean MRF interactions. Let
-\eqn{\mathcal M}{M} be the retained set of at most \code{max_models} states and
-\eqn{\ell_m}{ell_m} their scores. The prediction weights are
-\deqn{w_m=\frac{\exp(\ell_m-\ell_{\max})}
-                 {\sum_{h\in\mathcal M}\exp(\ell_h-\ell_{\max})}.}{w_m = exp(ell_m - ell_max) / sum_h exp(ell_h - ell_max), over retained models.}
-They are normalized scores of the ranked distinct states, rather than their
-empirical MCMC visit frequencies. Let \eqn{\widehat b_{s,m}}{approximate_beta_s,m} be the
-approximate coefficient mode from the iteration-limited coordinate-ascent
-calculation, and let
-\eqn{z} be the new subject's transformed design row. Then
-\deqn{\widehat y=\sum_{m\in\mathcal M}w_m z^T\widehat b_{s,m}}{predicted working response = sum_m w_m * z-transpose * approximate_beta_s,m.}
-for continuous and working-scale survival responses. Binary predictions
-apply the probit link within each model:
-\deqn{\widehat p=\sum_{m\in\mathcal M}w_m
-      \Phi(z^T\widehat b_{s,m}).}{predicted event probability = sum_m w_m * Phi(z-transpose * approximate_beta_s,m).}
-The binary point-prediction path uses the unit-variance probit approximation;
-it does not average the conditional variance draws from \code{\link[=sample_regression_posterior]{sample_regression_posterior()}}.
-For a default survival fit, \eqn{\widehat y}{predicted working response} is on the log-time scale.
-
-These are plug-in point predictions. For coefficient uncertainty and
-predictive intervals, use \code{\link[=sample_regression_posterior]{sample_regression_posterior()}} followed by
-\code{\link[=predict.imr_posterior]{predict.imr_posterior()}}, which also uses a different model-averaging
-construction. Increasing \code{max_models} changes this finite ranked-model
-approximation; it does not lengthen the fitted MCMC chain.
+For a transformed design row x, each draw gives
+\deqn{\eta^{(b,c)}=x^T\beta^{(b,c)}.}{eta = transpose(x) * beta for each joint draw.}
+Continuous conditional means are eta, and binary probabilities are
+\deqn{p^{(b,c)}=\Phi(\eta^{(b,c)}/\sqrt{(\sigma^2)^{(b,c)}}).}{Binary probability = NormalCDF(eta / sqrt(variance)).}
+For log-time survival, the draw-wise conditional mean time is
+\deqn{\exp(\eta^{(b,c)}+(\sigma^2)^{(b,c)}/2).}{Conditional mean survival time = exp(eta + variance/2).}
+\code{new_observation} samples Gaussian working responses, then applies the binary
+threshold or survival exponential where needed. Future censoring is not simulated.
+Response-scale log-time survival summaries use posterior medians because an
+inverse-gamma variance mixture need not have a finite time-scale mean.
+Other point summaries are posterior means. Intervals use empirical inverse
+CDF quantiles (type 1), preserving binary values and point masses.
 }
 
-\examples{
-\donttest{
-data("simIMR", package = "IntegMultiReg")
-fit <- imr(
-  x = simIMR$platforms, outcome = simIMR$outcome,
-  covariates = simIMR$covariates, outcome_type = "binary",
-  nu = c(-4, -3, -4), draws = 200, burnin = 100,
-  min_subgroup_size = 5, seed = 1
-)
-new_x <- simIMR$platforms[[1]][1:10, ]
-new_z <- simIMR$platforms[[2]][1:7, ]
-predict(fit, newdata = list(new_x, new_z), covariates = simIMR$covariates)
-}
-}
-\seealso{
-\code{\link[=imr]{imr()}}, \code{\link[=cv_imr]{cv_imr()}}
-}

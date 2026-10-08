@@ -1,0 +1,223 @@
+---
+title: "Joint posterior computation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Joint posterior computation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+This guide describes `imr(..., marginalize = "none")`, the default joint
+sampler in version 0.3.0. It keeps the pMOM regression and MRF selection model
+and uses exact conditional calculations instead of Laplace model scores.
+Finite MCMC error and incomplete exploration remain possible. The
+[sampler comparison guide](marginalization.html) covers the other three choices,
+including the retained original Laplace calculation.
+
+# Joint target
+
+Let $s$ index availability subgroups, $l$ platforms and $j$ molecular features.
+Write $\sigma_s^2$ for residual variance, $z_s$ for the working response and $A_s$ for active
+coefficients, including the always-active intercept and clinical variables.
+Denote the collection of residual variances by $\boldsymbol{\sigma}^2$. The sampler targets
+
+\[
+p(\Gamma,\beta,\boldsymbol{\sigma}^2,\Theta,z\mid D)
+\propto p(D,z\mid\beta,\boldsymbol{\sigma}^2,\Gamma)
+\prod_s p(\beta_{s,A_s}\mid \sigma_s^2,\Gamma_s)p(\sigma_s^2)
+\prod_l p(\Gamma_l\mid\Theta_l)p(\Theta_l).
+\]
+
+The Gaussian working likelihood and first-order pMOM prior are
+
+\[
+z_s\mid\beta_s,\sigma_s^2\sim N(X_s\beta_s,\sigma_s^2I),
+\qquad
+p(\beta_{sj}\mid\gamma_{sj}=1,\sigma_s^2)
+=\frac{\beta_{sj}^2}{\tau_{sj}\sigma_s^2}
+\phi(\beta_{sj};0,\tau_{sj}\sigma_s^2).
+\]
+
+An excluded molecular coefficient is exactly zero. Clinical coefficients and
+the intercept also have pMOM priors but are always active. `imr_priors()` gives
+molecular and forced coefficients separate scales. The inverse-gamma density
+uses the shape/rate convention
+
+\[
+p(\sigma_s^2)\propto (\sigma_s^2)^{-a-1}\exp(-b/\sigma_s^2).
+\]
+
+Binary models retain the variance parameter with shape and rate both 100,000,
+anchoring it near one. This is not exactly the fixed-unit-variance probit model.
+
+# Joint selection and coefficient updates
+
+For feature $j$, hold the remaining coefficients and the variance fixed and set
+
+\[
+r_{sj}=z_s-\sum_{k\ne j}x_{sk}\beta_{sk},
+\qquad
+V_{sj}=\frac{\sigma_s^2}{x_{sj}^{T}x_{sj}+1/\tau_{sj}},
+\qquad
+m_{sj}=\frac{x_{sj}^{T}r_{sj}}{x_{sj}^{T}x_{sj}+1/\tau_{sj}}.
+\]
+
+Multiplying the Gaussian likelihood by the pMOM prior and integrating this one
+coefficient gives the conditional inclusion Bayes factor
+
+\[
+B_{sj}
+=\sqrt{\frac{V_{sj}}{\tau_{sj}\sigma_s^2}}
+\exp\!\left(\frac{m_{sj}^2}{2V_{sj}}\right)
+\frac{m_{sj}^2+V_{sj}}{\tau_{sj}\sigma_s^2}.
+\]
+
+For a platform feature, the implementation updates its entire subgroup
+selection pattern $g$ together. Conditional pattern probabilities are
+
+\[
+P(\gamma_{lj}=g\mid\text{rest},D)
+\propto
+\exp\!\left\{\nu_l\mathbf1^Tg+g^T\Theta_lg
++\sum_s g_s\log B_{sj}\right\}.
+\]
+
+Enumeration covers the subgroups where that platform is available. The MRF
+has at most 16 such subgroups in this implementation. BMS fixes interactions
+to zero, so the pattern distribution factorizes into independent Bernoulli
+probabilities. There are no birth/death boundary proposals in this update.
+
+After choosing the pattern, each newly active coefficient is drawn from
+
+\[
+p(\beta_{sj}\mid\gamma_{sj}=1,\text{rest},D)
+=\frac{\beta_{sj}^2\phi(\beta_{sj};m_{sj},V_{sj})}
+{m_{sj}^2+V_{sj}}.
+\]
+
+The sampler also uses this conditional for forced coefficients. Rejection
+sampling uses a mixture of a standard normal and a signed square root of a
+chi-square variable with three degrees of freedom. Define
+
+\[
+c=\max(|m|,\sqrt{V}),\qquad a=m/c,\qquad b=\sqrt{V}/c.
+\]
+
+The normal component has mixing probability $a^2/(a^2+b^2)$, and a candidate
+$u$ is accepted with probability
+
+\[
+\frac{(a+bu)^2}{2(a^2+b^2u^2)}.
+\]
+
+The inequality $(a+bu)^2 \leq 2(a^2+b^2u^2)$ supplies a valid envelope. Both signs of
+active coefficients can be visited; the sampler does not restrict effects to
+be positive.
+
+Whole-feature pair proposals help exchange highly correlated predictors. A
+uniformly chosen feature pair swaps its complete subgroup selection patterns.
+Within groups where inclusion changes, the proposed active coefficient is
+sampled from its conditional distribution. Because all molecular features on
+a platform share the same selection prior and scale, the MRF prior factors
+cancel under this whole-column exchange. The acceptance ratio is the product
+of new-to-old conditional Bayes factors across affected groups. This move
+complements the pattern update; it does not guarantee adequate mixing for all
+correlation structures.
+
+# Variance, augmented responses and interactions
+
+If $d_s=|A_s|$ includes all active forced and molecular effects, the variance
+conditional is
+
+\[
+\sigma_s^2\mid\text{rest},D\sim IG\!\left(
+ a+\frac{n_s}{2}+\frac{3d_s}{2},\quad
+ b+\frac12\left[\|z_s-X_s\beta_s\|^2+
+ \sum_{j\in A_s}\frac{\beta_{sj}^2}{\tau_{sj}}\right]\right).
+\]
+
+The additional $3d_s/2$ follows from the pMOM density, including its Gaussian
+normalizer. Replacing it with the Gaussian-prior expression changes the target.
+
+Continuous responses are fixed. Binary latent responses are normal with mean
+$X_s\beta_s$ and variance $\sigma_s^2$, truncated above zero for outcome one and below
+zero for outcome zero. Observed survival events are fixed at their working
+response; censored responses are normal draws above the working censoring
+bound. The default survival working response is log time. Tail calculations
+use log probabilities without a fixed upper truncation constant.
+
+Each IMR platform uses the normalized selection prior
+
+\[
+p(\Gamma_l\mid\Theta_l)
+=Z_l(\Theta_l)^{-p_l}
+\exp\!\left\{\nu_l\sum_j\mathbf1^T\gamma_{lj}
++\sum_j\gamma_{lj}^T\Theta_l\gamma_{lj}\right\},
+\]
+
+where $p_l$ is its number of features and
+
+\[
+Z_l(\Theta_l)=\sum_{g\in\{0,1\}^{S_l}}
+\exp\{\nu_l\mathbf1^Tg+g^T\Theta_lg\}.
+\]
+
+$\Theta_l$ is symmetric with zero diagonal, so a pair interaction enters the
+quadratic form twice. Positive off-diagonal entries have independent Gamma
+shape/rate priors. Proposals are normal random walks on $\log\theta$. The log
+acceptance ratio contains the change in the normalized MRF density, the Gamma
+prior and the proposal correction $\log\theta_{\rm new}-\log\theta_{\rm old}$. BMS stores no
+interaction parameters.
+
+# Stored draws and posterior summaries
+
+Every retained iteration stores coefficients, variances, interactions and the
+augmented joint log density. Augmented responses are optional. Selection
+indicators are reconstructed from exact coefficient zeros, avoiding a duplicate
+history. The log-density trace is a joint augmented-state density, not a
+marginal model probability or a model-comparison score.
+
+`posterior_draws()` preserves iteration, chain and parameter dimensions.
+`coef()`, `summary()`, `confint()` and `predict()` use these same draws. All
+reported quantiles use the empirical inverse CDF (type 1), with a small
+floating-point tolerance at exact CDF boundaries. Selection-indicator endpoints
+remain zero or one. They describe the indicator distribution, not Monte Carlo
+uncertainty in an estimated inclusion probability.
+
+Prediction averages Gaussian conditional means or binary conditional
+probabilities over draws. Future-observation prediction also simulates residual
+variation. Log-time survival predictions transform the posterior response
+samples and report medians; a log-normal mixture need not have a finite mean.
+
+# Diagnostics and validation boundaries
+
+The package delegates rank-normalized split/folded R-hat, bulk/tail ESS and mean
+MCSE to the [posterior package](https://mc-stan.org/posterior/reference/rhat.html).
+Splitting an odd-length chain uses equally sized beginning and ending halves,
+omitting its middle draw. Parameters constant within a chain cannot receive a
+standard R-hat assessment. Such cases are identified explicitly, including
+rare selection indicators and fixed observed event responses.
+
+The maintained reference checks enumerate small selection spaces and integrate
+coefficients, variances and interactions independently. Binary and censored
+references integrate the observed-data likelihood and check quadrature
+refinement. The cases cover Gaussian, binary, censored, strongly correlated
+predictors, missing platforms and IMR/BMS. These checks assess the transition
+target on tractable problems. Real-data chain diagnostics and stability must
+still be examined for each analysis.
+
+`cv_imr(..., cv_method = "refit")` reruns the full procedure in training folds.
+The optional reweighting method uses the [loo PSIS implementation](https://mc-stan.org/loo/reference/psis.html)
+on inverse held-out observed-data likelihoods and reports weight diagnostics.
+It retains full-fit preprocessing, which must be considered when comparing it
+with refit CV.
+
+# Relationship to earlier results
+
+The 2017 article specifies the statistical model. Version 0.3.0 adds this
+joint inference algorithm alongside the retained Laplace path. Archived implementations used Laplace model scores
+and, in some versions, different MRF updates, prior indexing and CV rules.
+Results from those versions are not interchangeable with a new joint fit.
+Keep their original source and outputs when explaining historical numerical
+differences. See [methods and reproducibility](https://h7nian.github.io/IntegMultiReg/method-coverage.html)
+and the [migration guide](https://h7nian.github.io/IntegMultiReg/migration.html).

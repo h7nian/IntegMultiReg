@@ -87,14 +87,18 @@
 #' @noRd
 .imr_prepare_matrix <- function(mat, standardize = TRUE) {
   if (nrow(mat) == 0 || ncol(mat) == 0) {
-    return(list(mean = rep(0, ncol(mat)), sd = rep(1, ncol(mat)),
-                 normalized = matrix(numeric(0), nrow(mat), ncol(mat))))
+    return(list(
+      mean = rep(0, ncol(mat)), sd = rep(1, ncol(mat)),
+      normalized = matrix(numeric(0), nrow(mat), ncol(mat))
+    ))
   }
   mat <- as.matrix(mat)
   if (!standardize) {
     storage.mode(mat) <- "double"
-    return(list(mean = stats::setNames(rep(0, ncol(mat)), colnames(mat)),
-                sd = stats::setNames(rep(1, ncol(mat)), colnames(mat)), normalized = mat))
+    return(list(
+      mean = stats::setNames(rep(0, ncol(mat)), colnames(mat)),
+      sd = stats::setNames(rep(1, ncol(mat)), colnames(mat)), normalized = mat
+    ))
   }
   centers <- scales <- numeric(ncol(mat))
   names(centers) <- names(scales) <- colnames(mat)
@@ -120,16 +124,23 @@
     result_names <- names(normalized_columns[[1L]])
     if (!all(vapply(normalized_columns, function(column) {
       identical(names(column), result_names)
-    }, logical(1)))) result_names <- NULL
+    }, logical(1)))) {
+      result_names <- NULL
+    }
     result_dimnames <- list(result_names, colnames(mat))
     dimension_names <- names(dimnames(mat))
     if (!is.null(dimension_names)) {
       names(result_dimnames) <- c(
         if (length(result_names) == nrow(mat)) dimension_names[1L] else "",
-        dimension_names[2L])
+        dimension_names[2L]
+      )
     }
     dimnames(normalized) <- if (is.null(dimension_names) &&
-      all(vapply(result_dimnames, is.null, logical(1)))) NULL else result_dimnames
+      all(vapply(result_dimnames, is.null, logical(1)))) {
+      NULL
+    } else {
+      result_dimnames
+    }
   }
   if (is.null(dim(normalized))) {
     normalized <- matrix(normalized, nrow = nrow(mat), ncol = ncol(mat))
@@ -169,11 +180,12 @@
   lapply(subgroups, function(subgroup) {
     lapply(subgroup, function(platform_data) {
       labelled <- (is.data.frame(platform_data) &&
-                     "id" %in% colnames(platform_data)) ||
+        "id" %in% colnames(platform_data)) ||
         (!is.null(colnames(platform_data)) &&
-           colnames(platform_data)[1] == "id")
+          colnames(platform_data)[1] == "id")
       mat <- as.matrix(
-        if (labelled) platform_data[, -1, drop = FALSE] else platform_data)
+        if (labelled) platform_data[, -1, drop = FALSE] else platform_data
+      )
       storage.mode(mat) <- "double"
       mat
     })

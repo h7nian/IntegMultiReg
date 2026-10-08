@@ -1,0 +1,29 @@
+Independent joint-posterior references
+
+The small fixtures were defined during joint-sampler development and retain
+fixed design matrices, responses and priors. They contain no fitted package
+objects. The reference distributions integrate the statistical target, without
+calling the production sampler or using its transition implementation.
+
+exact-reference.R uses Gaussian raw-moment recurrences and analytic
+inverse-gamma integration, followed by one-dimensional interaction quadrature.
+quadrature-reference.R uses Gaussian/Gamma quadrature on the observed binary
+or censored likelihood; fixtures retain both resolutions and their discrepancy.
+availability-reference.R enumerates the available selection indicators and
+integrates each platform's normalized MRF prior. BMS interactions are fixed zero.
+
+To regenerate and compare, create an empty output directory and run:
+  Rscript .github/reference/regenerate.R OUTPUT_DIRECTORY
+The script never overwrites the checked-in fixtures. Refined observed-data
+quadrature is intentionally separate from routine CI because of its cost.
+
+verify-joint-reference.R runs four 30,000-draw chains per case and compares
+posterior moments and model probabilities. Its quantile companion checks
+marginal CDFs including exclusion point masses. Monte Carlo tolerance is stated
+in the script; this is a stochastic numerical check, not a proof of convergence
+for every possible dataset. Raw chains and discrepancy tables are CI artifacts.
+
+native-bridge.R only converts fixture layouts to the registered native input
+schema. It contains no sampling algorithm. Public data preparation, predictions,
+interval summaries, CV splits and parallel equivalence are covered by the
+installed test suite.

@@ -13,7 +13,7 @@ dir.create(work)
 # Keep cleanup local to a function so errors remove the temporary source too.
 check_documentation <- function() {
   on.exit(unlink(work, recursive = TRUE), add = TRUE)
-  for (name in c("DESCRIPTION", "NAMESPACE", "R", "man", "data")) {
+  for (name in c("DESCRIPTION", "NAMESPACE", "R", "man", "data", "inst")) {
     source <- file.path(root, name)
     if (file.exists(source)) {
       stopifnot(file.copy(source, work, recursive = TRUE))
