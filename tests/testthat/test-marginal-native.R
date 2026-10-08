@@ -72,3 +72,19 @@ test_that("native preparation preserves named priors and numeric index counts", 
     expect_identical(.Random.seed, expected_rng)
   }
 })
+
+test_that("native marginal kernels retain the shared sixteen-subgroup capacity", {
+  reference <- marginal_r_reference()
+  template <- readRDS(testthat::test_path("..", "reference", "marginal-r", "continuous-data.rds"))[[1]]
+  groups <- rep(list(template), 16L)
+  for (choice in c("variance", "coefficients")) {
+    name <- paste0(".imr_", choice, "_marginal_sample")
+    arguments <- list(groups = groups, feature_platform = c(1L, 1L), nu = -1,
+      draws = 1L, burnin = 0L, seed = 131L, model_variant = "bms")
+    expected <- do.call(get(name, reference), arguments)
+    expected_rng <- .Random.seed
+    actual <- do.call(get(name, asNamespace("IntegMultiReg")), arguments)
+    expect_true(identical(actual, expected, num.eq = FALSE))
+    expect_identical(.Random.seed, expected_rng)
+  }
+})

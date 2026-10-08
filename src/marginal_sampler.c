@@ -118,7 +118,7 @@ void imr_marginal_interaction(imr_marginal_state *state, imr_marginal_platform *
     for (int j = 1; j < p->members; ++j) for (int i = 0; i < j; ++i) {
         double old = theta[i + p->members * j];
         double proposal = exp(log(old) + rnorm(0, state->theta_step));
-        state->acceptance[2]++;
+        state->acceptance[IMR_INTERACTION_PROPOSALS]++;
         if (!R_FINITE(proposal) || proposal <= 0) continue;
         int shared = 0;
         for (int f = 0; f < p->features; ++f)
@@ -136,7 +136,7 @@ void imr_marginal_interaction(imr_marginal_state *state, imr_marginal_platform *
             dgamma(old, state->interaction_shape, 1 / state->interaction_rate, 1) + log(proposal) - log(old);
         if (imr_marginal_accept(ratio)) {
             theta[i + p->members * j] = theta[j + p->members * i] = proposal;
-            state->acceptance[3]++;
+            state->acceptance[IMR_INTERACTION_ACCEPTS]++;
         }
     }
 }
@@ -346,7 +346,7 @@ SEXP imr_marginal_sample(SEXP groups, SEXP platforms, SEXP settings, SEXP initia
         SEXP source = VECTOR_ELT(platforms, l);
         SEXP members = imr_marginal_element(source, "members"), columns = imr_marginal_element(source, "columns");
         p->members = Rf_length(members); p->features = Rf_length(imr_marginal_element(source, "features"));
-        if (p->members > 7 || TYPEOF(members) != INTSXP || TYPEOF(columns) != INTSXP ||
+        if (p->members > IMR_MARGINAL_MAX_SUBGROUPS || TYPEOF(members) != INTSXP || TYPEOF(columns) != INTSXP ||
             Rf_length(columns) != p->members * p->features) Rf_error("Invalid marginal platform mapping");
         p->groups = (int *)R_alloc(p->members, sizeof(int));
         p->columns = (int *)R_alloc(p->members * p->features, sizeof(int));

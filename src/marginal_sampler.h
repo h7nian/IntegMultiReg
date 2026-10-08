@@ -18,6 +18,16 @@
 #pragma GCC optimize ("fp-contract=off")
 #endif
 
+/* Same capacity as .imr_check_mrf_capacity() and the joint sampler. */
+#define IMR_MARGINAL_MAX_SUBGROUPS 16
+
+enum {
+    IMR_SWAP_PROPOSALS, IMR_SWAP_ACCEPTS,
+    IMR_INTERACTION_PROPOSALS, IMR_INTERACTION_ACCEPTS,
+    IMR_VARIANCE_PROPOSALS, IMR_VARIANCE_ACCEPTS,
+    IMR_LATENT_PROPOSALS, IMR_LATENT_ACCEPTS
+};
+
 typedef struct {
     int n, p, forced, outcome;
     SEXP design;

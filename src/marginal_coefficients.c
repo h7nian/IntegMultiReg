@@ -194,8 +194,8 @@ static void update_latent(imr_coefficient_workspace *work, int s)
         double proposed_score = log_kernel(candidate, g->variance);
         double current_score = log_kernel(current, g->variance);
         double ratio = proposed_score - current_score + dnorm4(g->response[i], location, scale, 1) - dnorm4(value, location, scale, 1);
-        state->acceptance[6]++;
-        if (imr_marginal_accept(ratio)) { g->response[i] = value; state->acceptance[7]++; }
+        state->acceptance[IMR_LATENT_PROPOSALS]++;
+        if (imr_marginal_accept(ratio)) { g->response[i] = value; state->acceptance[IMR_LATENT_ACCEPTS]++; }
     }
 }
 
@@ -224,7 +224,7 @@ void imr_coefficients_run(imr_marginal_state *state)
         for (int l = 0; l < state->platforms_count; ++l) {
             imr_marginal_platform *p = state->platforms + l;
             for (int f = 0; f < p->features; ++f) {
-                double log_bf[7];
+                double log_bf[IMR_MARGINAL_MAX_SUBGROUPS];
                 for (int i = 0; i < p->members; ++i) {
                     int s = p->groups[i], j = p->columns[i + p->members * f];
                     imr_marginal_group *g = state->groups + s;
@@ -243,7 +243,7 @@ void imr_coefficients_run(imr_marginal_state *state)
             }
             int attempts = p->features >= 2 ? (int)ceil(state->swap_rate * p->features) : 0;
             for (int attempt = 0; attempt < attempts; ++attempt) {
-                int pair[2], moves[7] = {0}, count = 0;
+                int pair[2], moves[IMR_MARGINAL_MAX_SUBGROUPS] = {0}, count = 0;
                 imr_marginal_pair(p, pair);
                 double ratio = 0;
                 for (int i = 0; i < p->members; ++i) {
@@ -261,13 +261,13 @@ void imr_coefficients_run(imr_marginal_state *state)
                     moves[i] = 1; count++;
                 }
                 if (count) {
-                    state->acceptance[0]++;
+                    state->acceptance[IMR_SWAP_PROPOSALS]++;
                     if (imr_marginal_accept(ratio)) {
                         for (int i = 0; i < p->members; ++i) if (moves[i]) {
                             int s = p->groups[i];
                             memcpy(state->groups[s].selected, work.trial_selection[s], state->groups[s].p * sizeof(int));
                         }
-                        state->acceptance[1]++;
+                        state->acceptance[IMR_SWAP_ACCEPTS]++;
                     }
                 }
             }
@@ -277,11 +277,11 @@ void imr_coefficients_run(imr_marginal_state *state)
             imr_marginal_group *g = state->groups + s;
             imr_coefficient_density current = statistics(&work, s, g->selected, g->response, work.first_mean[s]);
             double proposal = exp(log(g->variance) + rnorm(0, g->variance_step));
-            state->acceptance[4]++;
+            state->acceptance[IMR_VARIANCE_PROPOSALS]++;
             if (!R_FINITE(proposal) || proposal <= 0) continue;
             double proposed_score = log_kernel(current, proposal), old_score = log_kernel(current, g->variance);
             double ratio = proposed_score - old_score + log(proposal) - log(g->variance);
-            if (imr_marginal_accept(ratio)) { g->variance = proposal; state->acceptance[5]++; }
+            if (imr_marginal_accept(ratio)) { g->variance = proposal; state->acceptance[IMR_VARIANCE_ACCEPTS]++; }
         }
         for (int s = 0; s < state->groups_count; ++s) {
             imr_marginal_group *g = state->groups + s;

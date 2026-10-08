@@ -121,9 +121,9 @@ static double variance_rate(imr_marginal_state *state, imr_marginal_group *g)
 
 void imr_variance_run(imr_marginal_state *state)
 {
-    imr_variance_conditional parameters[7], proposed[7];
-    int old_columns[7], new_columns[7];
-    double log_bf[7];
+    imr_variance_conditional parameters[IMR_MARGINAL_MAX_SUBGROUPS], proposed[IMR_MARGINAL_MAX_SUBGROUPS];
+    int old_columns[IMR_MARGINAL_MAX_SUBGROUPS], new_columns[IMR_MARGINAL_MAX_SUBGROUPS];
+    double log_bf[IMR_MARGINAL_MAX_SUBGROUPS];
     int total = state->burnin + state->draws * state->thin;
     for (int sweep = 0; sweep < total; ++sweep) {
         int iteration = sweep + 1;
@@ -166,14 +166,14 @@ void imr_variance_run(imr_marginal_state *state)
                     ratio = ratio + proposed[i].log_bf - from.log_bf;
                 }
                 if (moves) {
-                    state->acceptance[0]++;
+                    state->acceptance[IMR_SWAP_PROPOSALS]++;
                     if (imr_marginal_accept(ratio)) {
                         for (int i = 0; i < p->members; ++i) if (old_columns[i] >= 0) {
                             imr_marginal_group *g = state->groups + p->groups[i];
                             g->selected[old_columns[i]] = 0; g->beta[old_columns[i]] = 0;
                             g->selected[new_columns[i]] = 1; g->beta[new_columns[i]] = draw_coefficient(proposed[i]);
                         }
-                        state->acceptance[1]++;
+                        state->acceptance[IMR_SWAP_ACCEPTS]++;
                     }
                 }
             }
