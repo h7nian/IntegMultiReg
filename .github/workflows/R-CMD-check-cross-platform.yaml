@@ -10,6 +10,15 @@ on:
 permissions:
   contents: read
 
+# Match the parent and PSOCK workers before their numerical libraries load.
+# Strict replay still compares every number; no tolerance is relaxed.
+env:
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+  VECLIB_MAXIMUM_THREADS: '1'
+  BLIS_NUM_THREADS: '1'
+
 jobs:
   R-CMD-check:
     name: ${{ matrix.config.os }} (R ${{ matrix.config.r }})
@@ -92,6 +101,7 @@ jobs:
         run: |
           R CMD INSTALL --preclean --install-tests .
           Rscript .github/scripts/verify-tests.R
+          Rscript .github/scripts/verify-marginal-workers.R
 
       - name: Preserve sampler results across the performance refactor
         shell: bash
@@ -122,4 +132,5 @@ jobs:
             ${{ runner.temp }}/test-evidence
             ${{ runner.temp }}/sampler-replay-evidence
             ${{ runner.temp }}/laplace-replay-evidence
+            ${{ runner.temp }}/marginal-worker-evidence
           if-no-files-found: warn

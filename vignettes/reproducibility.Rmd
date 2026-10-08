@@ -92,3 +92,25 @@ Monte Carlo precision and ranking-stability limitations with reported results.
 Earlier conditional-chain diagnostics do not diagnose a joint chain. A small
 new-to-old difference cannot by itself establish that an earlier discrepancy
 was sampling fluctuation.
+
+
+# Match the numerical runtime for exact replay
+
+Record the R version, BLAS/LAPACK library, compiler and mathematical thread
+settings as well as seeds. Threaded BLAS reductions can differ in their last
+bits even on one machine. The package starts PSOCK workers with one numerical
+thread to avoid nested parallelism. For bitwise comparison with serial fits,
+set the same limits before starting the parent R process. On a Unix shell:
+
+```sh
+OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+VECLIB_MAXIMUM_THREADS=1 BLIS_NUM_THREADS=1 R
+```
+
+On Windows, set these environment variables to `1` before launching R as well.
+Changing them after a BLAS library has initialized may not change its thread
+pool. Workers also inherit R's `matprod` option, preserving a caller's choice
+of internal or BLAS matrix products. These runtime settings leave the model,
+sampling updates and floating-point precision unchanged. The maintained
+performance comparisons keep the runtime fixed and require exact output and
+RNG equality.

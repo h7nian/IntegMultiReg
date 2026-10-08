@@ -136,7 +136,22 @@ test_that("marginal samplers replay starts and parallel chains", {
       )
     }
     serial <- fit()
-    expect_identical(serial$posterior, fit(workers = 2)$posterior)
+    # Both reference and parallel chains use the worker's one-thread BLAS.
+    # The caller may have started R with a different BLAS thread count, which
+    # can change summation order without changing precision or the algorithm.
+    # CI separately compares the public serial/parallel calls in a matched
+    # one-thread parent process (verify-marginal-workers.R).
+    run_serial <- function(arguments) do.call(IntegMultiReg::imr, arguments)
+    environment(run_serial) <- baseenv()
+    arguments <- list(
+      x = d$platforms, outcome = d$outcome,
+      outcome_type = "right.censored", marginalize = choice,
+      min_subgroup_size = 0, priors = serial$control$priors,
+      mcmc = serial$control$mcmc, control = serial$control$numerical
+    )
+    references <- .imr_map_tasks(rep(list(arguments), 2L), run_serial, workers = 2)
+    expect_identical(references[[1L]]$posterior, references[[2L]]$posterior)
+    expect_identical(references[[1L]]$posterior, fit(workers = 2)$posterior)
     expect_identical(serial$posterior, fit(initial = serial$control$initial)$posterior)
     cv <- cv_imr(serial, k = 2, rounds = 1, seed = 71)
     expect_identical(cv$control$marginalize, choice)
@@ -149,4 +164,15 @@ test_that("marginal samplers replay starts and parallel chains", {
     initial[[1]]$interaction[[1]][1, 1] <- 1
     expect_error(fit(initial = initial), "symmetric with zero diagonal")
   }
+})
+
+
+test_that("workers inherit the caller's matrix-product precision option", {
+  old <- options(matprod = "internal")
+  on.exit(options(old))
+  read_option <- function(task) getOption("matprod")
+  environment(read_option) <- baseenv()
+  expect_identical(.imr_map_tasks(list(1L, 2L), read_option, workers = 2),
+    list("internal", "internal"))
+  expect_identical(getOption("matprod"), "internal")
 })

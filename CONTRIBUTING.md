@@ -65,3 +65,11 @@ The manually dispatched workflows named **Historical** audit pinned older
 release artifacts. Current per-push Valgrind and sanitizer workflows build and
 test the checked-out source. Neither historical evidence nor a passing toy
 reference certifies a new real-data posterior analysis.
+
+
+For strict serial/parallel replay, start the parent R process with the same
+one-thread BLAS/OpenMP environment used by workers. The CI workflow-level
+settings do this before R loads its math libraries. The unit tests compare
+worker computations under matching conditions; `verify-marginal-workers.R`
+also compares public serial and parallel fits in the controlled parent.
+Do not replace exact assertions with a tolerance to hide runtime differences.

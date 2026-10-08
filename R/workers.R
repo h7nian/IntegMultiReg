@@ -13,7 +13,9 @@
   rng <- .imr_save_rng()
   on.exit(.imr_restore_rng(rng), add = TRUE)
   # Children inherit these limits at process startup, before loading a math
-  # library. Restore the parent's environment on success and on every error.
+  # library. Bitwise serial/parallel replay requires matching limits before
+  # the parent R process starts too; a loaded BLAS may ignore later env changes.
+  # Restore the parent's environment on success and on every error.
   thread_variables <- c(
     "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS",
     "MKL_NUM_THREADS", "VECLIB_MAXIMUM_THREADS",
@@ -57,7 +59,7 @@
   initialize <- utils::removeSource(initialize)
   parallel::clusterCall(
     cluster, initialize, library_paths, package_path,
-    RNGkind(), options()[c("contrasts", "na.action")]
+    RNGkind(), options()[c("contrasts", "na.action", "matprod")]
   )
   results <- parallel::parLapply(cluster, tasks, .imr_worker_result,
     evaluate = evaluate, ...
