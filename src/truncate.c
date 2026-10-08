@@ -102,7 +102,7 @@ void sample_censored_latent_response(int model, int n_platforms, int *selected_p
     free(precision);
     free(precision_copy);
     free(ynew);
-  
+
   for (i = 0; i < n_subjects; i++)
     free(design[i]);
   free(design);

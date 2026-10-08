@@ -398,7 +398,7 @@ SEXP imr_collapsed_sample(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP a
             }
              if (outcome_type == IMR_OUTCOME_BINARY)
                 ymean[i][j] = 0;
-            
+
         }
         find_indices_not_equal(sample_size_ptr[i], Delta, 1, censored_index[i], &n_censored[i]);
         if (outcome_type == IMR_OUTCOME_SURVIVAL)
@@ -589,9 +589,9 @@ SEXP imr_collapsed_sample(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP a
                 if (save)
                 {
                     for (int i = 0; i < sample_size_ptr[m]; i++)
-                    { 
+                    {
                         ymean[m][i] += ylatent[m][i] / n_draws;
-                    }   
+                    }
                 }
             }
         } // end of loop with m
@@ -865,7 +865,7 @@ SEXP imr_collapsed_sample(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP a
         }
         free(yobs);
     }
-    
+
     if ((outcome_type == IMR_OUTCOME_SURVIVAL) ||
         (outcome_type == IMR_OUTCOME_BINARY))
     {
