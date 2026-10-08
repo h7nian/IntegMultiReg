@@ -10,14 +10,14 @@ test_that("plot_top_features draws and returns the ranked feature table", {
   # returned table is sorted by decreasing mPIP and the values are valid
   expect_true(all(diff(tab$mpip) <= 0))
   expect_true(all(tab$mpip >= 0 & tab$mpip <= 1))
-  expect_true(all(tab$platform %in% fit_bin$model$platform_names))
+  expect_true(all(tab$platform %in% fit_bin$platform_names))
 })
 
 test_that("plot_top_features caps 'top' at the number of features", {
   tmp <- tempfile(fileext = ".pdf")
   pdf(tmp)
   on.exit({ dev.off(); unlink(tmp) }, add = TRUE)
-  total_features <- sum(vapply(inclusion_probabilities(fit_bin), ncol, integer(1)))
+  total_features <- sum(vapply(coef(fit_bin), ncol, integer(1)))
   tab <- plot_top_features(fit_bin, top = 1000)
   expect_equal(nrow(tab), total_features)
 })

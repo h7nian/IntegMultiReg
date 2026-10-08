@@ -7,34 +7,12 @@
 validate_imr_data(x)
 }
 \arguments{
-\item{x}{An \code{"imr_data"} object.}
+\item{x}{An `"imr_data"` object.}
 }
 \value{
-\code{TRUE}, invisibly.
+`TRUE`, invisibly.
 }
 \description{
 Rechecks the structure and subject alignment of an object created by
-\code{\link[=imr_data]{imr_data()}}. Invalid objects fail with an informative error.
-}
-\section{Validation scope}{
-
-The checks reconstruct subject availability from the supplied platform IDs
-and verify it against the stored availability table and subgroup sizes.
-They also check identifiers, feature columns, finite data and outcome coding.
-The grouping and eligibility rules are defined in \code{\link[=imr_data]{imr_data()}}. Successful
-validation establishes structural consistency of the object; it does not
-assess a likelihood, statistical assumptions or fitted-model convergence.
-}
-
-\examples{
-x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
-y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
-analysis <- imr_data(platforms = list(assay = x), outcome = y,
-                     outcome_type = "continuous")
-validate_imr_data(analysis)
-
-# Subject alignment is rechecked, so a truncated outcome is rejected.
-broken <- analysis
-broken$outcome <- broken$outcome[1:5, , drop = FALSE]
-try(validate_imr_data(broken))
+[imr_data()]. Invalid objects fail with an informative error.
 }

@@ -8,69 +8,47 @@ imr_data(
   platforms,
   outcome = NULL,
   covariates = NULL,
-  outcome_type = NULL,
+  type_outcome = NULL,
   id = "id"
 )
 }
 \arguments{
 \item{platforms}{A non-empty named list of data frames, one per platform.
-Platform names must be unique and cannot be \code{id} or \code{subgroup}, which are
-reserved for availability metadata.
 Every data frame must contain the subject identifier and at least one
 finite numeric feature.}
 
 \item{outcome}{Optional outcome data frame. It is required when the object is
-passed to \code{\link[=imr]{imr()}} and may be omitted for prediction data. For binary and
+passed to [imr()] and may be omitted for prediction data. For binary and
 continuous outcomes it contains the identifier and response; for
 right-censored outcomes it contains the identifier, time and status.}
 
 \item{covariates}{Optional data frame containing the identifier followed by
 clinical covariates.}
 
-\item{outcome_type}{Optional outcome type: \code{"binary"}, \code{"continuous"} or
-\code{"right.censored"}. It is required when \code{outcome} is supplied.}
+\item{type_outcome}{Optional outcome type: `"binary"`, `"continuous"` or
+`"right.censored"`. It is required when `outcome` is supplied.}
 
 \item{id}{Name of the subject-identifier column in every supplied data frame.}
 }
 \value{
-An object of class \code{"imr_data"} with components \code{platforms},
-\code{outcome}, \code{covariates}, \code{outcome_type}, \code{id}, \code{availability} and
-\code{subgroup_sizes}, \code{n_platform_subjects} and \code{excluded_ids}. Availability
-summaries include only subjects with all required outcome/covariate rows.
+An object of class `"imr_data"` with components `platforms`,
+  `outcome`, `covariates`, `type_outcome`, `id`, `availability` and
+  `subgroup_sizes`, `n_platform_subjects` and `excluded_ids`. Availability
+  summaries include only subjects with all required outcome/covariate rows.
 }
 \description{
-\code{imr_data()} creates a validated data object shared by model fitting and
-prediction. It standardizes the subject identifier to \code{id}, records the
+`imr_data()` creates a validated data object shared by model fitting and
+prediction. It standardizes the subject identifier to `id`, records the
 observed-platform pattern for every subject and catches alignment problems
 before the MCMC sampler is called.
 }
-\section{Availability groups and eligibility}{
-
-For subject \eqn{i} and platform \eqn{l}, define
-\deqn{A_{il}=I(i\mathrm{\ occurs\ in\ platform\ }l).}{A_il = I(subject i occurs in platform l).}
-The availability pattern is
-\deqn{A_i=(A_{i1},\ldots,A_{iL}),}{A_i = (A_i1, ..., A_iL),}
-with integer code
-\deqn{c_i=\sum_{l=1}^{L}2^{l-1}A_{il}.}{Availability code for subject i = sum_l 2^(l - 1) * A_il.}
-Printed bitstrings put platform 1 on the right. For example, \code{101} means
-platforms 1 and 3 are present. Subjects with the same pattern form a
-regression subgroup. Missing whole platforms are represented by this pattern,
-rather than by filling their feature values with zeros.
-
-Eligible subjects are the union of platform IDs intersected with the outcome
-and covariate IDs when those frames are supplied. This constructor records
-all eligible patterns; the \code{min_subgroup_size} filter is applied later by
-\code{\link[=imr]{imr()}}. It aligns and validates data but does not standardize predictors or
-fit a model. Predictor standardization is described in \code{\link[=imr]{imr()}}.
-}
-
 \examples{
 data("simIMR", package = "IntegMultiReg")
 dat <- imr_data(
   platforms = simIMR$platforms,
   outcome = simIMR$outcome.binary,
   covariates = simIMR$covariates,
-  outcome_type = "binary"
+  type_outcome = "binary"
 )
 dat
 }

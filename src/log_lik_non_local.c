@@ -28,7 +28,7 @@ static int factorial_int(int n)
  */
 double *build_posterior_precision(
     int k, int K, int ng, int N, double h, double h1, double h0, double hg,
-    double **design, const imr_numerical_control *numerical)
+    double **design)
 {
   double *precision = malloc(k * k * sizeof(double));
   int i, j, l;
@@ -59,18 +59,19 @@ double *build_posterior_precision(
            *   K+1..   : selected molecular features.
            *
            * The intercept is handled by the (i == 0 && j == 0) branch above.
-           * Standard indexing includes the Kth covariate in its own block.
-           * Historical indexing reproduces the original strict boundaries.
+           * Use <= here so the Kth covariate is not accidentally assigned the
+           * molecular-feature prior scale.
            */
-          if (i <= K - numerical->historical_prior_index)
+          if (i <= K)
             a += (1.0 / h1);
-          else if (i <= K + ng - numerical->historical_prior_index)
+          else if (i <= K + ng)
             a += (1.0 / hg);
           else
             a += (1.0 / h);
         }
       }
       precision[i * k + j] = precision[j * k + i] = a;
+      // printf("%f %d %d \n",precision[i*k+j],i,j);
     }
   }
   return precision;
@@ -87,10 +88,8 @@ double log_likelihood_nonlocal(
     int k, int K, int ng, int N, double alpha, double psi, double *y,
     double **design, double *precision, const gsl_matrix *chol_precision,
     double *beta_mode, int r, double h, double h1, double h0, double hg,
-    int max_iter, double tolerance,
-    const imr_numerical_control *numerical, int stage)
+    int max_iter, double tolerance, _Bool positive_beta)
 {
-  imr_record_laplace(numerical, stage, IMR_LAPLACE_CALLS);
   double *adjusted_precision = malloc(k * k * sizeof(double));
   double *xty = malloc(k * sizeof(double));
   int i, j, l;
@@ -100,10 +99,17 @@ double log_likelihood_nonlocal(
     a = 0;
     for (l = 0; l < N; l++)
     {
-      if (i == 0)
-        a += y[l];
+      if (positive_beta == 0)
+      {
+        if (i == 0)
+          a += y[l];
+        else
+          a += design[l][i - 1] * y[l];
+      }
       else
-        a += design[l][i - 1] * y[l];
+      { // positive_beta==1 and without constant
+        a += design[l][i] * y[l];
+      }
     }
     xty[i] = a;
   }
@@ -130,13 +136,21 @@ double log_likelihood_nonlocal(
     yy += pow(y[i], 2);
   }
   s2 = (2 * psi + yy - s2) / nu;
-  for (i = 0; i < k; i++)
+  if (positive_beta == 0)
   {
-    beta_mode[i] = beta_hat[i];
+    for (i = 0; i < k; i++)
+    {
+      beta_mode[i] = beta_hat[i];
+    }
   }
-  int converged = maximize_nonlocal_beta(xty, nu, s2, precision, max_iter, tolerance,
-                                        beta_mode, k, r);
-  if (!converged) imr_record_laplace(numerical, stage, IMR_LAPLACE_LIMIT);
+  else
+  {
+    for (i = 0; i < k; i++)
+    {
+      beta_mode[i] = beta_hat[i] * (beta_hat[i] > 0);
+    }
+  }
+  maximize_nonlocal_beta(xty, nu, s2, precision, max_iter, tolerance, beta_mode, k, r, positive_beta);
   for (i = 0; i < k; i++)
   {
     for (j = 0; j <= i; j++)
@@ -147,6 +161,8 @@ double log_likelihood_nonlocal(
     }
   }
   double L1 = gsl_sf_lngamma(nu / 2) + (alpha * log(psi)) + (nu / 2) * log(2);
+  if (positive_beta == 1)
+    L1 += k * log(2);
   double betaAibeta = 0;
   double sumlogbeta = 0;
   double difbetaAibeta = 0;
@@ -166,13 +182,11 @@ double log_likelihood_nonlocal(
   double L3 = -((nu - 2) / (2 * nu * s2)) * difbetaAibeta;
 
   gsl_matrix_view adjusted_precision_view = gsl_matrix_view_array(adjusted_precision, k, k);
-  if (gsl_linalg_cholesky_decomp(&adjusted_precision_view.matrix) != 0)
-    imr_record_laplace(numerical, stage, IMR_LAPLACE_FACTORIZATION_FAILURE);
+  gsl_linalg_cholesky_decomp(&adjusted_precision_view.matrix);
   double L4 = -0.5 * cholesky_logdet(&adjusted_precision_view.matrix);
   double doublefact = factorial_int(2 * r - 1) / ((1 << (r - 1)) * factorial_int(r - 1));
   double L5 = -gsl_sf_lngamma(alpha) - k * log(doublefact) - (N / 2.0) * log(2 * IMR_PI) - ((k - K - ng - 1) / 2.0 + r * (k - K - ng - 1)) * log(h) - (K / 2.0 + r * K) * log(h1) - (ng / 2.0 + r * ng) * log(hg) - (0.5 + r) * log(h0);
   double log_likelihood = L1 + L2 + L3 + L4 + L5;
-  if (!isfinite(log_likelihood)) imr_record_laplace(numerical, stage, IMR_LAPLACE_NONFINITE);
   free(xty);
   free(adjusted_precision);
   return (log_likelihood);
@@ -182,9 +196,9 @@ double log_likelihood_nonlocal(
  * Coordinate ascent for the beta mode induced by the product-moment prior.
  * `beta_mode` is both the starting point and the output mode.
  */
-int maximize_nonlocal_beta(
+void maximize_nonlocal_beta(
     double *xty, double nu, double s2, double *precision, int max_iter,
-    double tolerance, double *beta_mode, int k, int r)
+    double tolerance, double *beta_mode, int k, int r, _Bool positive_beta)
 {
   int i, m, m1;
   double a = (nu * s2) / (nu - 2);
@@ -210,10 +224,13 @@ int maximize_nonlocal_beta(
       double delta = pow(precision_beta_without_m - xty[m], 2) + (8 * r * a * am);
       double f1 = (-precision_beta_without_m + xty[m] + sqrt(delta)) / (2 * am);
       beta[m] = f1;
-      double f2 = -2 * r * a / (am * f1);
-      double objective_difference = beta_mode[m] * ((f1 - f2) / (f1 * f2)) - log(pow(f1, 2)) + log(pow(f2, 2));
-      if (objective_difference > 0)
-        beta[m] = f2;
+      if (positive_beta == 0)
+      {
+        double f2 = -2 * r * a / (am * f1);
+        double objective_difference = beta_mode[m] * ((f1 - f2) / (f1 * f2)) - log(pow(f1, 2)) + log(pow(f2, 2));
+        if (objective_difference > 0)
+          beta[m] = f2;
+      }
     } // end of m
     double beta_delta[k];
     for (m1 = 0; m1 < k; m1++)
@@ -230,5 +247,4 @@ int maximize_nonlocal_beta(
     i++;
   }
   free(beta);
-  return converged;
 }

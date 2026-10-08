@@ -7,22 +7,20 @@
 #include <math.h>
 
 /*
- * Paper log-posterior or historical diagnostic score, depending on the sampler.
+ * Joint log-posterior up to constants independent of the current state.
  *
  * Components:
  *   1. subgroup marginal log-likelihoods,
  *   2. platform-specific MRF/sparsity prior for gamma,
- *   3. Gamma prior on theta for the paper sampler. The legacy score instead
- *      adds the rate term and omits log(theta) contributions at or below 1e-3;
- *      those historical terms do not define a Gamma log density.
+ *   3. gamma prior on the MRF interaction parameters theta.
  */
 double log_posterior(double *loglik, _Bool ***gamma, double *nu, double ***theta,
-               double *mrf_log_normalizer, double alpha0, double ***betaTh, int n_subgroups,
-               int n_platforms, int *G, int *n_platform_models_c, int selection_update)
+               double *mrf, double alpha0, double ***betaTh, int nbrsugbroups,
+               int n_platforms, int *G, int *n_platform_models_c)
 {
     double logPost = 0;
     int g, m, m1;
-    for (m = 0; m < n_subgroups; m++)
+    for (m = 0; m < nbrsugbroups; m++)
     {
         logPost += loglik[m];
     }
@@ -43,8 +41,7 @@ double log_posterior(double *loglik, _Bool ***gamma, double *nu, double ***theta
                 }
             }
         }
-        logPostGam += nu[l] * sumGX + thetGamX -
-                      G[l] * mrf_log_normalizer[l];
+        logPostGam += nu[l] * sumGX + thetGamX - G[l] * log(mrf[l]);
     }
 
     // Prior theta
@@ -57,13 +54,12 @@ double log_posterior(double *loglik, _Bool ***gamma, double *nu, double ***theta
         {
             for (m1 = 0; m1 < m; m1++)
             {
-                if (theta[l][m][m1] > (selection_update == IMR_UPDATE_MRF_HASTINGS ? 0 : pow(10, -3)))
+                if (theta[l][m][m1] > pow(10, -3))
                     logPriorTX += log(theta[l][m][m1]);
                 sumTX += theta[l][m][m1] * betaTh[l][m][m1];
             }
         }
-        logPriorTX = (alpha0 - 1) * logPriorTX +
-            (selection_update == IMR_UPDATE_MRF_HASTINGS ? -sumTX : sumTX);
+        logPriorTX = (alpha0 - 1) * logPriorTX + sumTX;
         logPriorT += logPriorTX;
     }
     return logPost + logPostGam + logPriorT;

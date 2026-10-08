@@ -18,39 +18,33 @@
 #include <gsl/gsl_errno.h>
 
 /* Entry points implemented in the package's C sources. */
-extern SEXP imr_fit(
+extern SEXP main_function(
     SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP beta0_R,
     SEXP seed_R, SEXP nu_R, SEXP method1_R, SEXP n_platforms_R,
     SEXP platform_models_R, SEXP model_platforms_R, SEXP n_subgroups_R, SEXP sample_size,
-    SEXP n_features_R, SEXP n_covariates_R, SEXP X1_filtered, SEXP newYY_list,
-    SEXP type_outcome, SEXP newCC_list, SEXP draws_R, SEXP burnin_R, SEXP selection_update_R, SEXP numerical_R, SEXP initial_R);
+    SEXP nbr_features, SEXP nbr_cov, SEXP X1_filtered, SEXP newYY_list,
+    SEXP type_outcome, SEXP newCC_list, SEXP sample, SEXP burnin);
 
-extern SEXP imr_cv_legacy_score(SEXP, SEXP, SEXP, SEXP);
-
-extern SEXP imr_concordance(SEXP prediction, SEXP time, SEXP status);
-extern SEXP imr_pmom_standardized_draw(SEXP, SEXP, SEXP);
-
-extern SEXP imr_predict(
+extern SEXP main_function_prediction(
     SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP beta0_R,
     SEXP seed_R, SEXP nu_R, SEXP latent_y_R, SEXP gamma_sample_R, SEXP Theta_R,
     SEXP method1_R, SEXP n_platforms_R, SEXP platform_models_R, SEXP model_platforms_R,
-    SEXP n_subgroups_R, SEXP sample_size, SEXP n_features_R, SEXP n_covariates_R,
-    SEXP X1_filtered, SEXP newCC_list, SEXP draws_R, SEXP X1test, SEXP C_test,
-    SEXP samplesize_test_R, SEXP max_models_R, SEXP type_outcome_R, SEXP numerical_R);
+    SEXP n_subgroups_R, SEXP sample_size, SEXP nbr_features, SEXP nbr_cov,
+    SEXP X1_filtered, SEXP newYY_list, SEXP newCC_list, SEXP type_outcome,
+    SEXP sample, SEXP kcv_R, SEXP rounds_R, SEXP max_models_R);
 
-extern SEXP imr_cv_postfit(
-    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP numerical_R);
+extern SEXP main_function_prediction_test(
+    SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R, SEXP beta0_R,
+    SEXP seed_R, SEXP nu_R, SEXP latent_y_R, SEXP gamma_sample_R, SEXP Theta_R,
+    SEXP method1_R, SEXP n_platforms_R, SEXP platform_models_R, SEXP model_platforms_R,
+    SEXP n_subgroups_R, SEXP sample_size, SEXP nbr_features, SEXP nbr_cov,
+    SEXP X1_filtered, SEXP newCC_list, SEXP sample, SEXP X1test, SEXP C_test,
+    SEXP samplesize_test_R, SEXP max_models_R);
 
 static const R_CallMethodDef CallEntries[] = {
-    {"imr_cv_legacy_score", (DL_FUNC) &imr_cv_legacy_score, 4},
-    {"imr_pmom_standardized_draw", (DL_FUNC) &imr_pmom_standardized_draw, 3},
-    {"imr_cv_postfit", (DL_FUNC) &imr_cv_postfit,                30},
-    {"imr_fit",         (DL_FUNC) &imr_fit,                      25},
-    {"imr_concordance", (DL_FUNC) &imr_concordance,                3},
-    {"imr_predict",     (DL_FUNC) &imr_predict,                  28},
+    {"mainFunction",               (DL_FUNC) &main_function,               22},
+    {"mainFunctionPrediction",     (DL_FUNC) &main_function_prediction,     27},
+    {"mainFunctionPredictionTest", (DL_FUNC) &main_function_prediction_test, 26},
     {NULL, NULL, 0}
 };
 
@@ -61,7 +55,7 @@ void R_init_IntegMultiReg(DllInfo *dll)
 
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     /* Registered routines are still resolved by name through the
-     * registration table, so the character-string .Call() form used in
+     * registration table, so the .Call("mainFunction", ...) form used in
      * the R sources keeps working; we only disable the fallback search
      * for unregistered symbols.  We do not force symbols, which would
      * forbid the character-string form. */

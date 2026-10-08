@@ -1,50 +1,50 @@
-test_that("validate_imr_object checks fitted object integrity", {
-  expect_true(validate_imr_object(fit_bin))
+test_that("validate_imr checks fitted object integrity", {
+  expect_true(validate_imr(fit_bin))
   bad <- fit_bin
-  bad$posterior$inclusion_probabilities[[1L]][1L, 1L] <- 2
-  expect_error(validate_imr_object(bad), "invalid")
+  bad$gam_mean[[1L]][1L, 1L] <- 2
+  expect_error(validate_imr(bad), "in \\[0, 1\\]")
 
   bad_draws <- fit_bin
-  bad_draws$posterior$selection_draws[[1L]][[1L]] <- matrix(0, 1, 1)
-  expect_error(validate_imr_object(bad_draws), "inconsistent")
+  bad_draws$gam_sample[[1L]][[1L]] <- matrix(0, 1, 1)
+  expect_error(validate_imr(bad_draws), "inconsistent")
 
   missing_metadata <- fit_bin
-  missing_metadata$control <- NULL
-  expect_error(validate_imr_object(missing_metadata), "missing `control`")
+  missing_metadata$sample_mcmc <- NULL
+  expect_error(validate_imr(missing_metadata), "missing `sample_mcmc`")
 
   malformed_mcmc <- fit_bin
-  malformed_mcmc$control$mcmc <- list(burnin = 2L)
-  expect_error(validate_imr_object(malformed_mcmc), "valid `draws` and `burnin`")
+  malformed_mcmc$sample_mcmc <- c(burnin = 2)
+  expect_error(validate_imr(malformed_mcmc), "integer `total` and `burnin`")
 
   bad_theta <- fit_bin
-  bad_theta$posterior$interaction_draws[[1L]] <- bad_theta$posterior$interaction_draws[[1L]][, -1L, drop = FALSE]
-  expect_error(validate_imr_object(bad_theta), "Interaction draws")
+  bad_theta$theta_sample[[1L]] <- bad_theta$theta_sample[[1L]][, -1L, drop = FALSE]
+  expect_error(validate_imr(bad_theta), "theta_sample")
 })
 
 test_that("posterior summaries include uncertainty for gamma and theta", {
-  out <- selection_summary(fit_bin, level = 0.9)
-  expect_s3_class(out, "selection_summary.imr")
-  expect_named(out, c("level", "selection", "theta", "selection_update"))
+  out <- posterior_summary(fit_bin, level = 0.9)
+  expect_s3_class(out, "posterior_summary.imr")
+  expect_named(out, c("level", "selection", "theta"))
   expect_true(all(c("mean", "sd", "lower", "median", "upper") %in%
                     names(out$selection$genomic)))
   expect_true(nrow(out$selection$genomic) > 0L)
   expect_true(nrow(out$theta$genomic) > 0L)
-  expect_output(print(out), "Selection and interaction summary")
+  expect_output(print(out), "posterior summary")
   ci <- confint(fit_bin, parm = "theta", level = 0.9)
-  expect_named(ci, fit_bin$model$platform_names)
+  expect_named(ci, fit_bin$platform_names)
 })
 
-test_that("compare_fit_summaries creates a common descriptive table", {
-  out <- compare_fit_summaries(binary = fit_bin, copy = fit_bin, threshold = 0.5)
+test_that("compare_imr creates a common descriptive table", {
+  out <- compare_imr(binary = fit_bin, copy = fit_bin, threshold = 0.5)
   expect_equal(nrow(out), 2L)
   expect_named(out, c(
-    "fit", "outcome", "model_variant", "response_scale", "platforms", "subgroups",
+    "fit", "outcome", "method", "platforms", "subgroups",
     "retained_draws", "selected_features"
   ))
 
   incompatible <- fit_bin
-  incompatible$control$outcome_type <- "continuous"
-  expect_error(compare_fit_summaries(fit_bin, incompatible), "same outcome type")
+  incompatible$type_outcome <- "continuous"
+  expect_error(compare_imr(fit_bin, incompatible), "same outcome type")
 })
 
 test_that("additional parameter trace plots run", {

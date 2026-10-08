@@ -5,27 +5,7 @@
 #' observed-platform pattern for every subject and catches alignment problems
 #' before the MCMC sampler is called.
 #'
-#' @section Availability groups and eligibility:
-#' For subject \eqn{i} and platform \eqn{l}, define
-#' \deqn{A_{il}=I(i\mathrm{\ occurs\ in\ platform\ }l).}{A_il = I(subject i occurs in platform l).}
-#' The availability pattern is
-#' \deqn{A_i=(A_{i1},\ldots,A_{iL}),}{A_i = (A_i1, ..., A_iL),}
-#' with integer code
-#' \deqn{c_i=\sum_{l=1}^{L}2^{l-1}A_{il}.}{Availability code for subject i = sum_l 2^(l - 1) * A_il.}
-#' Printed bitstrings put platform 1 on the right. For example, `101` means
-#' platforms 1 and 3 are present. Subjects with the same pattern form a
-#' regression subgroup. Missing whole platforms are represented by this pattern,
-#' rather than by filling their feature values with zeros.
-#'
-#' Eligible subjects are the union of platform IDs intersected with the outcome
-#' and covariate IDs when those frames are supplied. This constructor records
-#' all eligible patterns; the `min_subgroup_size` filter is applied later by
-#' [imr()]. It aligns and validates data but does not standardize predictors or
-#' fit a model. Predictor standardization is described in [imr()].
-#'
 #' @param platforms A non-empty named list of data frames, one per platform.
-#'   Platform names must be unique and cannot be `id` or `subgroup`, which are
-#'   reserved for availability metadata.
 #'   Every data frame must contain the subject identifier and at least one
 #'   finite numeric feature.
 #' @param outcome Optional outcome data frame. It is required when the object is
@@ -34,12 +14,12 @@
 #'   right-censored outcomes it contains the identifier, time and status.
 #' @param covariates Optional data frame containing the identifier followed by
 #'   clinical covariates.
-#' @param outcome_type Optional outcome type: `"binary"`, `"continuous"` or
+#' @param type_outcome Optional outcome type: `"binary"`, `"continuous"` or
 #'   `"right.censored"`. It is required when `outcome` is supplied.
 #' @param id Name of the subject-identifier column in every supplied data frame.
 #'
 #' @return An object of class `"imr_data"` with components `platforms`,
-#'   `outcome`, `covariates`, `outcome_type`, `id`, `availability` and
+#'   `outcome`, `covariates`, `type_outcome`, `id`, `availability` and
 #'   `subgroup_sizes`, `n_platform_subjects` and `excluded_ids`. Availability
 #'   summaries include only subjects with all required outcome/covariate rows.
 #' @export
@@ -50,11 +30,11 @@
 #'   platforms = simIMR$platforms,
 #'   outcome = simIMR$outcome.binary,
 #'   covariates = simIMR$covariates,
-#'   outcome_type = "binary"
+#'   type_outcome = "binary"
 #' )
 #' dat
 imr_data <- function(platforms, outcome = NULL, covariates = NULL,
-                     outcome_type = NULL, id = "id") {
+                     type_outcome = NULL, id = "id") {
   if (!is.character(id) || length(id) != 1L || is.na(id) || !nzchar(id)) {
     .imr_abort("`id` must be one non-empty column name.")
   }
@@ -71,7 +51,6 @@ imr_data <- function(platforms, outcome = NULL, covariates = NULL,
       .imr_abort("Platform names must be unique after unnamed elements are labelled.")
     }
   }
-  .imr_check_reserved_platform_names(platform_names)
   platforms <- lapply(seq_along(platforms), function(i) {
     .imr_standardize_id_frame(
       platforms[[i]], id, sprintf("platforms[[%d]]", i),
@@ -81,19 +60,19 @@ imr_data <- function(platforms, outcome = NULL, covariates = NULL,
   names(platforms) <- platform_names
 
   if (!is.null(outcome)) {
-    if (is.null(outcome_type)) {
-      .imr_abort("`outcome_type` is required when `outcome` is supplied.")
+    if (is.null(type_outcome)) {
+      .imr_abort("`type_outcome` is required when `outcome` is supplied.")
     }
-    outcome_type <- match.arg(
-      outcome_type, c("right.censored", "binary", "continuous")
+    type_outcome <- match.arg(
+      type_outcome, c("right.censored", "binary", "continuous")
     )
     outcome <- .imr_standardize_id_frame(
       outcome, id, "outcome", require_features = TRUE
     )
-    .imr_validate_outcome(outcome, outcome_type)
-  } else if (!is.null(outcome_type)) {
-    outcome_type <- match.arg(
-      outcome_type, c("right.censored", "binary", "continuous")
+    .imr_validate_outcome(outcome, type_outcome)
+  } else if (!is.null(type_outcome)) {
+    type_outcome <- match.arg(
+      type_outcome, c("right.censored", "binary", "continuous")
     )
   }
 
@@ -128,7 +107,7 @@ imr_data <- function(platforms, outcome = NULL, covariates = NULL,
     platforms = platforms,
     outcome = outcome,
     covariates = covariates,
-    outcome_type = outcome_type,
+    type_outcome = type_outcome,
     id = id,
     availability = availability,
     subgroup_sizes = subgroup_sizes,
@@ -145,34 +124,15 @@ imr_data <- function(platforms, outcome = NULL, covariates = NULL,
 #' Rechecks the structure and subject alignment of an object created by
 #' [imr_data()]. Invalid objects fail with an informative error.
 #'
-#' @section Validation scope:
-#' The checks reconstruct subject availability from the supplied platform IDs
-#' and verify it against the stored availability table and subgroup sizes.
-#' They also check identifiers, feature columns, finite data and outcome coding.
-#' The grouping and eligibility rules are defined in [imr_data()]. Successful
-#' validation establishes structural consistency of the object; it does not
-#' assess a likelihood, statistical assumptions or fitted-model convergence.
-#'
 #' @param x An `"imr_data"` object.
 #' @return `TRUE`, invisibly.
-#' @examples
-#' x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
-#' y <- data.frame(id = x$id, y = 1 + x$marker + sin(x$id) / 3)
-#' analysis <- imr_data(platforms = list(assay = x), outcome = y,
-#'                      outcome_type = "continuous")
-#' validate_imr_data(analysis)
-#'
-#' # Subject alignment is rechecked, so a truncated outcome is rejected.
-#' broken <- analysis
-#' broken$outcome <- broken$outcome[1:5, , drop = FALSE]
-#' try(validate_imr_data(broken))
 #' @export
 validate_imr_data <- function(x) {
   if (!inherits(x, "imr_data") || !is.list(x)) {
     .imr_abort("`x` must be an `imr_data` object.")
   }
   required <- c(
-    "platforms", "outcome", "covariates", "outcome_type", "id",
+    "platforms", "outcome", "covariates", "type_outcome", "id",
     "availability", "subgroup_sizes", "n_platform_subjects", "excluded_ids"
   )
   if (!all(required %in% names(x))) {
@@ -181,12 +141,10 @@ validate_imr_data <- function(x) {
   if (!is.list(x$platforms) || length(x$platforms) == 0L) {
     .imr_abort("`x$platforms` must be a non-empty list.")
   }
-  if (is.null(names(x$platforms)) || anyNA(names(x$platforms)) ||
-      any(!nzchar(names(x$platforms))) ||
+  if (is.null(names(x$platforms)) || any(!nzchar(names(x$platforms))) ||
       anyDuplicated(names(x$platforms))) {
     .imr_abort("`x$platforms` must have complete, unique names.")
   }
-  .imr_check_reserved_platform_names(names(x$platforms))
   for (i in seq_along(x$platforms)) {
     arg <- sprintf("x$platforms[[%d]]", i)
     .imr_check_id_frame(x$platforms[[i]], arg)
@@ -194,7 +152,7 @@ validate_imr_data <- function(x) {
   }
   if (!is.null(x$outcome)) {
     .imr_check_id_frame(x$outcome, "x$outcome")
-    .imr_validate_outcome(x$outcome, x$outcome_type)
+    .imr_validate_outcome(x$outcome, x$type_outcome)
   }
   if (!is.null(x$covariates)) {
     .imr_check_id_frame(x$covariates, "x$covariates")
@@ -226,25 +184,7 @@ validate_imr_data <- function(x) {
   invisible(TRUE)
 }
 
-.imr_check_reserved_platform_names <- function(platform_names) {
-  reserved <- intersect(platform_names, c("id", "subgroup"))
-  if (length(reserved)) {
-    .imr_abort(sprintf(
-      "Platform names cannot use reserved availability metadata names: %s.",
-      paste(sprintf("`%s`", reserved), collapse = ", ")
-    ))
-  }
-  invisible(TRUE)
-}
-
 #' Convert IMR Data to an Availability Data Frame
-#'
-#' @section Meaning of the rows:
-#' Each row describes one eligible subject's observed-platform indicators and
-#' bitstring, with the platform order and eligibility rules defined in
-#' [imr_data()]. This method returns availability metadata, not a merged or
-#' imputed molecular feature matrix. Use the object's named `platforms`,
-#' `outcome` and `covariates` components for the underlying data.
 #'
 #' @param x An `"imr_data"` object.
 #' @param row.names Unused; present for compatibility with [as.data.frame()].
@@ -278,7 +218,7 @@ print.imr_data <- function(x, ...) {
   cat(sprintf("Outcome   : %s\n", if (is.null(x$outcome)) {
     "not supplied (prediction data)"
   } else {
-    x$outcome_type
+    x$type_outcome
   }))
   cat("Availability subgroups:\n")
   for (nm in names(x$subgroup_sizes)) {
@@ -302,7 +242,7 @@ summary.imr_data <- function(object, ...) {
     subgroup_sizes = object$subgroup_sizes,
     has_outcome = !is.null(object$outcome),
     has_covariates = !is.null(object$covariates),
-    outcome_type = object$outcome_type
+    type_outcome = object$type_outcome
   )
   class(out) <- "summary.imr_data"
   out
@@ -325,10 +265,6 @@ print.summary.imr_data <- function(x, ...) {
   if (!is.data.frame(x)) {
     .imr_abort(sprintf("`%s` must be a data frame.", arg))
   }
-  .imr_check_column_names(x, arg)
-  if (!identical(id, "id") && "id" %in% names(x)) {
-    .imr_abort("A non-identifier column named `id` conflicts with the standardized identifier.")
-  }
   if (!id %in% names(x)) {
     if (identical(id, "id")) {
       .imr_abort(sprintf("`%s` must have `id` as its first column.", arg))
@@ -344,19 +280,19 @@ print.summary.imr_data <- function(x, ...) {
 
 #' @keywords internal
 #' @noRd
-.imr_validate_outcome <- function(outcome, outcome_type) {
-  if (is.null(outcome_type) || length(outcome_type) != 1L) {
-    .imr_abort("A valid `outcome_type` is required for outcome validation.")
+.imr_validate_outcome <- function(outcome, type_outcome) {
+  if (is.null(type_outcome) || length(type_outcome) != 1L) {
+    .imr_abort("A valid `type_outcome` is required for outcome validation.")
   }
-  if (outcome_type %in% c("binary", "continuous")) {
+  if (type_outcome %in% c("binary", "continuous")) {
     if (ncol(outcome) != 2L) {
       .imr_abort("`outcome` must have exactly two columns: `id` and the response.")
     }
     .imr_check_numeric_columns(outcome, "outcome", names(outcome)[2L])
-    if (outcome_type == "binary" && !all(outcome[[2L]] %in% c(0, 1))) {
-      .imr_abort("For `outcome_type = \"binary\"`, the response must be coded 0/1.")
+    if (type_outcome == "binary" && !all(outcome[[2L]] %in% c(0, 1))) {
+      .imr_abort("For `type_outcome = \"binary\"`, the response must be coded 0/1.")
     }
-  } else if (outcome_type == "right.censored") {
+  } else if (type_outcome == "right.censored") {
     if (ncol(outcome) != 3L) {
       .imr_abort(paste0(
         "`outcome` must have exactly three columns for right-censored data: ",
@@ -371,7 +307,7 @@ print.summary.imr_data <- function(x, ...) {
       .imr_abort("Right-censored status values in `outcome` must be coded 0/1.")
     }
   } else {
-    .imr_abort("Unknown `outcome_type`.")
+    .imr_abort("Unknown `type_outcome`.")
   }
   invisible(outcome)
 }

@@ -7,11 +7,11 @@
 \method{as.data.frame}{imr_data}(x, row.names = NULL, optional = FALSE, ...)
 }
 \arguments{
-\item{x}{An \code{"imr_data"} object.}
+\item{x}{An `"imr_data"` object.}
 
-\item{row.names}{Unused; present for compatibility with \code{\link[=as.data.frame]{as.data.frame()}}.}
+\item{row.names}{Unused; present for compatibility with [as.data.frame()].}
 
-\item{optional}{Unused; present for compatibility with \code{\link[=as.data.frame]{as.data.frame()}}.}
+\item{optional}{Unused; present for compatibility with [as.data.frame()].}
 
 \item{...}{Unused.}
 }
@@ -21,12 +21,3 @@ The subject-by-platform availability table, including bitstrings.
 \description{
 Convert IMR Data to an Availability Data Frame
 }
-\section{Meaning of the rows}{
-
-Each row describes one eligible subject's observed-platform indicators and
-bitstring, with the platform order and eligibility rules defined in
-\code{\link[=imr_data]{imr_data()}}. This method returns availability metadata, not a merged or
-imputed molecular feature matrix. Use the object's named \code{platforms},
-\code{outcome} and \code{covariates} components for the underlying data.
-}
-

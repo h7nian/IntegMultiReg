@@ -5,9 +5,9 @@
 #' @keywords internal
 #' @noRd
 .imr_mpip <- function(object, platform) {
-  m <- object$posterior$inclusion_probabilities[[platform]]
-  rn <- object$model$subgroup_names[object$model$platform_subgroups[[platform]]]
-  cn <- object$model$feature_names[[platform]]
+  m <- object$gam_mean[[platform]]
+  rn <- object$model_bitstrings[object$platform_models[[platform]]]
+  cn <- object$feature_names[[platform]]
   if (!is.null(rn) && length(rn) == nrow(m)) rownames(m) <- rn
   if (!is.null(cn) && length(cn) == ncol(m)) colnames(m) <- cn
   m
@@ -41,69 +41,19 @@
 #' Extracts the posterior mean variable-selection probabilities (the marginal
 #' posterior inclusion probabilities, mPIP) of a fitted model.
 #'
-#' @section Statistical definition:
-#' For platform \eqn{l}, subgroup \eqn{s} and feature \eqn{j}, the returned
-#' entry is the retained-chain average of its binary selection indicator:
-#' \deqn{\widehat\pi_{lsj} = \frac{1}{B}\sum_{b=1}^{B}\gamma_{lsj}^{(b)}.}{mPIP_lsj = sum_b gamma_lsj[b] / B.}
-#' Here \eqn{B} excludes burn-in. This estimates a marginal inclusion
-#' probability under the fitted sampler and its approximations. It is not a
-#' regression coefficient; `coef()` on an `imr_posterior` object instead
-#' returns coefficient posterior means (see [imr_posterior_methods]). Use [selection_summary()] for
-#' selection-indicator and interaction summaries, or [sample_regression_posterior()] for
-#' coefficient uncertainty.
-#'
 #' @param object A fitted object of class `"imr"`.
+#' @param ... Unused; present for S3 compatibility.
 #' @return A named list with one matrix per platform.  Rows are the subgroups
 #'   containing that platform (labelled by their availability bitstrings) and
 #'   columns are the platform features.
 #' @seealso [imr()]
 #' @export
-inclusion_probabilities <- function(object) {
-  validate_imr_object(object)
-  out <- lapply(seq_len(object$model$n_platforms), function(l) .imr_mpip(object, l))
-  names(out) <- object$model$platform_names
+coef.imr <- function(object, ...) {
+  out <- lapply(seq_len(object$n_platform), function(l) .imr_mpip(object, l))
+  names(out) <- object$platform_names
   out
 }
 
-#' Regression Coefficients Require Regression Posterior Samples
-#'
-#' An `imr` fit stores selection draws and integrates regression coefficients
-#' out of its model scores. It does not store regression coefficient estimates.
-#' This method reports that limitation instead of returning inclusion
-#' probabilities as coefficients or starting an additional sampler implicitly.
-#'
-#' @param object A fitted `imr` object.
-#' @param ... Unused.
-#' @return No value is returned: the method stops with instructions for sampling
-#'   regression coefficients. `coef()` on the resulting `imr_posterior` object
-#'   returns posterior mean regression coefficients.
-#' @seealso [inclusion_probabilities()], [sample_regression_posterior()],
-#'   [imr_posterior_methods]
-#' @export
-coef.imr <- function(object, ...) {
-  validate_imr_object(object)
-  .imr_abort(paste0(
-    "This fit does not store regression coefficients. Use ",
-    "`inclusion_probabilities()` for selection probabilities, or ",
-    "`sample_regression_posterior()` followed by `coef()` for coefficients."
-  ))
-}
-
-
-# Features ranked by their highest inclusion probability across subgroups.
-# The two callers differ only in which columns they keep, so `select` receives
-# those probabilities and returns the column order to report.
-.imr_feature_ranking <- function(m, select) {
-  maxp <- apply(m, 2, max)
-  ord <- select(maxp)
-  data.frame(
-    feature = colnames(m)[ord],
-    max_mpip = round(maxp[ord], 3),
-    subgroup = rownames(m)[apply(m, 2, which.max)][ord],
-    row.names = NULL,
-    stringsAsFactors = FALSE
-  )
-}
 
 #' Print Method for IMR Fits
 #'
@@ -111,13 +61,6 @@ coef.imr <- function(object, ...) {
 #' `P2`, ...) that decodes the availability-subgroup bitstrings.  Optionally,
 #' it can also print the top-ranked features per platform, ranked by each
 #' feature's maximum mPIP over availability subgroups containing that platform.
-#'
-#' @section Reading the display:
-#' Selected-feature counts use the strict threshold and maximum subgroup mPIP
-#' defined in [summary.imr()]. With `rank = TRUE`, the display shows the `top`
-#' highest-ranking features even if some are below `threshold`; the threshold
-#' controls the counts, not the displayed ranking. Printing does not rerun
-#' sampling or change the stored inclusion probabilities.
 #'
 #' @param x A fitted object of class `"imr"`.
 #' @param threshold Inclusion-probability threshold used to count selected
@@ -130,60 +73,70 @@ coef.imr <- function(object, ...) {
 #' @return `x`, invisibly.
 #' @export
 print.imr <- function(x, threshold = 0.5, rank = FALSE, top = 5, ...) {
-  .imr_reject_dots(...)
-  threshold <- .imr_check_threshold(threshold)
+  threshold <- .imr_check_numeric_vector(
+    threshold, "threshold", length = 1, nonnegative = TRUE
+  )
+  if (threshold > 1) {
+    .imr_abort("`threshold` must be between 0 and 1.")
+  }
   .imr_check_flag(rank, "rank")
   top <- .imr_check_integer_scalar(top, "top", min = 1)
   cat("Integrative Bayesian Multi-Platform Regression (IMR)\n")
   cat("----------------------------------------------------\n")
-  if (!is.null(x$control$call)) {
+  if (!is.null(x$call)) {
     cat("Call:\n  ")
-    print(x$control$call)
+    print(x$call)
   }
-  validate_imr_object(x)
-  cat(sprintf("\nOutcome type : %s\n", x$control$outcome_type))
-  cat(sprintf("Model variant: %s\n", toupper(x$control$model_variant)))
-  cat("Selection    :", if (identical(x$control$selection_update, "symmetric_mrf_hastings"))
-    "Hastings-adjusted updates for the stated model" else "archived unadjusted flip/swap updates", "\n")
-  cat(sprintf("Platforms    : %d (%s)\n", x$model$n_platforms,
-              paste(x$model$platform_names, collapse = ", ")))
+  cat(sprintf("\nOutcome type : %s\n", x$type_outcome))
+  cat(sprintf("Method       : %s\n", x$method))
+  cat(sprintf("Platforms    : %d (%s)\n", x$n_platform,
+              paste(x$platform_names, collapse = ", ")))
   cat(sprintf("MCMC         : %d retained draws after %d burn-in\n",
-              x$control$mcmc$draws, x$control$mcmc$burnin))
+              x$sample_mcmc[["total"]], x$sample_mcmc[["burnin"]]))
 
-  codes <- .imr_platform_codes(x$model$n_platforms)
+  codes <- .imr_platform_codes(x$n_platform)
   cat("\nPlatform key:\n")
-  key <- paste(sprintf("  %s = %s", codes, x$model$platform_names), collapse = "\n")
+  key <- paste(sprintf("  %s = %s", codes, x$platform_names), collapse = "\n")
   cat(key, "\n", sep = "")
 
   cat("\nAvailability subgroups modelled (bitstring : platforms : size):\n")
   subgroup_codes <- vapply(
-    x$model$subgroup_names, .imr_bitstring_codes, character(1),
-    n_platform = x$model$n_platforms
+    x$model_bitstrings, .imr_bitstring_codes, character(1),
+    n_platform = x$n_platform
   )
   st <- paste(sprintf("  %-*s : %-*s : %d",
-                      max(nchar(x$model$subgroup_names)), x$model$subgroup_names,
+                      max(nchar(x$model_bitstrings)), x$model_bitstrings,
                       max(nchar(subgroup_codes)), subgroup_codes,
-                      as.integer(x$model$sample_sizes)),
+                      as.integer(x$sample_size)),
               collapse = "\n")
   cat(st, "\n", sep = "")
 
   cat(sprintf("\nFeatures with mPIP > %.2f (in any subgroup):\n", threshold))
-  for (l in seq_len(x$model$n_platforms)) {
-    m <- x$posterior$inclusion_probabilities[[l]]
+  for (l in seq_len(x$n_platform)) {
+    m <- x$gam_mean[[l]]
     sel <- if (nrow(m) > 0 && ncol(m) > 0) sum(apply(m, 2, max) > threshold) else 0L
-    cat(sprintf("  %-12s : %d of %d\n", x$model$platform_names[l], sel, ncol(m)))
+    cat(sprintf("  %-12s : %d of %d\n", x$platform_names[l], sel, ncol(m)))
   }
   if (rank) {
     cat(sprintf("\nTop %d ranked features by maximum subgroup mPIP:\n", top))
-    for (l in seq_len(x$model$n_platforms)) {
+    for (l in seq_len(x$n_platform)) {
       m <- .imr_mpip(x, l)
-      cat(sprintf("  %s\n", x$model$platform_names[l]))
+      cat(sprintf("  %s\n", x$platform_names[l]))
       if (nrow(m) == 0 || ncol(m) == 0) {
         cat("    (no selectable features)\n")
         next
       }
-      tab <- .imr_feature_ranking(m, function(maxp)
-        utils::head(order(maxp, decreasing = TRUE), top))
+      maxp <- apply(m, 2, max)
+      which_sg <- rownames(m)[apply(m, 2, which.max)]
+      ord <- order(maxp, decreasing = TRUE)
+      ord <- ord[seq_len(min(top, length(ord)))]
+      tab <- data.frame(
+        feature = colnames(m)[ord],
+        max_mpip = round(maxp[ord], 3),
+        subgroup = which_sg[ord],
+        row.names = NULL,
+        stringsAsFactors = FALSE
+      )
       lines <- utils::capture.output(print(tab, row.names = FALSE))
       cat(paste0("    ", lines), sep = "\n")
       cat("\n")
@@ -199,18 +152,6 @@ print.imr <- function(x, threshold = 0.5, rank = FALSE, top = 5, ...) {
 #' marginal posterior inclusion probability exceeds `threshold` in at least one
 #' subgroup), ranked by their maximum inclusion probability.
 #'
-#' @section Selection and ranking:
-#' Let \eqn{\widehat\pi_{lsj}}{mPIP_lsj} denote the subgroup mPIP defined in [inclusion_probabilities()].
-#' For each platform-feature pair, the ranking score and selected set are
-#' \deqn{r_{lj}=\max_{s\in\mathcal S_l}\widehat\pi_{lsj},}{r_lj = maximum subgroup mPIP for feature j on platform l,}
-#' \deqn{\mathcal A_l(t)=\{j:r_{lj}>t\},}{A_l(t) contains features with r_lj > t,}
-#' where \eqn{\mathcal S_l}{S_l} contains subgroups with platform \eqn{l}, and
-#' \eqn{t} is `threshold`. The inequality is strict. Rows are sorted by
-#' \eqn{r_{lj}}; the reported subgroup is the first maximizing row in the fitted
-#' order. This maximum is a ranking score, not the posterior probability of
-#' selection in at least one subgroup. A common feature is counted once per
-#' platform, even if it exceeds the threshold in several subgroups.
-#'
 #' @param object A fitted object of class `"imr"`.
 #' @param threshold Inclusion-probability threshold for selection (default
 #'   `0.5`).
@@ -220,32 +161,44 @@ print.imr <- function(x, threshold = 0.5, rank = FALSE, top = 5, ...) {
 #'   mPIP and the subgroup achieving it.
 #' @export
 summary.imr <- function(object, threshold = 0.5, ...) {
-  .imr_reject_dots(...)
-  threshold <- .imr_check_threshold(threshold)
-  validate_imr_object(object)
-  selected <- vector("list", object$model$n_platforms)
-  names(selected) <- object$model$platform_names
-  for (l in seq_len(object$model$n_platforms)) {
+  if (!inherits(object, "imr")) {
+    .imr_abort("`object` must be an `imr` object returned by `imr()`.")
+  }
+  threshold <- .imr_check_numeric_vector(
+    threshold, "threshold", length = 1, nonnegative = TRUE
+  )
+  if (threshold > 1) {
+    .imr_abort("`threshold` must be between 0 and 1.")
+  }
+  selected <- vector("list", object$n_platform)
+  names(selected) <- object$platform_names
+  for (l in seq_len(object$n_platform)) {
     m <- .imr_mpip(object, l)
     if (nrow(m) == 0 || ncol(m) == 0) {
       selected[[l]] <- data.frame(feature = character(0), max_mpip = numeric(0),
                                   subgroup = character(0))
       next
     }
-    selected[[l]] <- .imr_feature_ranking(m, function(maxp) {
-      keep <- which(maxp > threshold)
-      keep[order(maxp[keep], decreasing = TRUE)]
-    })
+    maxp <- apply(m, 2, max)
+    which_sg <- rownames(m)[apply(m, 2, which.max)]
+    keep <- which(maxp > threshold)
+    ord <- keep[order(maxp[keep], decreasing = TRUE)]
+    selected[[l]] <- data.frame(
+      feature = colnames(m)[ord],
+      max_mpip = round(maxp[ord], 3),
+      subgroup = which_sg[ord],
+      row.names = NULL,
+      stringsAsFactors = FALSE
+    )
   }
   out <- list(
-    call = object$control$call,
-    outcome_type = object$control$outcome_type,
-    model_variant = object$control$model_variant,
-    selection_update = object$control$selection_update,
+    call = object$call,
+    type_outcome = object$type_outcome,
+    method = object$method,
     threshold = threshold,
-    sample_sizes = object$model$sample_sizes,
-    subgroup_names = object$model$subgroup_names,
-    platform_names = object$model$platform_names,
+    sample_size = object$sample_size,
+    model_bitstrings = object$model_bitstrings,
+    platform_names = object$platform_names,
     selected = selected
   )
   class(out) <- "summary.imr"
@@ -258,9 +211,7 @@ summary.imr <- function(object, threshold = 0.5, ...) {
 print.summary.imr <- function(x, ...) {
   cat("Integrative Bayesian Multi-Platform Regression (IMR) -- summary\n")
   cat("--------------------------------------------------------------\n")
-  cat(sprintf("Outcome type : %s   Model variant: %s\n", x$outcome_type, toupper(x$model_variant)))
-  if (!identical(x$selection_update, "symmetric_mrf_hastings"))
-    cat("Stored historical draws; metadata conversion has not changed their target.\n")
+  cat(sprintf("Outcome type : %s   Method: %s\n", x$type_outcome, x$method))
   cat(sprintf("Selection threshold (mPIP) : %.2f\n\n", x$threshold))
   for (l in seq_along(x$selected)) {
     df <- x$selected[[l]]
@@ -272,4 +223,265 @@ print.summary.imr <- function(x, ...) {
     cat("\n")
   }
   invisible(x)
+}
+
+
+#' Plot Method for IMR Fits
+#'
+#' @description
+#' Visualizes a fitted `"imr"` object.  Three plot types are available:
+#' \describe{
+#'   \item{`"selection"`}{Heatmap of the marginal posterior inclusion
+#'     probabilities (mPIP), one panel per platform, with features on the
+#'     horizontal axis, availability subgroups on the vertical axis and a small
+#'     intensity legend showing that darker values are closer to 1.}
+#'   \item{`"theta"`}{Heatmap of the posterior mean MRF interaction parameters
+#'     between availability subgroups, one panel per platform.}
+#'   \item{`"trace"`}{Trace plot of the log-posterior across MCMC iterations.}
+#'   \item{`"theta_trace"`}{Trace plot for one retained MRF interaction
+#'     parameter, selected by `platform` and `parameter`.}
+#'   \item{`"selection_trace"`}{Trace plot for one retained selection
+#'     indicator, selected by `platform`, `subgroup` and `feature`.}
+#' }
+#' See [plot_top_features()] and [plot_subgroup_sizes()] for two further ready
+#' made displays.
+#'
+#' @param x A fitted object of class `"imr"`.
+#' @param type Character; one of `"selection"` (default), `"theta"`,
+#'   `"trace"`, `"theta_trace"` or `"selection_trace"`.
+#' @param platform Optional integer vector selecting which platforms to display
+#'   for the `"selection"` and `"theta"` plots; defaults to all platforms.
+#' @param parameter Positive integer selecting a theta-pair column for
+#'   `type = "theta_trace"`.
+#' @param subgroup Positive integer selecting a platform-specific subgroup row
+#'   for `type = "selection_trace"`.
+#' @param feature Positive integer selecting a feature column for
+#'   `type = "selection_trace"`.
+#' @param base_cex Overall text-size multiplier. The `cex_*` arguments default
+#'   to values derived from this multiplier (default `1`).
+#' @param cex_axis Axis-label size multiplier. If `NULL`, a plot-specific
+#'   default derived from `base_cex` is used.
+#' @param cex_lab Axis-title size multiplier. If `NULL`, a plot-specific
+#'   default derived from `base_cex` is used.
+#' @param cex_main Main-title size multiplier. If `NULL`, a plot-specific
+#'   default derived from `base_cex` is used.
+#' @param col Optional colours. For heatmaps this is the colour scale; for
+#'   trace plots this is the line colour.
+#' @param palette Optional heatmap palette name used when `col = NULL`.
+#'   Selection plots default to `"grey"` to preserve the mPIP intensity scale;
+#'   theta plots default to the muted grey-blue `"heatmap"` palette.
+#' @param legend Logical; for `"selection"` plots, should the mPIP intensity
+#'   legend be drawn (default `TRUE`)?
+#' @param legend_width Relative width of the intensity-legend panel for
+#'   `"selection"` plots (default `0.28`).
+#' @param mar,mgp Optional graphical margin and axis-title placement vectors
+#'   passed to [graphics::par()] for finer layout control.
+#' @param ... Further graphical parameters passed to the underlying plotting
+#'   functions.
+#' @return `NULL`, invisibly; called for the side effect of producing a plot.
+#' @seealso [imr()], [plot_top_features()], [plot_subgroup_sizes()]
+#' @export
+plot.imr <- function(x, type = c("selection", "theta", "trace",
+                                 "theta_trace", "selection_trace"),
+                     platform = NULL, base_cex = 1, cex_axis = NULL,
+                     cex_lab = NULL, cex_main = NULL, col = NULL,
+                     palette = NULL,
+                     legend = TRUE, legend_width = 0.28,
+                     mar = NULL, mgp = NULL, parameter = 1L,
+                     subgroup = 1L, feature = 1L, ...) {
+  if (!inherits(x, "imr")) {
+    .imr_abort("`x` must be an `imr` object returned by `imr()`.")
+  }
+  type <- match.arg(type)
+  dots <- list(...)
+  cex_defaults <- if (type == "selection") {
+    list(axis = 1.05, lab = 1.3, main = 1.4,
+         names = 1, legend = 1, values = 1)
+  } else {
+    list(axis = 0.95, lab = 1.1, main = 1.15,
+         names = 1, legend = 1, values = 1)
+  }
+  sz <- .imr_plot_cex(
+    dots, base_cex = base_cex, cex_axis = cex_axis,
+    cex_lab = cex_lab, cex_main = cex_main,
+    defaults = cex_defaults
+  )
+  cex_axis <- sz$axis
+  cex_lab <- sz$lab
+  cex_main <- sz$main
+  dots <- sz$dots
+  .imr_check_flag(legend, "legend")
+  legend_width <- .imr_check_numeric_vector(
+    legend_width, "legend_width", length = 1, positive = TRUE
+  )
+  if (!is.null(platform)) {
+    if (!is.numeric(platform) || length(platform) == 0L ||
+        any(!is.finite(platform)) || any(platform != as.integer(platform)) ||
+        any(platform < 1L) || any(platform > x$n_platform)) {
+      .imr_abort(sprintf(
+        "`platform` must contain whole-number indices between 1 and %d.",
+        x$n_platform
+      ))
+    }
+    platform <- as.integer(platform)
+  }
+
+  op <- graphics::par(no.readonly = TRUE)
+  on.exit({
+    if (type == "selection") try(graphics::layout(1), silent = TRUE)
+    try(graphics::par(op), silent = TRUE)
+  }, add = TRUE)
+
+  if (type == "trace") {
+    lp <- x$log_posterior
+    pp <- .imr_plot_par(mar, mgp, default_mar = c(4.8, 4.8, 3, 1))
+    graphics::par(mar = pp$mar, mgp = pp$mgp)
+    trace_col <- if (is.null(col)) .imr_plot_trace_colour() else col
+    do.call(graphics::plot, c(list(
+      x = seq_along(lp), y = lp, type = "l",
+      xlab = "MCMC iteration", ylab = "Log-posterior",
+      main = "Log-posterior trace", cex.axis = cex_axis,
+      cex.lab = cex_lab, cex.main = cex_main, col = trace_col
+    ), dots))
+    graphics::abline(v = x$sample_mcmc[["burnin"]], lty = 2, col = "grey50")
+    return(invisible(NULL))
+  }
+
+  if (type %in% c("theta_trace", "selection_trace")) {
+    if (is.null(platform)) platform <- 1L
+    platform <- .imr_check_integer_scalar(
+      platform, "platform", min = 1L, max = x$n_platform
+    )
+    pp <- .imr_plot_par(mar, mgp, default_mar = c(4.8, 4.8, 3, 1))
+    graphics::par(mar = pp$mar, mgp = pp$mgp)
+    trace_col <- if (is.null(col)) .imr_plot_trace_colour() else col
+    if (type == "theta_trace") {
+      samples <- x$theta_sample[[platform]]
+      if (is.null(samples) || ncol(samples) == 0L) {
+        .imr_abort("The selected platform has no sampled theta interactions.")
+      }
+      parameter <- .imr_check_integer_scalar(
+        parameter, "parameter", min = 1L, max = ncol(samples)
+      )
+      values <- samples[, parameter]
+      title <- sprintf("Theta trace: %s, pair %d",
+                       x$platform_names[platform], parameter)
+      ylab <- "Theta"
+    } else {
+      template <- .imr_mpip(x, platform)
+      subgroup <- .imr_check_integer_scalar(
+        subgroup, "subgroup", min = 1L, max = nrow(template)
+      )
+      feature <- .imr_check_integer_scalar(
+        feature, "feature", min = 1L, max = ncol(template)
+      )
+      values <- vapply(
+        x$gam_sample,
+        function(draw) as.numeric(draw[[platform]][subgroup, feature]),
+        numeric(1L)
+      )
+      title <- sprintf(
+        "Selection trace: %s / %s / %s", x$platform_names[platform],
+        rownames(template)[subgroup], colnames(template)[feature]
+      )
+      ylab <- "Selection indicator"
+    }
+    do.call(graphics::plot, c(list(
+      x = seq_along(values), y = values, type = "l",
+      xlab = "Retained MCMC draw", ylab = ylab, main = title,
+      cex.axis = cex_axis, cex.lab = cex_lab, cex.main = cex_main,
+      col = trace_col
+    ), dots))
+    return(invisible(NULL))
+  }
+
+  plats <- if (is.null(platform)) seq_len(x$n_platform) else platform
+  heat_palette <- if (is.null(palette)) {
+    if (type == "selection") "grey" else "heatmap"
+  } else {
+    palette
+  }
+  heat_col <- if (is.null(col)) {
+    .imr_plot_palette(64, palette = heat_palette)
+  } else {
+    .imr_plot_palette(length(col), col = col)
+  }
+
+  if (type == "selection") {
+    layout_widths <- rep(1, length(plats))
+    if (legend) layout_widths <- c(layout_widths, legend_width)
+    graphics::layout(
+      matrix(seq_along(layout_widths), nrow = 1L),
+      widths = layout_widths
+    )
+  } else if (length(plats) > 1) {
+    graphics::par(mfrow = c(1, length(plats)))
+  }
+
+  panel_par <- .imr_plot_par(
+    mar, mgp,
+    default_mar = if (type == "selection") {
+      c(5.7, 4.8, 2.9, 0.5)
+    } else {
+      c(4.8, 4.8, 3, 1)
+    },
+    default_mgp = if (type == "selection") c(3.6, 0.9, 0) else c(2.7, 0.8, 0)
+  )
+  for (l in plats) {
+    if (type == "selection") {
+      m <- .imr_mpip(x, l)
+      main <- sprintf("mPIP: %s", x$platform_names[l])
+      xlab <- "Features"; ylab <- "Availability subgroups"
+      rlab <- rownames(m)
+    } else {
+      m <- x$theta_mean[[l]]
+      rlab <- x$model_bitstrings[x$platform_models[[l]]]
+      if (!is.null(rlab) && length(rlab) == nrow(m)) {
+        rownames(m) <- colnames(m) <- rlab
+      }
+      main <- sprintf("Theta: %s", x$platform_names[l])
+      xlab <- "Availability subgroups"; ylab <- "Availability subgroups"
+    }
+    graphics::par(mar = panel_par$mar, mgp = panel_par$mgp)
+    if (nrow(m) == 0 || ncol(m) == 0) {
+      graphics::plot.new()
+      graphics::title(main = paste(main, "(empty)"), cex.main = cex_main)
+      next
+    }
+    zlim <- if (type == "selection") c(0, 1) else range(m, na.rm = TRUE)
+    do.call(graphics::image, c(list(
+      x = seq_len(ncol(m)), y = seq_len(nrow(m)), z = t(m),
+      col = heat_col, zlim = zlim, axes = FALSE,
+      xlab = xlab, ylab = ylab, main = main,
+      cex.lab = cex_lab, cex.main = cex_main
+    ), dots))
+    if (!is.null(colnames(m)) && ncol(m) <= 40) {
+      graphics::axis(1, at = seq_len(ncol(m)), labels = colnames(m),
+                     las = 2, cex.axis = cex_axis)
+    } else {
+      graphics::axis(1, cex.axis = cex_axis)
+    }
+    graphics::axis(2, at = seq_len(nrow(m)), labels = rlab, las = 2,
+                   cex.axis = cex_axis)
+    graphics::box()
+  }
+  if (type == "selection" && legend) {
+    legend_par <- .imr_plot_par(
+      NULL, mgp, default_mar = c(5.7, 0.1, 2.9, 3.0),
+      default_mgp = c(3.6, 0.9, 0)
+    )
+    graphics::par(mar = legend_par$mar, mgp = legend_par$mgp)
+    graphics::plot.new()
+    graphics::plot.window(xlim = c(0, 1), ylim = c(0, 1))
+    yb <- seq(0, 1, length.out = length(heat_col) + 1L)
+    graphics::rect(0.18, yb[-length(yb)], 0.52, yb[-1L],
+                   col = heat_col, border = NA)
+    graphics::axis(4, at = c(0, 0.25, 0.5, 0.75, 1),
+                   labels = c("0", "0.25", "0.5", "0.75", "1"),
+                   las = 1, cex.axis = cex_axis, tck = -0.18)
+    graphics::mtext("mPIP", side = 3, line = 0.1, at = 0.35,
+                    cex = 0.75 * cex_main)
+    graphics::box(bty = "n")
+  }
+  invisible(NULL)
 }

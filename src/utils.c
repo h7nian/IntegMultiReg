@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <stdint.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
+#include <gsl/gsl_multifit.h>
 #include <R.h>
 #include <Rinternals.h>
 #include <gsl/gsl_blas.h>
@@ -13,34 +13,10 @@
 #include "my_header.h"
 static const double t4 = 0.45;
 
-int imr_platform_model_index(int subgroup, int platform,
-                             const int *n_platform_models,
-                             int *const *platform_models)
-{
-    for (int index = 0; index < n_platform_models[platform]; index++) {
-        if (platform_models[platform][index] == subgroup) return index;
-    }
-    Rf_error("Subgroup %d not found for platform %d", subgroup + 1, platform + 1);
-    return -1;
-}
-
-/* Fill both triangles from the lower triangle before Cholesky overwrites it. */
-double *imr_copy_symmetric_matrix(const double *lower, int n)
-{
-    double *copy = malloc((size_t) n * n * sizeof(double));
-    if (!copy) Rf_error("malloc failed for precision_copy");
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j <= i; j++) {
-            copy[i * n + j] = copy[j * n + i] = lower[i * n + j];
-        }
-    }
-    return copy;
-}
-
 
 /*
  * Ridge regression predictor:
- *   y_hat = X (X^T X + lambdaI)^(-1) X^T y
+ *   y_hat = X (X^T X + λI)^(-1) X^T y
  *
  * Inputs:
  *   X      : pointer to double array (row-major) of size n * p
@@ -67,7 +43,7 @@ void ridge_predict_only(const double *X, const double *y,
     // XtX = X^T * X
     gsl_blas_dgemm(CblasTrans, CblasNoTrans, 1.0, &Xv.matrix, &Xv.matrix, 0.0, XtX);
 
-    // XtX + lambdaI
+    // XtX + λI
     gsl_matrix_memcpy(XtX_lambdaI, XtX);
     for (int i = 0; i < p; i++) {
         double val = gsl_matrix_get(XtX_lambdaI, i, i) + lambda;
@@ -77,7 +53,7 @@ void ridge_predict_only(const double *X, const double *y,
     // Xty = X^T * y
     gsl_blas_dgemv(CblasTrans, 1.0, &Xv.matrix, &yv.vector, 0.0, Xty);
 
-    // Solve (XtX + lambdaI) * beta = Xty
+    // Solve (XtX + λI) * beta = Xty
     int signum;
     gsl_permutation *perm = gsl_permutation_alloc(p);
     gsl_linalg_LU_decomp(XtX_lambdaI, perm, &signum);
@@ -93,22 +69,67 @@ void ridge_predict_only(const double *X, const double *y,
     gsl_vector_free(beta);
     gsl_permutation_free(perm);
 }
-static float generate_normal(const float sigma)
+// Function to fit OLS and get predicted values
+
+void fitted_ols(double * X_data, double * y_data,int n, int p, double *ypred){
+    gsl_matrix_view X = gsl_matrix_view_array(X_data, n, p);
+    gsl_vector_view y = gsl_vector_view_array(y_data, n);
+    gsl_vector *c = gsl_vector_alloc(p);       // coefficients
+    gsl_matrix *cov = gsl_matrix_alloc(p, p);  // covariance matrix
+    double chisq;
+
+    gsl_multifit_linear_workspace *work = gsl_multifit_linear_alloc(n, p);
+
+    gsl_multifit_linear(&X.matrix, &y.vector, c, cov, &chisq, work);
+
+    /*
+    printf("Estimated coefficients:\n");
+    for(int i = 0; i < p; i++) {
+        printf("beta[%d] = %g\n", i, gsl_vector_get(c, i));
+    }
+    */
+
+    gsl_multifit_linear_free(work);
+
+      gsl_vector *y_pred = gsl_vector_alloc(n);
+    gsl_blas_dgemv(CblasNoTrans, 1.0, &X.matrix, c, 0.0, y_pred);
+
+    //printf("Predicted values:\n");
+    for(int i = 0; i < n; i++) {
+       ypred[i]= gsl_vector_get(y_pred, i);
+    }
+
+    gsl_vector_free(c);
+    gsl_vector_free(y_pred);
+    gsl_matrix_free(cov);
+
+
+}
+
+
+float generate_normal(const float sigma)
 {
 
+  // srand(1);
   float x, y, r2;
 
   do
   {
     /* choose x,y in uniform square (-1,-1) to (+1,+1) */
-    x = -1.0 + 2.0 * unif_rand();
-    y = -1.0 + 2.0 * unif_rand();
+  //  x = -1 + 2 * ((double)rand() + 1.) / (1. + (double)RAND_MAX);
+    //y = -1 + 2 * ((double)rand() + 1.) / (1. + (double)RAND_MAX);
+
+// Clean, standard R-compatible uniform sampling between -1 and 1
+x = -1.0 + 2.0 * unif_rand();
+y = -1.0 + 2.0 * unif_rand();
+    // printf("X=%2.5f \n",x);
+    // printf("Y=%2.5f \n",y);
     /* see if it is in the unit circle */
     r2 = x * x + y * y;
   } while (r2 > 1.0 || r2 == 0);
 
 
-  /* Marsaglia polar method; preserve the historical float intermediates. */
+  /* Box-Muller transform */
   return sigma * y * sqrt(-2.0 * log(r2) / r2);
 }
 
@@ -118,20 +139,24 @@ static float generate_normal(const float sigma)
 
    for x = 0 ... +infty */
 
-static double rexponential(const double mu)
+double rexponential(const double mu)
 {
-  return mu * exp_rand();
+  //double u = ((double)rand() + 1.) / (1. + (double)RAND_MAX);
+  //return -mu * log1p(-u);
+  return mu*exp_rand();
 }
 
-/* Generate from a truncated normal distribution. */
+// Generae from truncated normal distribution
 
 /* Exponential rejection sampling (a,inf) */
-static double ers_a_inf(double a)
+double ers_a_inf(double a)
 {
+  // SAMPLER_DEBUG("ers_a_inf", a, R_PosInf);
   const double ainv = 1.0 / a;
   double x, z, rho;
   do
   {
+    // x = rexp(ainv) + a; /* rexp works with 1/lambda */
     x = rexponential(ainv) + a;
     z= x - a;
     rho = exp(-0.5 * z * z);
@@ -140,12 +165,16 @@ static double ers_a_inf(double a)
 }
 
 /* Normal rejection sampling (a,inf) */
-static double nrs_a_inf(double a)
+double nrs_a_inf(double a)
 {
+  // SAMPLER_DEBUG("nrs_a_inf", a, R_PosInf);
+  // double x = -DBL_AX;
   double x = generate_normal(1.0);
+  // double x = gsl_ran_ugaussian(r);
   while (x < a)
   {
     x = generate_normal(1.0);
+    // x = gsl_ran_ugaussian(r);
   }
   return x;
 }
@@ -168,6 +197,8 @@ double r_righttruncnorm(double b, double mean, double sd)
   /* Exploit symmetry: */
   return mean - sd * r_lefttruncnorm(-beta, 0.0, 1.0);
 }
+
+
 
 
 
@@ -246,12 +277,12 @@ SEXP c_array_to_r_matrix(double **array, int rows, int cols)
     return matrix;
 }
 
-double **r_list_vector_double_to_c(int listlength, SEXP list_vector)
+double **r_list_vector_double_to_c(int listlength, SEXP LictVect)
 {
     double **ListVect_c = malloc(listlength * sizeof(double *));
     for (int i = 0; i < listlength; i++)
     {
-        SEXP mPM = VECTOR_ELT(list_vector, i);
+        SEXP mPM = VECTOR_ELT(LictVect, i);
         // Instead of getting dims via getAttrib, use the total length
         int sizeM = LENGTH(mPM);
         ListVect_c[i] = malloc(sizeM * sizeof(double));
@@ -272,6 +303,11 @@ double ***r_list_matrix_to_c(int listlength, SEXP ListMat)
     {
         SEXP mYY = VECTOR_ELT(ListMat, i);
         SEXP dimsYY = getAttrib(mYY, R_DimSymbol);
+        //if (dimsYY == R_NilValue)
+        //{
+          //  UNPROTECT(2);
+        //    error("ListMat element %d does not have dimension attributes.", i);
+        //}
         int n_rows_yy = INTEGER(dimsYY)[0];
         int n_col_yy = INTEGER(dimsYY)[1];
         double *dataYY = REAL(mYY);
@@ -345,6 +381,7 @@ void free_r_list_list_matrix_to_c(double ****X0, int listlength, SEXP ListListMa
             SEXP df = VECTOR_ELT(subgroup, j);
             SEXP dims = getAttrib(df, R_DimSymbol);
             int n_rows = INTEGER(dims)[0];
+            // printf("number of rows: %d \n", n_rows);
 
             for (int r = 0; r < n_rows; r++)
             {
@@ -412,43 +449,30 @@ double ****r_list_list_matrix_to_c(int listlength, SEXP ListListMat)
 }
 
 
-static double mrf_log_weight(uint64_t state, int n_models,
-                             double **theta, double nu)
+void compute_mrf_normalizer(int p, double **theta, double nu, double *mrf)
 {
-    int selected = 0;
-    double interaction = 0.0;
-    for (int j = 0; j < n_models; ++j)
+    double mrfc = 0;
+    int ss = 1 << p;
+    int i, j, j1;
+    int bj, bj1;
+    for (i = 0; i < ss; i++)
     {
-        const unsigned int bit_j = (unsigned int)((state >> j) & UINT64_C(1));
-        selected += (int)bit_j;
-        interaction += bit_j * theta[j][j];
-        for (int k = 0; k < j; ++k)
+        int b = 0;
+        double bc = 0;
+        for (j = p - 1; j >= 0; j--)
         {
-            const unsigned int bit_k =
-                (unsigned int)((state >> k) & UINT64_C(1));
-            interaction += 2.0 * bit_j * bit_k * theta[j][k];
+            bj = ((int)floor(i * (1.0 / (1 << j)))) % 2; // gives all the binary combinations
+            b += bj;
+            for (j1 = 0; j1 < j; j1++)
+            {
+                bj1 = (int)floor(i * (1.0 / (1 << j1))) % 2;
+                bc += 2 * bj * bj1 * theta[j][j1];
+            }
+            bc += pow(bj, 2) * theta[j][j];
         }
+        mrfc += exp(nu * b + bc);
     }
-    return nu * selected + interaction;
-}
-
-void compute_mrf_log_normalizer(int n_models, double **theta, double nu,
-                                double *log_normalizer)
-{
-    const uint64_t n_states = UINT64_C(1) << (unsigned int)n_models;
-    double max_log_weight = -INFINITY;
-    for (uint64_t state = 0; state < n_states; ++state)
-    {
-        max_log_weight = fmax(
-            max_log_weight, mrf_log_weight(state, n_models, theta, nu));
-    }
-    double scaled_sum = 0.0;
-    for (uint64_t state = 0; state < n_states; ++state)
-    {
-        scaled_sum += exp(
-            mrf_log_weight(state, n_models, theta, nu) - max_log_weight);
-    }
-    *log_normalizer = max_log_weight + log(scaled_sum);
+    *mrf = mrfc;
 }
 
 void sort_descending_index(int n, double *x, int *idx)
@@ -476,6 +500,87 @@ void sort_descending_index(int n, double *x, int *idx)
 }
 
 
+double auc(int n, double *esti, _Bool * class)
+{
+    double fpr[n + 2], tpr[n + 2];
+    double auc1 = 0;
+    int P = 0; // P=positive instances
+    int i, j;
+    double esti1[n];
+    for (i = 0; i < n; i++)
+    {
+        esti1[i] = esti[i];
+        if (class[i] == 1)
+            P += 1;
+    }
+    int idx[n];
+    sort_descending_index(n, esti1, idx);
+
+    fpr[n + 1] = 1;
+    tpr[n + 1] = 1;
+    fpr[0] = 0;
+    tpr[0] = 0;
+    for (i = n; i >= 1; --i)
+    {
+        double af = 0;
+        double at = 0;
+        for (j = 0; j < n; j++)
+        {
+            if (esti[j] > esti1[i - 1])
+            {
+                if (class[j] == 0)
+                {
+                    af += 1;
+                }
+                else
+                {
+                    at += 1;
+                }
+            }
+        }
+        tpr[i] = at / P;
+        fpr[i] = af / (n - P);
+        auc1 += (fpr[i + 1] - fpr[i]) * (tpr[i + 1] + tpr[i]);
+    }
+    auc1 += (fpr[1] - fpr[0]) * (tpr[1] + tpr[0]);
+    auc1 = 0.5 * (auc1);
+    return auc1;
+}
+
+double sample_left_truncated_normal_gsl(double mu, double sd, double lower, const gsl_rng *r)
+{
+    // This functon generates a univariate truncate normal distribution at lower. It uses an accept and reject algorithm
+    double lowern = (lower - mu) / sd;
+    double alphaopt = (lowern + sqrt(pow(lowern, 2) + 4)) / 2;
+    double z = lowern + gsl_ran_exponential(r, 1 / alphaopt);
+    double qz = exp(-pow(z - alphaopt, 2) / 2);
+    double u = gsl_ran_flat(r, 0, 1);
+    // int nmax=4;
+    // int i=0;
+    // while ((u>qz)||(i<nmax)){
+    while (u > qz)
+    {
+        z = lowern + gsl_ran_exponential(r, 1 / alphaopt);
+        qz = exp(-pow(z - alphaopt, 2) / 2);
+        u = gsl_ran_flat(r, 0, 1);
+        // i++;
+    }
+    return z * sd + mu;
+}
+
+void mean_3d_array(int n, int n1, int n2, double (*x)[n1][n2], double me[n1][n2])
+{
+    int i, j, l;
+    for (i = 0; i < n1; i++)
+    {
+        for (j = 0; j < n2; j++)
+        {
+            me[i][j] = 0;
+            for (l = 0; l < n; l++)
+                me[i][j] += x[l][i][j] / n;
+        }
+    }
+}
 void mean_array_columns(int n, int n1, double **x, double *me)
 {
     int i, l;
@@ -484,6 +589,38 @@ void mean_array_columns(int n, int n1, double **x, double *me)
         me[i] = 0;
         for (l = 0; l < n; l++)
             me[i] += x[l][i] / n;
+    }
+}
+
+void matrix_multiply(int n, int K1, int p, double **Mat1, double **Mat2, double **ProdMat)
+{
+    int i, j, k;
+    double a;
+    for (i = 0; i < n; i++)
+    {
+        for (j = 0; j < p; j++)
+        {
+            a = 0;
+            for (k = 0; k < K1; k++)
+            {
+                a += Mat1[i][k] * Mat2[k][j];
+            }
+            ProdMat[i][j] = a;
+        }
+    }
+}
+void matrix_vector_multiply(int n, int K1, double **Mat, double *Vec, double *ProdVec)
+{
+    int i, k;
+    double a;
+    for (i = 0; i < n; i++)
+    {
+        a = 0;
+        for (k = 0; k < K1; k++)
+        {
+            a += Mat[i][k] * Vec[k];
+        }
+        ProdVec[i] = a;
     }
 }
 
@@ -505,8 +642,83 @@ double norm(int n, double *x)
     for (i = 0; i < n; i++)
     {
         normx += pow(x[i], 2);
+        // printf("NormXXX==%f \n",x[i]);
     }
     return sqrt(normx);
+}
+
+double max(int n, double *x)
+{
+    double xmax = x[0];
+    int i;
+    for (i = 0; i < n; i++)
+    {
+        if (x[i] > xmax)
+            xmax = x[i];
+    }
+    return xmax;
+}
+
+double min(int n, double *x)
+{
+    double xmin = x[0];
+    int i;
+    for (i = 0; i < n; i++)
+    {
+        if (x[i] < xmin)
+            xmin = x[i];
+    }
+    return xmin;
+}
+
+void normalize_columns(int nR, int nC, double **x)
+{
+    double *Colmea = column_means(nR, nC, x);
+    double *ColVar = column_vars(nR, nC, x);
+    int i, j;
+    for (i = 0; i < nR; i++)
+        for (j = 0; j < nC; j++)
+            x[i][j] = (x[i][j] - Colmea[j]) / sqrt(ColVar[j]);
+    free(Colmea);
+    free(ColVar);
+}
+
+double *column_means(int nR, int nC, double **x)
+{
+    int i, j;
+    double *Mean = malloc(nC * sizeof(double));
+    for (j = 0; j < nC; j++)
+    {
+        double me = 0;
+        for (i = 0; i < nR; i++)
+            me += x[i][j];
+        Mean[j] = me / nR;
+    }
+    return Mean;
+}
+double *column_vars(int nR, int nC, double **x)
+{
+    int i, j;
+    double *Colmea = column_means(nR, nC, x);
+    double *ColVar = malloc(nC * sizeof(double));
+    for (j = 0; j < nC; j++)
+    {
+        double va = 0;
+        for (i = 0; i < nR; i++)
+            va += (x[i][j] - Colmea[j]) * (x[i][j] - Colmea[j]);
+        ColVar[j] = va / (nR - 1);
+    }
+    free(Colmea);
+    return ColVar;
+}
+
+double sum(int n, double *x)
+{
+    int i;
+    double sum = 0;
+    for (i = 0; i < n; i++)
+        sum += x[i];
+    return sum;
 }
 
 double mean(int n, double *x)
@@ -517,6 +729,26 @@ double mean(int n, double *x)
         me += x[i];
     return me / n;
 }
+double mean_squared_error(int n, double *x, double*y)
+{
+    int i;
+    double mse = 0;
+    for (i = 0; i < n; i++)
+        mse += (x[i] - y[i]) * (x[i] - y[i]);
+    return mse / n;
+}
+
+
+double var(int n, double *x)
+{
+    int i;
+    double me = mean(n, x);
+    double va = 0;
+    for (i = 0; i < n; i++)
+        va += (x[i] - me) * (x[i] - me);
+    return va / (n - 1);
+}
+
 double *dvector(int nl, int nh)
 {
     double *v;
@@ -547,6 +779,16 @@ double **dmatrix(int nrl, int nrh, int ncl, int nch)
     return m;
 }
 
+_Bool *bvector(int nl, int nh)
+{
+    _Bool *v;
+
+    v = (_Bool *)malloc((nh - nl + 1) * sizeof(_Bool));
+    if (!v)
+        nrerror("allocation failure in dvector()");
+    return v - nl;
+}
+
 _Bool **bmatrix(int nrl, int nrh, int ncl, int nch)
 {
     int i;
@@ -565,6 +807,11 @@ _Bool **bmatrix(int nrl, int nrh, int ncl, int nch)
         m[i] -= ncl;
     }
     return m;
+}
+
+void free_dvector(double *v, int nl, int nh)
+{
+    free((char *)(v + nl));
 }
 
 void free_dmatrix(double **m, int nrl, int nrh, int ncl, int nch)
@@ -592,4 +839,5 @@ void nrerror(char error_text[])
     Rprintf("Utils run-time error...\n");
     Rprintf("%s\n", error_text);
     Rf_error("...now exiting to system...\n");
+    // exit(1);
 }

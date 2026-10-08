@@ -20,25 +20,35 @@
  * gamma indicators.  For binary outcomes it also creates a first probit latent
  * response using a ridge fit so the sampler starts in a feasible region.
  */
-void initialize_sampler_state(int outcome_type, double **Y, double ***newCC, double ****X1,
+void initialize_sampler_state(int type_out, double **Y, double ***newCC, double ****X1,
                  _Bool ***gamma, int n_platforms, int *G, int n_subgroups,
                  int **platform_models_c, int *n_platform_models_c,
                  int **model_platforms_c, int *n_model_platforms_c, int *sample_size_ptr,
                  double *log_likelihood, double *logdet, double *scal,
-                 double *h, double h1, double h0, double hg, double alpha, double psi, int K, const imr_numerical_control *numerical)
+                 double *h, double h1, double h0, double hg, double alpha, double psi, int K)
 {
 
   for (int m = 0; m < n_subgroups; m++)
   {
-    if (numerical->diagnostics) numerical->diagnostics->subgroup = m;
     int N = sample_size_ptr[m];
     int **selected_feature_index = calloc(n_model_platforms_c[m], sizeof(int *));
     int *n_selected_features = calloc(n_model_platforms_c[m], sizeof(int));
     for (int l = 0; l < n_model_platforms_c[m]; l++)
     {
       int platform_index = model_platforms_c[m][l];
-      int platform_model_index = imr_platform_model_index(
-          m, platform_index, n_platform_models_c, platform_models_c);
+      int platform_model_index = -1;
+      for (int ss = 0; ss < n_platform_models_c[platform_index]; ss++)
+      {
+        if (platform_models_c[platform_index][ss] == m)
+        {
+          platform_model_index = ss;
+          break;
+        }
+      }
+      if (platform_model_index == -1)
+      {
+        error("Error: subgroup not found\n");
+      }
 
       selected_feature_index[l] = calloc(G[platform_index], sizeof(int));
       find_indices_not_equal(G[platform_index], gamma[platform_index][platform_model_index], 0, selected_feature_index[l], &n_selected_features[l]);
@@ -51,7 +61,7 @@ void initialize_sampler_state(int outcome_type, double **Y, double ***newCC, dou
     {
       total_selected_features += n_selected_features[l];
     }
-    if (outcome_type == IMR_OUTCOME_BINARY)
+    if (type_out == 2)
     { // binary outcome
       int tot = 1 + K + total_selected_features;
       double *X_data = calloc(N*tot, sizeof(double));
@@ -85,17 +95,20 @@ void initialize_sampler_state(int outcome_type, double **Y, double ***newCC, dou
       free(ypred);
     }
 
-    int maxiter = numerical->initial_max_iter;
-    double stop = numerical->tolerance;
+    int maxiter = 25;
+    double stop = pow(10, -3);
     int rr = 1;
     int k = 1 + K + total_selected_features;
-    double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG, numerical);
-    double *precision_copy = imr_copy_symmetric_matrix(precision, k);
+    double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG);
+    double *precision_copy = malloc((size_t) k * k * sizeof(double));
+    if (!precision_copy) Rf_error("malloc failed for precision_copy");
+    for (int i = 0; i < k; i++)
+      for (int j = 0; j <= i; j++)
+        precision_copy[i * k + j] = precision_copy[j * k + i] = precision[i * k + j];
     gsl_matrix_view m11 = gsl_matrix_view_array(precision, k, k);
-    if (gsl_linalg_cholesky_decomp(&m11.matrix) != 0)
-      imr_record_laplace(numerical, IMR_LAPLACE_INITIAL, IMR_LAPLACE_FACTORIZATION_FAILURE);
+    gsl_linalg_cholesky_decomp(&m11.matrix);
     double *beta_mode = malloc(k * sizeof(double));
-    log_likelihood[m] = log_likelihood_nonlocal(k, K, n_selected_features[0], N, alpha, psi, Y[m], PG, precision_copy, &m11.matrix, beta_mode, rr, h[m], h1, h0, hg, maxiter, stop, numerical, IMR_LAPLACE_INITIAL);
+    log_likelihood[m] = log_likelihood_nonlocal(k, K, n_selected_features[0], N, alpha, psi, Y[m], PG, precision_copy, &m11.matrix, beta_mode, rr, h[m], h1, h0, hg, maxiter, stop, 0);
     free(precision);
     free(precision_copy);
     free(beta_mode);

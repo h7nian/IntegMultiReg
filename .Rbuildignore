@@ -1,10 +1,11 @@
 ^data-raw$
+^paper$
 ^\.vscode$
 ^\.github$
-^\.git$
 ^\.DS_Store$
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^README\.Rmd$
 ^config\.log$
 ^config\.status$
 ^autom4te\.cache$
@@ -12,10 +13,3 @@
 ^src/.*\.so$
 ^src/symbols\.rds$
 ^src/Makevars$
-^cran-comments\.md$
-^_pkgdown\.yml$
-^docs$
-^method-coverage\.md$
-^migration\.md$
-^pkgdown$
-^CONTRIBUTING\.md$

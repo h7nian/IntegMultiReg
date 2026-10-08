@@ -1,6 +1,6 @@
 ---
 title: "Integrative Bayesian Multi-Platform Regression with IntegMultiReg"
-author: "Sinian Zhang, Jianfeng Wang, Thierry Chekouo"
+author: "Sinian Zhang, Thierry Chekouo"
 output:
   rmarkdown::html_vignette:
     toc: true
@@ -30,12 +30,16 @@ idea is to integrate **all** available subjects across several molecular
 platforms, even when many subjects are measured on only a subset of the
 platforms.
 
-Given $L$ platforms, subjects are partitioned into up to $2^L-1$ non-empty
-**availability subgroups** of an $L$-set Venn diagram.  One regression model is
-built per retained subgroup. Its active coefficients have **non-local
-product-moment priors**, which downweight effects near zero. A **Markov random
-field prior** on the variable-selection indicators shares information across
-availability subgroups by encouraging common biomarkers to be selected.
+Given $K$ platforms, subjects are partitioned into the $2^K-1$ non-empty
+**availability subgroups** of a $K$-set Venn diagram.  One regression model is
+built per subgroup, and information is shared across availability subgroups
+through
+
+* **non-local (product moment) priors** on the regression coefficients, which
+  sharply penalise small effects and yield parsimonious models, and
+* a **Markov random field (MRF) prior** on the variable-selection indicators,
+  which encourages the same biomarkers to be selected across availability
+  subgroups.
 
 ```{r load}
 library(IntegMultiReg)
@@ -48,242 +52,6 @@ The bundled `simIMR` data set has three platforms (`genomic`, `proteomic`,
 clinical covariates for everyone, and three outcome types generated from the
 same latent signal.  The truly associated features are recorded in
 `simIMR$truth`.
-
-# Prepare and inspect a data object
-
-The fitter uses the symmetric MRF update and its boundary Hastings correction.
-The model variant is `"imr"` for MRF borrowing or `"bms"` for independent
-subgroups. Historical updates are replayed from their archived source, rather
-than selected through the ordinary fitting interface. These examples use
-training-fold refit CV with hyperparameters fixed in advance.
-
-Construct an `imr_data` object once, inspect it, and pass it to fitting or
-prediction. The constructor checks identifiers, outcome coding and alignment.
-Standardization is estimated during fitting within each retained subgroup.
-
-```{r prepare-data}
-analysis <- imr_data(
-  platforms = simIMR$platforms,
-  outcome = simIMR$outcome.binary,
-  covariates = simIMR$covariates,
-  outcome_type = "binary"
-)
-analysis
-summary(analysis)
-stopifnot(validate_imr_data(analysis))
-head(as.data.frame(analysis))
-```
-
-# Fit the model
-
-The workhorse is `imr()`.  Here we fit a binary (probit) outcome with a short
-MCMC run for illustration; in practice use longer chains.
-
-```{r fit}
-fit <- imr(
-  analysis,
-  nu = c(-4, -3, -4),
-  draws = 1500, burnin = 500,
-  min_subgroup_size = 30,
-  seed = 1
-)
-fit
-```
-
-The four modelled availability subgroups correspond to the availability patterns
-`011` (genomic + proteomic), `111` (all three), `101` (genomic + metabolomic)
-and `100` (metabolomic only); the bitstring digits run from the first platform
-(right) to the last (left).  `plot_subgroup_sizes()` shows how the sample splits
-across them.
-
-```{r plot-sizes, fig.height = 3.6}
-plot_subgroup_sizes(fit)
-```
-
-# Predict with a data object
-
-Prediction data use the same class and need no outcome column. Here we reuse
-rows to demonstrate routing to the genomic/proteomic subgroup; these fitted-data
-predictions are not an assessment of predictive accuracy. New subjects must
-supply the clinical columns required by the fit. Binary predictions are event
-probabilities.
-
-```{r predict}
-new_data <- imr_data(
-  platforms = list(
-    genomic = simIMR$platforms$genomic[1:20, ],
-    proteomic = simIMR$platforms$proteomic[1:20, ]
-  ),
-  covariates = simIMR$covariates
-)
-stopifnot(validate_imr_data(new_data))
-pred <- predict(fit, newdata = new_data)
-head(pred[["subgroup:011"]])
-```
-
-# Use a formula and data frame
-
-The formula describes the outcome and forced clinical covariates. Molecular
-platforms are supplied separately and remain subject to biomarker selection.
-The identifier aligns subjects and is not a predictor. This continuous example
-includes `age`, `sex` and `stage`; formula encoding is stored for prediction.
-
-```{r formula-fit}
-clinical <- merge(simIMR$outcome.continuous, simIMR$covariates,
-                  by = "id", sort = TRUE)
-formula_fit <- imr(
-  y ~ age + sex + stage, data = clinical, platforms = simIMR$platforms,
-  outcome_type = "continuous", nu = c(-4, -3, -4),
-  draws = 1500, burnin = 500, min_subgroup_size = 30, seed = 1
-)
-head(predict(formula_fit, newdata = new_data)[["subgroup:011"]])
-```
-
-# Compare formulas on the same folds
-
-Prespecify candidates and evaluate them on the same subjects. Passing saved
-folds explicitly makes the comparison paired; matching seed numbers alone is
-not a check of subject/fold assignments. Every clinical term is forced within
-its candidate. Necessary adjustment terms must remain in every candidate.
-
-```{r paired-formulas}
-age_fit <- imr(
-  y ~ age, data = clinical, platforms = simIMR$platforms,
-  outcome_type = "continuous", nu = c(-4, -3, -4),
-  draws = 1500, burnin = 500, min_subgroup_size = 30, seed = 1
-)
-cv_age <- cv_imr(age_fit, k = 3, rounds = 1, cv_method = "refit")
-cv_full <- cv_imr(formula_fit, k = 3, rounds = 1, cv_method = "refit",
-                  folds = cv_age$control$folds)
-keys <- c("round", "id", "subgroup", "fold")
-stopifnot(identical(cv_age$predictions[keys], cv_full$predictions[keys]))
-data.frame(
-  formula = c("y ~ age", "y ~ age + sex + stage"),
-  pooled_mse = c(cv_age$pooled[1, "all"], cv_full$pooled[1, "all"])
-)
-```
-
-These short runs demonstrate the interface. Selecting a formula using these
-scores and reporting the same scores as its performance introduces selection
-optimism. The [covariate comparison guide](covariate-comparison.html) runs the
-complete paired comparison and nested selection workflow, with outer test
-subjects excluded from every inner fold.
-
-# Inspecting selected biomarkers
-
-`summary()` ranks, per platform, the features whose marginal posterior
-inclusion probability (mPIP) exceeds a threshold.
-
-```{r summary}
-summary(fit, threshold = 0.5)
-```
-
-The posterior inclusion probabilities themselves are available through `inclusion_probabilities()`
-(a list of subgroup $\times$ feature matrices) and can be visualised either as
-per-platform heatmaps or as a single ranked bar chart of the most strongly
-supported features across all platforms.
-
-```{r plot-selection}
-plot(fit, type = "selection", platform = 1)
-```
-
-```{r plot-top, fig.height = 4}
-plot_top_features(fit, top = 8)
-```
-
-The estimated MRF interaction parameters, which measure how strongly each pair
-of subgroups shares biomarkers, are shown with `type = "theta"`, and the
-log-posterior trace with `type = "trace"`.
-
-```{r plot-trace}
-plot(fit, type = "trace")
-```
-
-# Coefficient and predictive uncertainty
-
-`selection_summary(fit)` summarizes selection indicators and MRF interactions
-already stored in the fitted object. Regression coefficients require a second
-step, `sample_regression_posterior()`. The following small continuous example shows that
-step and keeps the printed coefficient table short.
-
-```{r posterior-fit}
-assay <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
-response <- data.frame(id = assay$id,
-                       y = 1 + assay$marker + sin(assay$id) / 3)
-uncertainty_fit <- imr(
-  list(assay = assay), response, outcome_type = "continuous",
-  forced_prior_scale = 1, min_subgroup_size = 5,
-  draws = 500, burnin = 250, seed = 1
-)
-post <- sample_regression_posterior(
-  uncertainty_fit, output_draws = 1000, burnin = 1000, chains = 4,
-  min_draws_per_model_chain = 1000, seed = 2
-)
-post
-post$diagnostics
-confint(post)[[1]]
-```
-
-`draws` controls the number of returned model-averaged samples, while
-`min_draws_per_model_chain` is the minimum retained length of each conditional chain.
-Inspect the model-specific diagnostics before interpreting intervals. These
-diagnostics assess conditional coefficient/variance sampling, not the original
-selection chain. Model weights still inherit the fitted Laplace approximation.
-
-```{r posterior-predict}
-new_assay <- list(assay = data.frame(id = 41:43, marker = c(-0.5, 0, 0.5)))
-predict(post, new_assay, quantity = "conditional_mean")
-predict(post, new_assay, quantity = "new_observation")
-```
-
-The first call summarizes uncertainty in the conditional response mean. The
-second also generates future outcome variation. `summary(post)` and
-`confint(post)` read the same stored posterior draws; they do not rerun MCMC.
-For binary or censored fits, `sample_regression_posterior(..., latent = TRUE)` additionally
-retains the augmented response for inspection with
-`summary(post, parm = "latent")`. A continuous outcome has no latent response.
-
-# Assessing predictive performance
-
-`cv_imr()` defaults to `cv_method = "refit"`. The alternative `"reweight"`
-reuses a full-data fit; `model_set = "all_draws"` keeps empirical multiplicities,
-while `"top_unique"` retains ranked distinct states. Reweighting uses full-fit
-preprocessing and latent-response summaries. Held-out outcomes enter its
-importance correction, which alone is not evidence of an error.
-
-This example explicitly uses `cv_method = "refit"` to refit each training fold, including
-standardization, selection MCMC and model weights. It reports AUC for binary
-outcomes, concordance for survival and MSE for continuous outcomes, overall
-and within each retained availability subgroup. Formula transformations are
-also rebuilt on training rows. Runtime scales with folds times rounds; use
-short chains for a code-path check and increase them for final analysis.
-To compare IMR with BMS, fit a separate `model_variant = "bms"` object. The original
-hyperparameters are treated as fixed; tuning requires another validation layer.
-
-```{r cv}
-cv <- cv_imr(fit, k = 5, rounds = 3, cv_method = "refit")
-cv$metric
-round(colMeans(cv$pooled), 3)
-```
-
-# Other outcome types
-
-The same interface handles continuous and right-censored outcomes; only
-`outcome_type` and the `outcome` data frame change.
-
-```{r other-types, eval = FALSE}
-# continuous (Gaussian) outcome
-fit_c <- imr(
-  simIMR$platforms, simIMR$outcome.continuous, covariates = simIMR$covariates,
-  outcome_type = "continuous", nu = c(-4, -3, -4),
-  draws = 1500, burnin = 500, min_subgroup_size = 30, seed = 1)
-
-# right-censored survival outcome
-fit_s <- imr(
-  simIMR$platforms, simIMR$outcome.survival, covariates = simIMR$covariates,
-  outcome_type = "right.censored", nu = c(-4, -3, -4),
-  draws = 1500, burnin = 500, min_subgroup_size = 30, seed = 1)
-```
 
 # Real TCGA-KIRC example
 
@@ -310,35 +78,129 @@ structure.  A short survival fit follows the same call pattern:
 
 ```{r kirc-fit, eval = FALSE}
 kirc_fit <- imr(
-  x = kircIMR$platforms,
+  platform_data_list = kircIMR$platforms,
   outcome            = kircIMR$outcome.survival,
-  covariates = kircIMR$covariates,
-  outcome_type       = "right.censored",
+  cov                = kircIMR$covariates,
+  type_outcome       = "right.censored",
   nu                 = c(-4, -3, -4),
-  draws = 4000, burnin = 1000,
-  min_subgroup_size              = 30,
-  seed = 1
+  sample_mcmc        = c(4000, 1000),
+  ssize              = 30,
+  seed               = 1
 )
 summary(kirc_fit)
 plot_top_features(kirc_fit, top = 12)
 ```
 
-# Record computational settings
+# Fitting the model
 
-Use `folds = result$control$folds` for partition replay. Reweighting also retains
-`row_order`, which preserves summation order. `fold_rng = "continue"` can resume
-a compatible fit's saved GSL stream for reweighting; generated refit folds use
-R's generator. Seeds alone do not identify the actual partitions.
+The workhorse is `imr()`.  Here we fit a binary (probit) outcome with a short
+MCMC run for illustration; in practice use longer chains.
 
-The fit records prior scales and Laplace optimization controls. The
-[replay guide](reproducibility.html) connects the exact source, data, settings,
-folds and unrounded outputs. The
-[methods guide](https://h7nian.github.io/IntegMultiReg/method-coverage.html) explains model approximations and
-historical differences. Successful execution does not establish convergence
-or reproduce an entire historical study.
+```{r fit}
+fit <- imr(
+  platform_data_list = simIMR$platforms,
+  outcome            = simIMR$outcome.binary,
+  cov                = simIMR$covariates,
+  type_outcome       = "binary",
+  nu                 = c(-4, -3, -4),
+  sample_mcmc        = c(1500, 500),
+  ssize              = 30,
+  seed               = 1
+)
+fit
+```
+
+The four modelled availability subgroups correspond to the availability patterns
+`011` (genomic + proteomic), `111` (all three), `101` (genomic + metabolomic)
+and `100` (metabolomic only); the bitstring digits run from the first platform
+(right) to the last (left).  `plot_subgroup_sizes()` shows how the sample splits
+across them.
+
+```{r plot-sizes, fig.height = 3.6}
+plot_subgroup_sizes(fit)
+```
+
+# Inspecting selected biomarkers
+
+`summary()` ranks, per platform, the features whose marginal posterior
+inclusion probability (mPIP) exceeds a threshold.
+
+```{r summary}
+summary(fit, threshold = 0.5)
+```
+
+The posterior inclusion probabilities themselves are available through `coef()`
+(a list of subgroup $\times$ feature matrices) and can be visualised either as
+per-platform heatmaps or as a single ranked bar chart of the most strongly
+supported features across all platforms.
+
+```{r plot-selection}
+plot(fit, type = "selection", platform = 1)
+```
+
+```{r plot-top, fig.height = 4}
+plot_top_features(fit, top = 8)
+```
+
+The estimated MRF interaction parameters, which measure how strongly each pair
+of subgroups shares biomarkers, are shown with `type = "theta"`, and the
+log-posterior trace with `type = "trace"`.
+
+```{r plot-trace}
+plot(fit, type = "trace")
+```
+
+# Predicting new subjects
+
+`predict()` routes new subjects to the appropriate availability subgroup,
+standardises their features with the training scaling, and performs Bayesian
+model averaging.  When the new platforms are supplied in the same order as at
+training, `platform_names` can be omitted.  Binary outcomes are returned on the
+probability scale.
+
+```{r predict}
+new_x <- simIMR$platforms$genomic[1:20, ]
+new_p <- simIMR$platforms$proteomic[1:20, ]
+pred <- predict(fit, newdata = list(new_x, new_p),
+                covariates = simIMR$covariates)
+head(pred[["model:011"]])
+```
+
+# Assessing predictive performance
+
+`cv_imr()` runs repeated $K$-fold splits using the fitted MCMC samples and
+reports the accuracy measure appropriate to the outcome type (AUC for binary,
+the concordance index for survival, mean squared error for continuous), overall
+and within each availability subgroup.  The MCMC sampler is not re-run inside
+each fold; to compare IMR with BMS, fit a separate `method = "BMS"` object.
+
+```{r cv}
+cv <- cv_imr(fit, k = 5, rounds = 3)
+attr(cv, "metric")
+round(colMeans(cv$total_cindex), 3)
+```
+
+# Other outcome types
+
+The same interface handles continuous and right-censored outcomes; only
+`type_outcome` and the `outcome` data frame change.
+
+```{r other-types, eval = FALSE}
+# continuous (Gaussian) outcome
+fit_c <- imr(
+  simIMR$platforms, simIMR$outcome.continuous, cov = simIMR$covariates,
+  type_outcome = "continuous", nu = c(-4, -3, -4),
+  sample_mcmc = c(1500, 500), ssize = 30, seed = 1)
+
+# right-censored survival outcome
+fit_s <- imr(
+  simIMR$platforms, simIMR$outcome.survival, cov = simIMR$covariates,
+  type_outcome = "right.censored", nu = c(-4, -3, -4),
+  sample_mcmc = c(1500, 500), ssize = 30, seed = 1)
+```
 
 # References
 
 Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). "A Bayesian Integrative
 Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
-*Biometrics*, **73**(2), 615--624. <https://doi.org/10.1111/biom.12587>
+*Biometrics*, **73**(2), 615--624. <doi:10.1111/biom.12587>

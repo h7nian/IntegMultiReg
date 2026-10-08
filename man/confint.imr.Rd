@@ -2,35 +2,23 @@
 % Please edit documentation in R/diagnostics.R
 \name{confint.imr}
 \alias{confint.imr}
-\title{Credible Intervals for Selection and Interaction Parameters}
+\title{Credible Intervals for an IMR Fit}
 \usage{
-\method{confint}{imr}(object, parm, level = 0.95, ...)
+\method{confint}{imr}(object, parm = c("all", "selection", "theta"), level = 0.95, ...)
 }
 \arguments{
-\item{object}{A fitted \code{"imr"} object.}
+\item{object}{A fitted `"imr"` object.}
 
-\item{parm}{Required parameter set: \code{"all"}, \code{"selection"} or \code{"theta"}.
-Naming the set explicitly distinguishes these intervals from regression
-coefficient intervals, available after \code{\link[=sample_regression_posterior]{sample_regression_posterior()}}.}
+\item{parm}{Either `"all"`, `"selection"` or `"theta"`.}
 
 \item{level}{Credible interval level.}
 
-\item{...}{Additional arguments passed to \code{\link[=selection_summary]{selection_summary()}}.}
+\item{...}{Additional arguments passed to [posterior_summary()].}
 }
 \value{
 A list of per-platform credible-interval tables, or a list with both
-selection and theta results when \code{parm = "all"}.
+  selection and theta results when `parm = "all"`.
 }
 \description{
-Standard \code{confint()} interface to \code{\link[=selection_summary]{selection_summary()}}.
+Standard `confint()` interface to [posterior_summary()].
 }
-\section{Which parameters are summarized}{
-
-For an \code{imr} fit, this method extracts the selection-indicator and/or MRF
-interaction tables computed by \code{\link[=selection_summary]{selection_summary()}}. That page defines
-the posterior mean, standard deviation and equal-tail quantiles. Calling
-\code{confint(fit)} does not sample regression coefficients. Their intervals
-are obtained by \code{confint(sample_regression_posterior(fit))}; see
-\link{imr_posterior_methods} for the different parameter set.
-}
-

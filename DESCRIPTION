@@ -1,6 +1,6 @@
 Package: IntegMultiReg
 Title: Integrative Bayesian Multiple Regression for Multi-Platform Biomarkers
-Version: 0.2.0
+Version: 0.1.2
 Authors@R: c(
     person("Sinian", "Zhang", email = "zhan9381@umn.edu",
            role = "aut"),
@@ -23,9 +23,6 @@ Description: A Bayesian framework that integrates several regression models to
     Posterior inference is carried out by a Markov chain Monte Carlo sampler
     implemented in C for computational efficiency.
 License: GPL (>= 3)
-URL: https://h7nian.github.io/IntegMultiReg/,
-    https://github.com/h7nian/IntegMultiReg
-BugReports: https://github.com/h7nian/IntegMultiReg/issues
 Encoding: UTF-8
 LazyData: true
 Depends:
@@ -33,17 +30,15 @@ Depends:
 Imports:
     graphics,
     grDevices,
-    parallel,
     stats,
     utils
 Suggests:
     knitr,
     rmarkdown,
-    survival,
     testthat (>= 3.0.0)
 SystemRequirements: GSL (>= 2.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 NeedsCompilation: yes
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.1
+Config/roxygen2/version: 8.0.0
+RoxygenNote: 7.3.2

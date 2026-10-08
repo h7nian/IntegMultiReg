@@ -21,39 +21,39 @@ plot_subgroup_sizes(
 )
 }
 \arguments{
-\item{object}{A fitted object of class \code{"imr"} returned by \code{\link[=imr]{imr()}}.}
+\item{object}{A fitted object of class `"imr"` returned by [imr()].}
 
-\item{base_cex}{Overall text-size multiplier. The \verb{cex_*} arguments default
-to values derived from this multiplier (default \code{1}).}
+\item{base_cex}{Overall text-size multiplier. The `cex_*` arguments default
+to values derived from this multiplier (default `1`).}
 
-\item{cex_axis}{Axis-label size multiplier. If \code{NULL}, a plot-specific
-default derived from \code{base_cex} is used.}
+\item{cex_axis}{Axis-label size multiplier. If `NULL`, a plot-specific
+default derived from `base_cex` is used.}
 
-\item{cex_lab}{Axis-title size multiplier. If \code{NULL}, a plot-specific
-default derived from \code{base_cex} is used.}
+\item{cex_lab}{Axis-title size multiplier. If `NULL`, a plot-specific
+default derived from `base_cex` is used.}
 
-\item{cex_main}{Main-title size multiplier. If \code{NULL}, a plot-specific
-default derived from \code{base_cex} is used.}
+\item{cex_main}{Main-title size multiplier. If `NULL`, a plot-specific
+default derived from `base_cex` is used.}
 
-\item{cex_values}{Bar-value label size multiplier. If \code{NULL}, a plot-specific
-default derived from \code{base_cex} is used.}
+\item{cex_values}{Bar-value label size multiplier. If `NULL`, a plot-specific
+default derived from `base_cex` is used.}
 
-\item{col}{Optional bar colours. If \code{NULL}, colours are generated from
-\code{palette}.}
+\item{col}{Optional bar colours. If `NULL`, colours are generated from
+`palette`.}
 
-\item{palette}{Palette name used when \code{col = NULL}; \code{"subgroup"} gives the
+\item{palette}{Palette name used when `col = NULL`; `"subgroup"` gives the
 package's standard neutral grey-blue subgroup colours (default).}
 
 \item{show_values}{Logical; should sample sizes be printed above the bars
-(default \code{TRUE})?}
+(default `TRUE`)?}
 
 \item{ylim}{Optional numeric vector of length two giving the vertical axis
-limits. If \code{NULL}, limits are chosen from the subgroup sizes.}
+limits. If `NULL`, limits are chosen from the subgroup sizes.}
 
 \item{mar, mgp}{Optional graphical margin and axis-title placement vectors
-passed to \code{\link[graphics:par]{graphics::par()}} for finer layout control.}
+passed to [graphics::par()] for finer layout control.}
 
-\item{...}{Further graphical parameters passed to \code{\link[graphics:barplot]{graphics::barplot()}}.}
+\item{...}{Further graphical parameters passed to [graphics::barplot()].}
 }
 \value{
 Invisibly, the named integer vector of subgroup sizes.
@@ -63,28 +63,17 @@ Draws a bar chart of the number of subjects in each modelled
 availability subgroup (the non-empty regions of the Venn diagram), giving a
 quick picture of how the sample is distributed across subgroups.
 }
-\section{Counted subjects}{
-
-For a retained availability pattern \eqn{s}, the bar height is
-\deqn{n_s=\sum_i I(A_i=s),}{n_s = count of subjects with availability pattern s,}
-where \eqn{A_i} is the subject's platform
-availability pattern defined in \code{\link[=imr_data]{imr_data()}}. Counts are the observed sample
-sizes stored in the fit, after eligibility checks and subgroup filtering.
-They are not posterior estimates or imputed numbers of complete cases.
-}
-
 \examples{
 \donttest{
 data("simIMR", package = "IntegMultiReg")
 fit <- imr(
-  x = simIMR$platforms, outcome = simIMR$outcome,
-  covariates = simIMR$covariates, outcome_type = "binary",
-  nu = c(-4, -3, -4), draws = 200, burnin = 100,
-  min_subgroup_size = 5, seed = 1
+  platform_data_list = simIMR$platforms, outcome = simIMR$outcome,
+  cov = simIMR$covariates, type_outcome = "binary",
+  nu = c(-4, -3, -4), sample_mcmc = c(200, 100), ssize = 5, seed = 1
 )
 plot_subgroup_sizes(fit)
 }
 }
 \seealso{
-\code{\link[=imr]{imr()}}, \code{\link[=plot.imr]{plot.imr()}}, \code{\link[=plot_top_features]{plot_top_features()}}
+[imr()], [plot.imr()], [plot_top_features()]
 }

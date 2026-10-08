@@ -8,228 +8,64 @@ cv_imr(
   object,
   k = 5,
   rounds = 2,
+  method = NULL,
   max_models = 100,
-  verbose = FALSE,
-  cv_method = c("refit", "reweight"),
-  workers = 1L,
-  ridge = NULL,
-  model_set = NULL,
-  df_method = NULL,
-  folds = NULL,
-  fold_rng = NULL
+  verbose = FALSE
 )
 }
 \arguments{
-\item{object}{A fitted object of class \code{"imr"} returned by \code{\link[=imr]{imr()}}.}
+\item{object}{A fitted object of class `"imr"` returned by [imr()].}
 
-\item{k}{Integer number of cross-validation folds per round (default \code{5}).
-Must be at least \code{2}, and each availability subgroup must contain at least
-\code{k} subjects.}
+\item{k}{Integer number of cross-validation folds per round (default `5`).
+Must be at least `2`, and each availability subgroup must contain at least
+`k` subjects.}
 
 \item{rounds}{Integer number of independent cross-validation rounds to
-average over (default \code{2}).  Must be positive.}
+average over (default `2`).  Must be positive.}
+
+\item{method}{Optional compatibility argument.  If supplied, it must match
+the method stored in `object`; `cv_imr()` cannot turn an IMR fit into a BMS
+fit or vice versa.}
 
 \item{max_models}{Integer maximum number of selection models used for
-Bayesian model averaging with \code{model_set = "top_unique"} and for refit
-prediction (default \code{100}). Must be positive. \code{model_set = "all_draws"} uses
-every retained draw, including repeated states, and ignores this limit.}
+Bayesian model averaging (default `100`).  Must be positive.}
 
-\item{verbose}{Logical; if \code{TRUE}, print fold progress and sampler
-diagnostics.  Defaults to \code{FALSE}.}
-
-\item{cv_method}{\code{"refit"} (default) rebuilds preprocessing and MCMC inside
-every training fold. \code{"reweight"} reuses the fitted selection draws with
-importance weights. To compare IMR and BMS, first fit separate
-\code{model_variant = "imr"} and \code{"bms"} objects.}
-
-\item{workers}{Positive integer number of PSOCK worker processes (default
-\code{1L}, serial). Applies to both CV methods. At most \code{k * rounds}
-processes are used; no automatic CPU detection is performed.}
-
-\item{ridge}{Nonnegative post-fit diagonal penalty, including the intercept.
-\code{NULL} uses \code{0.001}; \code{0} requests the unpenalized estimate in the paper and
-original code. A singular solve stops with fold and subgroup context; no
-penalty or generalized inverse is silently substituted. Not used by refit.}
-
-\item{model_set}{For reweighting, \code{"all_draws"} (default) retains every
-selection draw, including repeated states. \code{"top_unique"} ranks distinct
-selection models by their observed frequency and retains at most
-\code{max_models}. These are state collections, not different CV algorithms.}
-
-\item{df_method}{For reweighting, \code{"fractional"} (default) keeps the numeric
-predictive degrees of freedom \code{2 * shape + n_train}; \code{"integer"} truncates
-them to an integer. Not used by refit.}
-
-\item{folds}{Optional data frame with \code{id}, \code{round}, and \code{fold}. Every
-modelled subject must occur once per round; labels are consecutive integers
-starting at one. Every subgroup-fold needs training and test subjects.
-Omitted \code{k} and \code{rounds} are inferred; explicit values must match. Optional
-\code{row_order} is a permutation within each subgroup-round that preserves
-post-fit summation order. Reuse \code{result$control$folds} for exact replay.}
-
-\item{fold_rng}{Post-fit fold generator starting point: \code{NULL} or \code{"reset"}
-initializes GSL from the fit seed (existing default); \code{"continue"} resumes
-the saved state at the end of fitting, as the original program did.
-Continuation requires a new fit saved on a compatible platform. Cannot
-be supplied with explicit \code{folds} or with refit CV.}
+\item{verbose}{Logical; if `TRUE`, print the C routine's cross-validation
+diagnostics.  Defaults to `FALSE`.}
 }
 \value{
-An \code{imr_cv} object: a named list with a compact \code{\link[=print.imr_cv]{print.imr_cv()}}
-method. \code{pooled} and \code{fold_mean} are numeric matrices of dimension
-\code{rounds} x \code{(n_subgroups + 1)}, whose last column corresponds to all
-subjects pooled and whose remaining columns are named by the availability
-subgroup bitstrings:
-\item{pooled}{Accuracy computed on the pooled cross-validated
-predictions within each availability subgroup (and overall).}
-\item{fold_mean}{Accuracy computed fold-by-fold within each
-availability subgroup.}
-\code{predictions} contains subject IDs, subgroups, rounds, folds and out-of-fold
-predictions. \code{metric} names the accuracy measure and \code{validation} records
-the selected \code{cv_method} as a character string.
-\code{control} records effective options, sampler/numerical conventions, version,
-seed and actual fold membership/order. It is additional metadata; the first
-five fields retain their existing meanings.
-Refit results also record \code{control$refit_seeds}, a rounds-by-fold matrix.
-Supplied folds use the same fitting seed plan as generated folds, so saved
-folds replay predictions under the same runtime and RNG kind.
-Undefined AUCs (single class) and C-indices (no comparable pairs) are \code{NA}.
+A list with two numeric matrices, each of dimension
+  `rounds` x `(n_subgroups + 1)`, whose last column corresponds to all
+  subjects pooled and whose remaining columns are named by the availability
+  subgroup bitstrings:
+  \item{total_cindex}{Accuracy computed on the pooled cross-validated
+    predictions within each availability subgroup (and overall).}
+  \item{subset_cindex}{Accuracy computed fold-by-fold within each
+    availability subgroup.}
+  The accuracy metric (`"C-index"`, `"AUC"` or `"MSE"`) is recorded in the
+  `"metric"` attribute of the returned list.
 }
 \description{
-\code{cv_imr()} evaluates predictive accuracy of a model fitted with \code{\link[=imr]{imr()}} using
-repeated \eqn{K}-fold splits. \code{cv_method = "refit"} (the default) fits each
-training fold independently. \code{"reweight"} reuses a full-data fit and applies
-inverse-density importance weights to its selection states.
-Fit a separate object with \code{model_variant = "bms"} for a no-borrowing comparison.
+`cv_imr()` evaluates predictive accuracy of a model fitted with [imr()] using
+repeated \eqn{K}-fold splits and Bayesian model averaging over the fitted
+MCMC samples.  The sampler is not re-run inside each training fold; fit a
+separate object with `method = "BMS"` if a no-borrowing comparison is needed.
 The accuracy measure depends on the outcome type: the concordance index
 (C-index) for right-censored outcomes, the area under the ROC curve (AUC) for
 binary outcomes, and the mean squared error (MSE) for continuous outcomes.
 }
-\details{
-Only subgroups retained in \code{object} are evaluated. Their training subsets
-remain included even when they are smaller than the original
-\code{min_subgroup_size}.
-In refit mode, preprocessing, formula transformations, selection MCMC and
-prediction weights are recomputed on training rows. Runtime is roughly
-\code{k * rounds} full fits. This is the algorithm used by version 0.1.4.
-
-Reweighting with \code{model_set = "all_draws"} follows the empirical importance
-average in equations 6--7 of the paper. It conditions on full-fit predictor
-transformations and posterior-mean augmented responses. The response plug-in
-is part of Section 4.1; the default ridge penalty of 0.001 differs from the
-paper's unpenalized coefficient estimate. Set \code{ridge = 0} explicitly for that
-estimate, provided every training design has full column rank.
-
-Held-out outcomes enter inverse-density weights as an importance correction;
-their use alone does not identify an error. This approximation has a different
-scope from training-fold refitting. Choosing \code{model_set = "top_unique"}
-replaces the empirical draw collection with selected distinct states.
-Historical bundles of settings are documented with their archived sources;
-a mode label alone never establishes historical numerical reproduction.
-
-Supplied folds replay actual partitions. Refit uses R's generator and
-stratifies binary outcomes by class. Generated reweighting folds use GSL and
-stratify survival outcomes by event status. Matching seed numbers across the
-two generators does not imply matching partitions. Within each method the
-caller's R RNG state is preserved. Hyperparameters are fixed; tuning needs an
-outer validation layer.
-
-Parallel execution preserves each method's partitions, seeds and output
-ordering. Each process holds its own fit and training-fold workspace, with
-single-threaded mathematical libraries; memory use grows with \code{workers}.
-Post-fit matrix products may use up to 8 MiB of temporary training-column
-storage per worker, in addition to the model-index cache and fitted data.
-Process startup can make short jobs slower. Use only one parallel layer
-when running multiple experiments. Worker failures stop the entire call;
-no partial result or silent serial fallback is returned. Worker warnings
-are relayed in task order after computation. Verbose worker output is not
-guaranteed to appear in the calling console.
-
-For parallel formula refits, custom functions must be available in a
-serializable formula environment (for example a local closure), or use a
-package-qualified function name. The caller's global workspace is not
-exported to workers. \code{workers = 1L} retains ordinary formula evaluation.
-}
-\section{Refit and post-fit calculations}{
-
-For refit validation, a subject \eqn{i} in fold \eqn{f} receives
-\deqn{\widehat y_i^{\mathrm{CV}}=
-      \widehat g_{-f}(x_i),}{CV prediction for subject i in fold f = prediction from the model fitted without fold f.}
-where \eqn{\widehat g_{-f}}{g_hat_minus_f} is fitted using only the training subjects.
-Each fold reruns \code{\link[=imr]{imr()}} and \code{\link[=predict.imr]{predict.imr()}} on training data, including
-preprocessing, selection sampling and ranked-model prediction weights;
-the point-prediction rule is described in \code{\link[=predict.imr]{predict.imr()}}.
-
-Reweighting reuses full-fit selection states, transformed predictors and
-augmented-response means. Within each state, its fold
-coefficient estimate is
-\deqn{\widehat b_m=(Z_{-f,m}^{T}Z_{-f,m}+\lambda I)^{-1}
-                     Z_{-f,m}^{T}\bar y_{-f}^{*},}{beta_m = inverse(transpose(Z_train,m) * Z_train,m + ridge * I) * transpose(Z_train,m) * mean_working_y_train.}
-where \eqn{\lambda}{lambda} is \code{ridge} and the diagonal penalty includes the
-intercept. An unpenalized singular system is an error. If \eqn{a_m} is the
-implemented inverse predictive-density log score for the held-out working
-responses, the normalized fold weights are
-\deqn{w_m=\frac{\exp(a_m-a_{\max})}
-                 {\sum_h\exp(a_h-a_{\max})}.}{w_m = exp(a_m - a_max) / sum_h exp(a_h - a_max).}
-Predictions average the fold model predictions with these weights, applying
-the probit link before averaging for binary outcomes. \code{model_set = "all_draws"}
-retains every state occurrence; \code{model_set = "top_unique"} uses at most
-\code{max_models} ranked distinct states. The empirical \code{"all_draws"} calculation
-is motivated by equations 6--7 of Chekouo et al. (2017). Both collections
-reuse the full-data fit and therefore differ from training-fold refitting.
-}
-
-\section{Accuracy measures}{
-
-For a scored set of \eqn{n} subjects, continuous-outcome error is
-\deqn{\mathrm{MSE}=\frac{1}{n}\sum_i(y_i-\widehat y_i)^2.}{MSE = sum_i (y_i - prediction_i)^2 / n.}
-Binary AUC gives half credit to tied predictions:
-\deqn{\mathrm{AUC}=\frac{1}{n_1n_0}
-      \sum_{i:y_i=1}\sum_{j:y_j=0}
-      \{I(\widehat p_i>\widehat p_j)+\frac{1}{2} I(\widehat p_i=\widehat p_j)\}.}{AUC = sum over positive-negative pairs of [I(p_positive > p_negative) + 0.5 * I(equal predictions)], divided by n_positive * n_negative.}
-Here \eqn{n_1} and \eqn{n_0} are the class counts. For survival, let
-\eqn{\mathcal C}{C} contain each comparable pair once, with the earlier
-subject \eqn{i} first. For unequal times, the pair is comparable when
-\eqn{t_i<t_j} and subject \eqn{i} has an observed event. For equal times,
-put the event subject first and the censored subject second. Two tied
-events are excluded.
-The standard C-index is
-\deqn{C=\frac{1}{|\mathcal C|}\sum_{(i,j)\in\mathcal C}
-      \{I(\widehat y_i<\widehat y_j)+\frac{1}{2} I(\widehat y_i=\widehat y_j)\}.}{C-index = sum over ordered comparable pairs of [I(prediction_i < prediction_j) + 0.5 * I(equal predictions)], divided by the number of comparable pairs.}
-Larger predicted working survival times mean longer survival. AUC is
-undefined for a single class, and C is undefined without comparable pairs;
-these return \code{NA}. The same scoring rules apply to both validation methods.
-}
-
-\section{Pooled scores and fold means}{
-
-Each output row is one validation round. If \eqn{A} is the chosen scoring
-function and \eqn{D_f} contains fold \eqn{f}'s outcomes and predictions,
-\deqn{A_{\mathrm{pooled}}=A\Bigl(\bigcup_{f=1}^{K}D_f\Bigr),}{Pooled score = score of all folds combined,}
-\deqn{A_{\mathrm{fold\ mean}}=\frac{1}{K}\sum_{f=1}^{K}A(D_f).}{Fold mean = sum of the K individual fold scores / K.}
-The pooled score uses all subject predictions together. The fold mean gives
-equal weight to folds; an undefined fold makes the fold mean \code{NA}. These
-quantities can differ, especially for AUC and concordance. Both are reported
-per availability subgroup and overall; rounds remain separate rows.
-}
-
 \examples{
 \donttest{
 data("simIMR", package = "IntegMultiReg")
 fit <- imr(
-  x = simIMR$platforms, outcome = simIMR$outcome,
-  covariates = simIMR$covariates, outcome_type = "binary",
-  nu = c(-4, -3, -4), draws = 200, burnin = 100,
-  min_subgroup_size = 5, seed = 1
+  platform_data_list = simIMR$platforms, outcome = simIMR$outcome,
+  cov = simIMR$covariates, type_outcome = "binary",
+  nu = c(-4, -3, -4), sample_mcmc = c(200, 100), ssize = 5, seed = 1
 )
-cv <- cv_imr(fit, k = 5, rounds = 2, cv_method = "reweight")
-cv$pooled
+cv <- cv_imr(fit, k = 5, rounds = 2)
+cv$total_cindex
 }
-}
-\references{
-Chekouo et al. (2017), Section 4.1, equations 6--7. \doi{10.1111/biom.12587}.
-\href{https://academic.oup.com/biometrics/article/73/2/615/7537638}{Read paper} |
-\href{https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf}{Publisher PDF}.
 }
 \seealso{
-\code{\link[=imr]{imr()}}, \code{\link[=predict.imr]{predict.imr()}}
+[imr()], [predict.imr()]
 }

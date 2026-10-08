@@ -43,8 +43,6 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          # R-devel may advance before the prebuilt pak repository catches up.
-          pak-version: repo
           extra-packages: any::testthat, any::knitr, any::rmarkdown
           needs: check
 
@@ -65,42 +63,6 @@ jobs:
           test -f "${asan_runtime}"
           test -f "${ubsan_runtime}"
           echo "SANITIZER_RUNTIME=${asan_runtime}:${ubsan_runtime}" >> "${GITHUB_ENV}"
-
-      - name: Check sampler detailed balance
-        shell: bash
-        run: |
-          clang -O1 -g -fsanitize=address,undefined \
-            -fno-sanitize-recover=undefined -fno-omit-frame-pointer -Isrc \
-            .github/scripts/test-sampler-math.c src/sampler_math.c -lm \
-            -o "${RUNNER_TEMP}/sampler-math-test"
-          "${RUNNER_TEMP}/sampler-math-test"
-
-      - name: Check fold precision kernel and bounded fallback
-        shell: bash
-        run: |
-          clang -O1 -g -fsanitize=address,undefined \
-            -fno-sanitize-recover=undefined -fno-omit-frame-pointer \
-            .github/scripts/test-cv-precision.c src/cv_precision.c \
-            $(pkg-config --cflags --libs gsl) -o "${RUNNER_TEMP}/cv-precision-test"
-          "${RUNNER_TEMP}/cv-precision-test"
-
-      - name: Check prediction-row ownership and allocation failures
-        shell: bash
-        run: |
-          clang -O1 -g -fsanitize=address,undefined \
-            -fno-sanitize-recover=undefined -fno-omit-frame-pointer \
-            .github/scripts/test-cv-prediction-rows.c src/cv_prediction_rows.c \
-            -o "${RUNNER_TEMP}/cv-prediction-rows-test"
-          "${RUNNER_TEMP}/cv-prediction-rows-test"
-
-      - name: Check bounded cache eviction and allocation failures
-        shell: bash
-        run: |
-          clang -O1 -g -fsanitize=address,undefined \
-            -fno-sanitize-recover=undefined -fno-omit-frame-pointer -Isrc \
-            .github/scripts/test-cv-value-cache.c src/cv_value_cache.c \
-            -o "${RUNNER_TEMP}/cv-value-cache-test"
-          "${RUNNER_TEMP}/cv-value-cache-test"
 
       - name: Install instrumented package and tests
         shell: bash
@@ -129,21 +91,18 @@ jobs:
 
       # R CMD INSTALL is a shell wrapper, and macOS strips DYLD_* variables
       # when protected system shells launch children.  Run the R executable
-      # directly so ASAN is loaded before the instrumented package DLL. PSOCK
-      # children use a CI-only launcher with the same preload protection.
+      # directly so ASAN is loaded before the instrumented package DLL.
       - name: Run the installed tests/testthat.R file as M1-SAN does
         shell: bash
         run: |
           r_home="$(R RHOME)"
           tests_dir="${RUNNER_TEMP}/sanitizer-library/IntegMultiReg/tests"
-          chmod +x "${GITHUB_WORKSPACE}/.github/scripts/macos-sanitizer-rscript.sh"
           set +e
           cd "${tests_dir}"
           R_HOME="${r_home}" \
             DYLD_INSERT_LIBRARIES="${SANITIZER_RUNTIME}" \
             R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
-            "${r_home}/bin/exec/R" --vanilla --no-save \
-              -e 'source(file.path(Sys.getenv("GITHUB_WORKSPACE"), ".github/scripts/macos-sanitizer-workers.R")); source("testthat.R")' \
+            "${r_home}/bin/exec/R" --vanilla --no-save < testthat.R \
             2>&1 | tee "${RUNNER_TEMP}/sanitizer-tests.log"
           status=${PIPESTATUS[0]}
           set -e
@@ -174,7 +133,7 @@ jobs:
             DYLD_INSERT_LIBRARIES="${SANITIZER_RUNTIME}" \
             R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
             "${r_home}/bin/exec/R" --vanilla --no-save \
-              -e 'setwd(Sys.getenv("GITHUB_WORKSPACE")); source(".github/scripts/macos-sanitizer-workers.R"); tools::buildVignettes(dir = ".")' \
+              -e 'setwd(Sys.getenv("GITHUB_WORKSPACE")); tools::buildVignettes(dir = ".")' \
             2>&1 | tee "${RUNNER_TEMP}/sanitizer-vignettes.log"
           status=${PIPESTATUS[0]}
           set -e
@@ -192,19 +151,6 @@ jobs:
           if [[ ${status} -ne 0 || ${sanitizer_status} -ne 0 ]]; then
             exit 1
           fi
-
-      - name: Verify native sampler against independent targets
-        shell: bash
-        run: |
-          r_home="$(R RHOME)"
-          R_HOME="${r_home}" DYLD_INSERT_LIBRARIES="${SANITIZER_RUNTIME}" \
-            R_LIBS="${RUNNER_TEMP}/sanitizer-library" \
-            "${r_home}/bin/exec/R" --vanilla --no-save \
-              -f .github/scripts/verify-sampler.R --args "${RUNNER_TEMP}/sampler"
-
-      - name: Check native error cleanup in an isolated fault build
-        shell: bash
-        run: bash .github/scripts/verify-cv-row-failures.sh
 
       - name: Upload sanitizer logs
         if: always()

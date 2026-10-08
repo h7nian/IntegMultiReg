@@ -6,18 +6,6 @@
   stop(message, call. = FALSE)
 }
 
-.imr_reject_dots <- function(...) {
-  dots <- list(...)
-  if (length(dots)) {
-    name <- names(dots)[1L]
-    if (is.null(name) || is.na(name) || !nzchar(name)) name <- "unnamed argument"
-    .imr_abort(sprintf("Unused argument: `%s`.", name))
-  }
-  invisible(NULL)
-}
-
-`%||%` <- function(x, y) if (is.null(x)) y else x
-
 #' @keywords internal
 #' @noRd
 .imr_warn <- function(message) {
@@ -27,32 +15,11 @@
 #' @keywords internal
 #' @noRd
 .imr_is_integerish <- function(x) {
-  is.numeric(x) && all(is.finite(x)) &&
-    all(abs(x) <= .Machine$integer.max) && all(x == trunc(x))
+  is.numeric(x) && all(is.finite(x)) && all(x == as.integer(x))
 }
 
-# Guards repeated by every method that takes a fitted model.
-.imr_check_fit <- function(object) {
-  if (!inherits(object, "imr")) {
-    .imr_abort("`object` must be an `imr` object returned by `imr()`.")
-  }
-  if (!identical(object$schema_version, 3L)) {
-    .imr_abort("Use `upgrade_imr_object()` before inspecting a saved fit from an earlier schema.")
-  }
-  invisible(object)
-}
-
-# Inclusion-probability thresholds are shared by printing and summarising.
-.imr_check_threshold <- function(threshold) {
-  threshold <- .imr_check_numeric_vector(
-    threshold, "threshold", length = 1, nonnegative = TRUE
-  )
-  if (threshold > 1) {
-    .imr_abort("`threshold` must be between 0 and 1.")
-  }
-  threshold
-}
-
+#' @keywords internal
+#' @noRd
 .imr_check_flag <- function(x, arg) {
   if (!is.logical(x) || length(x) != 1L || is.na(x)) {
     .imr_abort(sprintf("`%s` must be TRUE or FALSE.", arg))
@@ -74,6 +41,19 @@
       ""
     }
     .imr_abort(sprintf("`%s` must be a whole number%s.", arg, range))
+  }
+  as.integer(x)
+}
+
+#' @keywords internal
+#' @noRd
+.imr_check_integer_vector <- function(x, arg, length, min = -Inf) {
+  if (!is.numeric(x) || length(x) != length || !.imr_is_integerish(x) ||
+      any(x < min)) {
+    .imr_abort(sprintf(
+      "`%s` must be a numeric vector of %d whole number(s).",
+      arg, length
+    ))
   }
   as.integer(x)
 }
@@ -105,27 +85,6 @@
   x
 }
 
-.imr_check_named_pair <- function(x, arg) {
-  x <- .imr_check_numeric_vector(x, arg, length = 2L, positive = TRUE)
-  if (is.null(names(x)) || !identical(names(x), c("shape", "rate"))) {
-    .imr_abort(sprintf("`%s` must be named `c(shape = ..., rate = ...)`.", arg))
-  }
-  x
-}
-
-.imr_check_mrf_capacity <- function(platform_subgroups, max_subgroups = 16L) {
-  if (!is.list(platform_subgroups)) {
-    .imr_abort("Platform-to-subgroup mappings must be a list.")
-  }
-  if (any(lengths(platform_subgroups) > max_subgroups)) {
-    .imr_abort(sprintf(
-      "Each platform may participate in at most %d modelled subgroups for exact MRF normalization.",
-      max_subgroups
-    ))
-  }
-  invisible(TRUE)
-}
-
 #' @keywords internal
 #' @noRd
 .imr_check_id_frame <- function(x, arg, require_rows = TRUE,
@@ -133,7 +92,6 @@
   if (!is.data.frame(x)) {
     .imr_abort(sprintf("`%s` must be a data frame.", arg))
   }
-  .imr_check_column_names(x, arg)
   if (!identical(names(x)[1], "id")) {
     .imr_abort(sprintf("`%s` must have `id` as its first column.", arg))
   }
@@ -165,15 +123,8 @@
       arg, bad_type[1]
     ))
   }
-  values <- x[columns]
-  # Ordinary numeric columns need no combined matrix copy. Retain matrix
-  # conversion for classed columns, whose coercion/finite methods may differ.
-  finite <- if (any(vapply(values, is.object, logical(1)))) {
-    all(is.finite(as.matrix(values)))
-  } else {
-    all(vapply(values, function(column) all(is.finite(column)), logical(1)))
-  }
-  if (!finite) {
+  vals <- as.matrix(x[columns])
+  if (any(!is.finite(vals))) {
     .imr_abort(sprintf("All non-id values in `%s` must be finite.", arg))
   }
   invisible(x)
@@ -191,11 +142,11 @@
 
 #' @keywords internal
 #' @noRd
-.imr_empty_predictions <- function(subgroup_names) {
-  out <- lapply(subgroup_names, function(x) {
-    data.frame(id = character(0), prediction = numeric(0))
+.imr_empty_predictions <- function(model_names) {
+  out <- lapply(model_names, function(x) {
+    data.frame(id = character(0), predict = numeric(0))
   })
-  names(out) <- paste0("subgroup:", subgroup_names)
+  names(out) <- paste0("model:", model_names)
   out
 }
 
@@ -204,7 +155,7 @@
 ## `verbose` is TRUE the output is shown; otherwise it is captured and dropped.
 #' @keywords internal
 #' @noRd
-.imr_quietly <- function(verbose, code) {
+.quietly <- function(verbose, code) {
   if (isTRUE(verbose)) {
     return(eval.parent(substitute(code)))
   }
@@ -212,19 +163,4 @@
   env <- parent.frame()
   utils::capture.output(value <- eval(expr, env))
   value
-}
-
-# Reject ambiguous names before name-based subsetting can silently drop columns.
-.imr_check_column_names <- function(x, arg) {
-  nm <- names(x)
-  if (anyNA(nm) || any(!nzchar(nm)) || anyDuplicated(nm)) {
-    .imr_abort(sprintf("`%s` must have complete, unique column names.", arg))
-  }
-  invisible(x)
-}
-
-.imr_check_interval_level <- function(level) {
-  .imr_check_numeric_vector(level, "level", length = 1L, positive = TRUE)
-  if (level >= 1) .imr_abort("`level` must be less than one.")
-  invisible(level)
 }

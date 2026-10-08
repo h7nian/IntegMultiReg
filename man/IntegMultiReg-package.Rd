@@ -19,11 +19,11 @@ regression coefficients.
 \details{
 The main entry points are:
 \describe{
-\item{\code{\link{imr}}}{Fit the model by MCMC and return an object of
-class \code{"imr"}.}
-\item{\code{\link{predict.imr}}}{Predict outcomes for new subjects.}
-\item{\code{\link{cv_imr}}}{Assess predictive performance by
-cross-validation.}
+  \item{\code{\link{imr}}}{Fit the model by MCMC and return an object of
+    class \code{"imr"}.}
+  \item{\code{\link{predict.imr}}}{Predict outcomes for new subjects.}
+  \item{\code{\link{cv_imr}}}{Assess predictive performance by
+    cross-validation.}
 }
 Standard methods \code{\link{print.imr}}, \code{\link{summary.imr}},
 \code{\link{coef.imr}}, \code{\link{plot.imr}} and \code{\link{predict.imr}}
@@ -32,50 +32,17 @@ are provided for the fitted object, together with the stand-alone displays
 
 Jianfeng Wang initiated the R interface that calls the C implementation.
 }
-\section{Statistical reference}{
-
-\code{\link[=imr]{imr()}} defines the outcome models, pMOM coefficient prior, MRF selection
-prior and computational conventions. \code{\link[=imr_data]{imr_data()}} explains availability
-subgroups. \code{\link[=inclusion_probabilities]{inclusion_probabilities()}} defines marginal inclusion probabilities, while
-\code{\link[=summary.imr]{summary.imr()}} explains feature ranking and thresholding.
-
-Uncertainty has two stages. \code{\link[=selection_summary]{selection_summary()}} and \code{\link[=confint.imr]{confint.imr()}}
-summarize the selection and interaction draws already stored in a fit.
-\code{\link[=sample_regression_posterior]{sample_regression_posterior()}} performs additional conditional coefficient sampling;
-its help page gives the model-averaging construction, sampling budgets and
-split R-hat diagnostic. \link{imr_posterior_methods} explains how those draws
-become coefficient and latent-response summaries.
-
-\code{\link[=predict.imr]{predict.imr()}} describes ranked-model point prediction and
-\code{\link[=predict.imr_posterior]{predict.imr_posterior()}} describes prediction from posterior draws.
-\code{\link[=cv_imr]{cv_imr()}} gives the validation algorithms, metric definitions and the
-difference between pooled scores and mean fold scores. These pages state
-which quantities are exact summaries of stored draws and which inherit
-approximation or historical computational choices.
-}
-
 \references{
 Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). "A Bayesian Integrative
 Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
 \emph{Biometrics}, \strong{73}(2), 615--624. \doi{10.1111/biom.12587}
-
-\href{https://academic.oup.com/biometrics/article/73/2/615/7537638}{Read paper} |
-\href{https://academic.oup.com/biometrics/article-pdf/73/2/615/55973435/biometrics_73_2_615.pdf}{Publisher PDF}.
-}
-\seealso{
-Useful links:
-\itemize{
-  \item \url{https://h7nian.github.io/IntegMultiReg/}
-  \item \url{https://github.com/h7nian/IntegMultiReg}
-  \item Report bugs at \url{https://github.com/h7nian/IntegMultiReg/issues}
-}
-
 }
 \author{
 \strong{Maintainer}: Thierry Chekouo \email{tchekouo@umn.edu} (\href{https://orcid.org/0000-0002-3594-9182}{ORCID})
 
 Authors:
 \itemize{
+  \item Thierry Chekouo \email{tchekouo@umn.edu} (\href{https://orcid.org/0000-0002-3594-9182}{ORCID})
   \item Sinian Zhang \email{zhan9381@umn.edu}
   \item Jianfeng Wang \email{wan01188@umn.edu}
 }

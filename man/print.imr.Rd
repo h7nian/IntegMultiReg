@@ -7,34 +7,25 @@
 \method{print}{imr}(x, threshold = 0.5, rank = FALSE, top = 5, ...)
 }
 \arguments{
-\item{x}{A fitted object of class \code{"imr"}.}
+\item{x}{A fitted object of class `"imr"`.}
 
 \item{threshold}{Inclusion-probability threshold used to count selected
-features (default \code{0.5}).}
+features (default `0.5`).}
 
-\item{rank}{Logical; if \code{TRUE}, print a short ranked feature table for each
-platform (default \code{FALSE}).}
+\item{rank}{Logical; if `TRUE`, print a short ranked feature table for each
+platform (default `FALSE`).}
 
-\item{top}{Integer; when \code{rank = TRUE}, the number of top-ranked features to
-show per platform (default \code{5}).}
+\item{top}{Integer; when `rank = TRUE`, the number of top-ranked features to
+show per platform (default `5`).}
 
 \item{...}{Unused; present for S3 compatibility.}
 }
 \value{
-\code{x}, invisibly.
+`x`, invisibly.
 }
 \description{
-Prints a compact overview of the fit, including a platform key (\code{P1},
-\code{P2}, ...) that decodes the availability-subgroup bitstrings.  Optionally,
+Prints a compact overview of the fit, including a platform key (`P1`,
+`P2`, ...) that decodes the availability-subgroup bitstrings.  Optionally,
 it can also print the top-ranked features per platform, ranked by each
 feature's maximum mPIP over availability subgroups containing that platform.
 }
-\section{Reading the display}{
-
-Selected-feature counts use the strict threshold and maximum subgroup mPIP
-defined in \code{\link[=summary.imr]{summary.imr()}}. With \code{rank = TRUE}, the display shows the \code{top}
-highest-ranking features even if some are below \code{threshold}; the threshold
-controls the counts, not the displayed ranking. Printing does not rerun
-sampling or change the stored inclusion probabilities.
-}
-
