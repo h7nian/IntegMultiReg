@@ -19,7 +19,8 @@ test_that("refit CV records real partitions, seeds and independently reconstruct
   replay <- cv_imr(f, folds = cv$control$folds, seed = 56)
   expect_identical(cv$predictions, replay$predictions)
   expect_identical(cv$control$refit_chain_seeds, replay$control$refit_chain_seeds)
-  expect_output(print(cv), "training-fold joint MCMC")
+  expect_output(print(cv), "training-fold MCMC")
+  expect_output(print(cv), "joint posterior fit")
 })
 
 test_that("held-out values cannot alter their training-fold fit or seed", {

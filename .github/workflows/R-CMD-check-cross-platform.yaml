@@ -55,12 +55,12 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes devscripts qpdf tidy
+          sudo apt-get install --yes devscripts libgsl-dev qpdf tidy
 
       - name: Install macOS system and CRAN check dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install checkbashisms qpdf tidy-html5
+          brew install checkbashisms gsl qpdf tidy-html5
           echo "$(brew --prefix tidy-html5)/bin" >> "$GITHUB_PATH"
 
       - uses: r-lib/actions/setup-r-dependencies@v2
@@ -101,6 +101,19 @@ jobs:
           git show "$replay_base:src/joint_sampler.c" > "$RUNNER_TEMP/joint-sampler-baseline.c"
           Rscript .github/scripts/verify-sampler-replay.R "$RUNNER_TEMP/joint-sampler-baseline.c"
 
+      - name: Preserve the original Laplace fit prediction and conditional draws
+        shell: bash
+        run: |
+          original_base=123233e251d0682c42e3c4404fe91d732a810314
+          git fetch --no-tags --depth=1 origin "$original_base"
+          original_source="$RUNNER_TEMP/laplace-original-source"
+          original_library="$RUNNER_TEMP/laplace-original-library"
+          mkdir -p "$original_source" "$original_library"
+          git archive "$original_base" | tar -x -C "$original_source"
+          R CMD INSTALL --preclean --no-docs --no-help --library="$original_library" "$original_source"
+          Rscript .github/scripts/verify-laplace-replay.R "$RUNNER_TEMP/laplace-replay-evidence" baseline "$original_library"
+          Rscript .github/scripts/verify-laplace-replay.R "$RUNNER_TEMP/laplace-replay-evidence" candidate
+
       - uses: actions/upload-artifact@v6
         if: always()
         with:
@@ -108,4 +121,5 @@ jobs:
           path: |
             ${{ runner.temp }}/test-evidence
             ${{ runner.temp }}/sampler-replay-evidence
+            ${{ runner.temp }}/laplace-replay-evidence
           if-no-files-found: warn

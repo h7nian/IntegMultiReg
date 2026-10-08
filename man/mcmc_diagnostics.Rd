@@ -7,7 +7,8 @@
 mcmc_diagnostics(object)
 }
 \arguments{
-\item{object}{A joint \code{imr} fit.}
+\item{object}{An \code{imr} fit or an \code{imr_posterior} object. Conditional-model
+diagnostics for the latter are separate from the source selection chains.}
 }
 \value{
 A data frame naming parameter family, subgroup/platform and parameter,

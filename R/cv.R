@@ -10,7 +10,7 @@
 #' outer validation layer. Matching actual folds pairs candidate comparisons.
 #'
 #' Reweighting uses the joint observed-response likelihood of the held-out fold:
-#' \deqn{\log r_{bc,f}=-\sum_{i\in f}\log p(y_i\mid\beta^{(b,c)},v^{(b,c)}).}{Log importance ratio for a fold = negative sum of its observed-data log likelihood over each joint draw.}
+#' \deqn{\log r_{bc,f}=-\sum_{i\in f}\log p(y_i\mid\beta^{(b,c)},(\sigma^2)^{(b,c)}).}{Log importance ratio for a fold = negative sum of its observed-data log likelihood over each posterior draw.}
 #' Binary likelihoods integrate out latent utilities; censored survival uses
 #' survival probabilities. The loo package smooths these ratios by PSIS and
 #' estimates their Pareto k and effective sample size. All retained joint draws
@@ -26,7 +26,9 @@
 #' is comparable. An undefined fold makes its round's mean fold score `NA`.
 #' Pooled scores instead combine all subject predictions within a round.
 #'
-#' @param object A joint `imr` fit.
+#' @param object An `imr` fit. Refit CV retains its marginalization choice.
+#'   Reweighting requires regression draws and is unavailable for
+#'   `marginalize = "coefficients_and_variance"` fits.
 #' @param k Folds per round, at least two. Inferred from supplied folds if omitted.
 #' @param rounds Repetitions, inferred from supplied folds if omitted.
 #' @param cv_method `"refit"` (default) or posterior `"reweight"`.
@@ -59,6 +61,9 @@ cv_imr <- function(object, k = 5L, rounds = 2L,
                    seed = NULL, workers = 1L, verbose = FALSE) {
   .imr_check_fit(object)
   cv_method <- match.arg(cv_method)
+  if (cv_method == "reweight" && is.null(object$posterior$coefficients)) {
+    .imr_abort("PSIS reweighting requires stored regression parameter draws; use cv_method = 'refit' for a Laplace selection fit.")
+  }
   .imr_check_flag(verbose, "verbose")
   workers <- .imr_check_integer_scalar(workers, "workers", min = 1)
   seed <- .imr_check_integer_scalar(seed %||% object$control$seed, "seed", min = 0)
@@ -201,6 +206,7 @@ cv_imr <- function(object, k = 5L, rounds = 2L,
         NULL
       },
       rng_kind = RNGkind(), mcmc = effective_mcmc, priors = object$control$priors,
+      marginalize = .imr_marginalize(object$control), numerical = object$control$numerical %||% imr_control(),
       preprocessing = if (cv_method == "refit") "training_fold" else "full_fit",
       package_version = "0.3.0"
     )
@@ -312,7 +318,7 @@ cv_imr <- function(object, k = 5L, rounds = 2L,
   result
 }
 
-#' Print Joint-Posterior Cross-Validation Results
+#' Print IMR Cross-Validation Results
 #'
 #' @param x An `imr_cv` result.
 #' @param digits Significant digits for scores.
@@ -324,8 +330,9 @@ print.imr_cv <- function(x, digits = 3L, ...) {
   cat(toupper(x$control$model_variant), "cross-validation:", x$metric, "\n")
   cat(sprintf(
     "%d round(s) of %d folds; %s.\n", x$control$rounds, x$control$k,
-    if (x$validation == "refit") "independent training-fold joint MCMC" else "PSIS reweighting of the full joint posterior"
+    if (x$validation == "refit") "independent training-fold MCMC" else "PSIS reweighting of the full joint posterior"
   ))
+  cat("Fitting algorithm:", .imr_sampler_description(x$control), "\n")
   cat("Pooled out-of-fold score:\n")
   print(signif(x$pooled, digits))
   cat("Mean fold score:\n")

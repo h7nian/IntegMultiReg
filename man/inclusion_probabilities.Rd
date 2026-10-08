@@ -7,14 +7,16 @@
 inclusion_probabilities(object)
 }
 \arguments{
-\item{object}{A joint \code{imr} fit.}
+\item{object}{An \code{imr} fit.}
 }
 \value{
 A named list of subgroup-by-feature matrices, one per platform.
 }
 \description{
-Computes the fraction of retained joint draws with a nonzero molecular
-coefficient, separately for each platform and availability subgroup.
+Computes the fraction of retained draws in which a molecular feature is
+included, separately for each platform and availability subgroup. Fits with
+regression draws identify inclusion by nonzero coefficients; Laplace fits
+use their stored selection indicators.
 \deqn{\widehat\pi_{lsj}=\frac{1}{BC}\sum_{c=1}^{C}\sum_{b=1}^{B}I(\beta_{lsj}^{(b,c)}\ne0).}{mPIP_lsj = fraction of all retained chain draws in which beta_lsj is nonzero.}
 This is a selection probability; \code{\link[=coef]{coef()}} extracts regression effects.
 }

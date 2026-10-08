@@ -205,3 +205,12 @@
   }
   invisible(x)
 }
+
+.imr_quietly <- function(verbose, expression) {
+  if (verbose) {
+    return(force(expression))
+  }
+  value <- NULL
+  invisible(utils::capture.output(value <- force(expression)))
+  value
+}

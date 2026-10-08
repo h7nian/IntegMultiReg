@@ -3,14 +3,14 @@
 \name{summary.imr}
 \alias{summary.imr}
 \alias{print.summary.imr}
-\title{Summarize a Joint IMR Posterior}
+\title{Summarize an IMR Posterior}
 \usage{
 \method{summary}{imr}(object, parm = "all", level = 0.95, ...)
 
 \method{print}{summary.imr}(x, digits = 4L, max_rows = 30L, ...)
 }
 \arguments{
-\item{object}{A joint \code{imr} fit.}
+\item{object}{An \code{imr} fit.}
 
 \item{parm}{A parameter family, or \code{"all"} for all stored families.}
 
@@ -32,7 +32,8 @@ computed by the posterior package; undefined values are retained.
 }
 \description{
 Summarizes coefficients, residual variances, selection indicators and
-interactions from the same joint draws. Stored latent responses can be
+interactions from the stored draws. Laplace fits contain selection and
+interaction draws without regression parameters. Stored latent responses can be
 included with \code{parm = "latent"} or \code{"all"}.
 }
 \examples{

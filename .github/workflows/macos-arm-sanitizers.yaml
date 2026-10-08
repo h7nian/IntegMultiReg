@@ -38,6 +38,9 @@ jobs:
           xcrun clang --version
           test "$(uname -m)" = "arm64"
 
+      - name: Install GSL
+        run: brew install gsl
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           # R-devel may advance before the prebuilt pak repository catches up.

@@ -30,7 +30,7 @@ imr_priors <- function(nu = -3, molecular_scale = .087, forced_scale = 10000,
   ), class = "imr_priors")
 }
 
-#' MCMC Settings for Joint Posterior Sampling
+#' MCMC Settings for Integrative Regression
 #'
 #' `draws` is the number of retained iterations per chain. Each chain performs
 #' `burnin + draws * thin` updates. Thinning reduces stored draws, not the cost
@@ -46,11 +46,18 @@ imr_priors <- function(nu = -3, molecular_scale = .087, forced_scale = 10000,
 #'   serially, avoiding nested parallelism.
 #' @param keep_latent Retain augmented responses for binary/censored models.
 #' @param initial `"dispersed"`, `"empty"`, or `"full"` selection starts, or
-#'   a list of explicitly named starting states, one per chain.
+#'   a list of explicitly named starting states, one per chain. `NULL` selects
+#'   the original initialization for a Laplace fit and dispersed starts for
+#'   the other samplers.
 #' @param theta_step Standard deviation of the log-interaction proposal.
 #' @param swap_rate Whole-feature pair proposal rate. Each update attempts
 #'   `ceiling(swap_rate * number_of_platform_features)` exchanges per platform;
 #'   zero disables exchanges.
+#' @param variance_step Standard deviation of the log-variance proposal when
+#'   coefficients are marginalized. `NULL` uses a subgroup-specific value
+#'   based on its sample size and variance prior. Other samplers do not use
+#'   this proposal. `theta_step` and `swap_rate` apply to the three exact
+#'   samplers; the original Laplace path retains its proposal rules.
 #' @param diagnostics Compute rank R-hat, effective sample sizes and MCSE after
 #'   fitting. These can also be computed later by [mcmc_diagnostics()].
 #' @param max_draw_memory_mb Limit on estimated retained-array size in MiB.
@@ -63,7 +70,8 @@ imr_priors <- function(nu = -3, molecular_scale = .087, forced_scale = 10000,
 imr_mcmc <- function(draws = 2000L, burnin = 1000L, chains = 4L, thin = 1L,
                      seed = NULL, workers = 1L, keep_latent = FALSE,
                      initial = "dispersed", theta_step = .4, swap_rate = .5,
-                     diagnostics = TRUE, max_draw_memory_mb = 1024) {
+                     diagnostics = TRUE, max_draw_memory_mb = 1024,
+                     variance_step = NULL) {
   draws <- .imr_check_integer_scalar(draws, "draws", min = 4)
   burnin <- .imr_check_integer_scalar(burnin, "burnin", min = 0)
   chains <- .imr_check_integer_scalar(chains, "chains", min = 1)
@@ -78,7 +86,9 @@ imr_mcmc <- function(draws = 2000L, burnin = 1000L, chains = 4L, thin = 1L,
   if (!is.null(seed)) seed <- .imr_check_integer_scalar(seed, "seed", min = 0)
   .imr_check_flag(keep_latent, "keep_latent")
   .imr_check_flag(diagnostics, "diagnostics")
-  if (is.character(initial)) {
+  if (is.null(initial)) {
+    initial <- NULL
+  } else if (is.character(initial)) {
     initial <- match.arg(initial, c("dispersed", "empty", "full"))
   } else if (!is.list(initial) || length(initial) != chains) {
     .imr_abort("Explicit `initial` states must be a list with one element per chain.")
@@ -87,15 +97,59 @@ imr_mcmc <- function(draws = 2000L, burnin = 1000L, chains = 4L, thin = 1L,
   swap_rate <- .imr_check_numeric_vector(swap_rate, "swap_rate", 1, nonnegative = TRUE)
   if (swap_rate > 10) .imr_abort("`swap_rate` must not exceed 10.")
   max_draw_memory_mb <- .imr_check_numeric_vector(max_draw_memory_mb, "max_draw_memory_mb", 1, positive = TRUE)
+  if (!is.null(variance_step)) variance_step <- .imr_check_numeric_vector(variance_step, "variance_step", 1, positive = TRUE)
   structure(list(
     draws = draws, burnin = burnin, chains = chains, thin = thin,
     seed = seed, workers = workers, keep_latent = keep_latent, initial = initial,
     theta_step = theta_step, swap_rate = swap_rate, diagnostics = diagnostics,
-    max_draw_memory_mb = max_draw_memory_mb
+    max_draw_memory_mb = max_draw_memory_mb, variance_step = variance_step
   ), class = "imr_mcmc")
 }
 
+#' Numerical Controls for Marginalized Regression Parameters
+#'
+#' Groups approximation tolerances and integration workspace limits separately
+#' from prior choices and MCMC length. These settings do not change the model.
+#' @param laplace_max_iter Positive integer, or named iteration limits for
+#'   `initial`, `selection`, `latent` and `prediction` coefficient-mode calculations.
+#'   Used when both coefficients and residual variance are marginalized.
+#' @param laplace_tolerance Positive stopping tolerance for the Laplace path.
+#' @param max_integration_nodes Maximum nodes for polynomial-exact Gaussian
+#'   integration when only coefficients are marginalized. Its cost grows rapidly
+#'   with the number of candidate coefficients, including forced terms. An
+#'   unsupported size is rejected before sampling; no model states are dropped.
+#' @return An `imr_control` specification for [imr()].
+#' @examples
+#' imr_control()
+#' imr_control(laplace_max_iter = 80, laplace_tolerance = 1e-4)
+#' @export
+imr_control <- function(laplace_max_iter = c(
+                          initial = 25L, selection = 40L,
+                          latent = 25L, prediction = 40L
+                        ),
+                        laplace_tolerance = 1e-3,
+                        max_integration_nodes = 200000L) {
+  stages <- c("initial", "selection", "latent", "prediction")
+  if (length(laplace_max_iter) == 1L && is.null(names(laplace_max_iter))) {
+    laplace_max_iter <- stats::setNames(rep(laplace_max_iter, 4L), stages)
+  }
+  if (!.imr_is_integerish(laplace_max_iter) || length(laplace_max_iter) != 4L ||
+    !identical(names(laplace_max_iter), stages) ||
+    any(laplace_max_iter < 1 | laplace_max_iter > .Machine$integer.max)) {
+    .imr_abort("`laplace_max_iter` needs a positive integer or named initial, selection, latent and prediction limits.")
+  }
+  structure(list(
+    laplace_max_iter = stats::setNames(as.integer(laplace_max_iter), stages),
+    laplace_tolerance = as.double(.imr_check_numeric_vector(laplace_tolerance, "laplace_tolerance", 1, positive = TRUE)),
+    max_integration_nodes = .imr_check_integer_scalar(max_integration_nodes, "max_integration_nodes", min = 2)
+  ), class = "imr_control")
+}
+
 .imr_validate_specification <- function(x, constructor, label) {
+  # Earlier development fits did not need the coefficient-marginal MH setting.
+  if (label == "imr_mcmc" && is.list(x) && !"variance_step" %in% names(x)) {
+    x <- c(x, list(variance_step = NULL))
+  }
   expected <- names(formals(constructor))
   if (!is.list(x) || is.null(names(x)) || !setequal(names(x), expected) || anyDuplicated(names(x))) {
     .imr_abort(sprintf("Use `%s()` to construct `%s`.", label, label))

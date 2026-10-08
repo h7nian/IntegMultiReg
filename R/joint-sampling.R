@@ -74,6 +74,9 @@
         .imr_abort("Initial coefficient names must match the subgroup design columns.")
       }
       .imr_check_numeric_vector(initial$coefficients[[g]], "initial coefficients")
+      if (any(initial$coefficients[[g]][seq_len(spec$groups[[g]]$forced)] == 0)) {
+        .imr_abort("Initial forced coefficients must be nonzero under the pMOM prior.")
+      }
       initial$coefficients[[g]] <- stats::setNames(as.double(initial$coefficients[[g]]), colnames(spec$groups[[g]]$design))
     }
     .imr_check_numeric_vector(initial$variance, "initial variance", positive = TRUE)
@@ -87,6 +90,11 @@
         .imr_abort("Initial interaction matrices must name their fitted subgroup rows and columns in order.")
       }
       .imr_check_numeric_vector(x, "initial interaction")
+      off_diagonal <- row(x) != col(x)
+      if (any(diag(x) != 0) || any(x != t(x)) ||
+        any(if (control$model_variant == "imr") x[off_diagonal] <= 0 else x[off_diagonal] != 0)) {
+        .imr_abort("Initial interaction matrices must be symmetric with zero diagonal, positive IMR interactions and zero BMS interactions.")
+      }
       storage.mode(x) <- "double"
       initial$interaction[[l]] <- x
     }
@@ -164,10 +172,15 @@
     dimnames(out) <- list(iteration = NULL, chain = paste0("chain", seq_len(mcmc$chains)), parameter = variables)
     out
   }
-  coefficients <- lapply(seq_along(spec$groups), function(g) {
-    combine(lapply(chains, function(x) x$coefficients[[g]]), colnames(spec$groups[[g]]$design))
-  })
-  names(coefficients) <- model$subgroup_names
+  regression <- !is.null(chains[[1L]]$coefficients)
+  coefficients <- if (regression) {
+    lapply(seq_along(spec$groups), function(g) {
+      combine(lapply(chains, function(x) x$coefficients[[g]]), colnames(spec$groups[[g]]$design))
+    })
+  } else {
+    NULL
+  }
+  if (regression) names(coefficients) <- model$subgroup_names
   interaction <- lapply(seq_len(model$n_platforms), function(l) {
     groups <- model$subgroup_names[model$platform_subgroups[[l]]]
     pairs <- if (length(groups) < 2L || dim(chains[[1L]]$interaction[[l]])[2L] == 0L) {
@@ -189,10 +202,32 @@
     NULL
   }
   if (!is.null(latent)) names(latent) <- model$subgroup_names
-  list(
+  posterior <- list(
     coefficients = coefficients,
-    variance = combine(lapply(chains, `[[`, "variance"), model$subgroup_names),
+    variance = if (regression) combine(lapply(chains, `[[`, "variance"), model$subgroup_names) else NULL,
     interaction = interaction, latent = latent,
     log_density = do.call(cbind, lapply(chains, `[[`, "log_density"))
   )
+  if (!regression) {
+    posterior$selection <- lapply(seq_len(model$n_platforms), function(l) {
+      members <- model$subgroup_names[model$platform_subgroups[[l]]]
+      labels <- as.vector(t(outer(members, model$feature_names[[l]], paste, sep = ":")))
+      combine(lapply(chains, function(x) x$selection[[l]]), labels)
+    })
+    names(posterior$selection) <- model$platform_names
+    mean_component <- function(field, count) {
+      lapply(seq_len(count), function(i) {
+        Reduce(`+`, lapply(chains, function(x) x[[field]][[i]])) / length(chains)
+      })
+    }
+    posterior$selection_mean <- stats::setNames(mean_component("selection_mean", model$n_platforms), model$platform_names)
+    posterior$interaction_mean <- stats::setNames(mean_component("interaction_mean", model$n_platforms), model$platform_names)
+    posterior$latent_mean <- stats::setNames(mean_component("latent_mean", length(model$subgroup_names)), model$subgroup_names)
+    for (l in seq_len(model$n_platforms)) {
+      members <- model$subgroup_names[model$platform_subgroups[[l]]]
+      dimnames(posterior$selection_mean[[l]]) <- list(members, model$feature_names[[l]])
+      dimnames(posterior$interaction_mean[[l]]) <- list(members, members)
+    }
+  }
+  posterior
 }

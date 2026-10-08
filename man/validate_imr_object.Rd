@@ -2,7 +2,7 @@
 % Please edit documentation in R/diagnostics.R
 \name{validate_imr_object}
 \alias{validate_imr_object}
-\title{Validate a Joint IMR Fit}
+\title{Validate an IMR Object}
 \usage{
 validate_imr_object(object)
 }

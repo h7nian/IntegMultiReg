@@ -8,15 +8,18 @@
 \description{
 IntegMultiReg fits availability-subgroup regressions with shared molecular
 selection through a Markov random field and non-local pMOM coefficient priors.
-Continuous, binary and right-censored outcomes use one joint posterior
-sampling engine. Clinical covariates are included in every subgroup model.
+Continuous, binary and right-censored outcomes support four choices of
+marginalized regression parameters. Clinical covariates are always included.
 }
 \details{
 Start with \code{\link[=imr_data]{imr_data()}} and \code{\link[=imr]{imr()}}. \code{\link[=imr_priors]{imr_priors()}} defines the statistical
-model and \code{\link[=imr_mcmc]{imr_mcmc()}} defines the sampling budget. Standard \code{\link[=coef]{coef()}},
+model, \code{\link[=imr_mcmc]{imr_mcmc()}} defines the sampling budget and \code{\link[=imr_control]{imr_control()}} defines
+numerical settings. Standard \code{\link[=coef]{coef()}},
 \code{\link[=confint]{confint()}}, \code{\link[=summary]{summary()}} and \code{\link[=predict]{predict()}} methods use the stored joint draws.
 \code{\link[=inclusion_probabilities]{inclusion_probabilities()}} reports feature selection; \code{\link[=posterior_draws]{posterior_draws()}}
 extracts samples; \code{\link[=mcmc_diagnostics]{mcmc_diagnostics()}} reports their exploration and precision.
+Laplace selection fits use \code{\link[=predict.imr_selection]{predict.imr_selection()}} and optional
+\code{\link[=sample_regression_posterior]{sample_regression_posterior()}} for regression uncertainty.
 \code{\link[=cv_imr]{cv_imr()}} refits the complete workflow or performs diagnosed posterior
 reweighting. \code{\link[=compare_fit_summaries]{compare_fit_summaries()}} gives descriptive comparisons only.
 }

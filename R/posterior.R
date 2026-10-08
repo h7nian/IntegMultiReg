@@ -2,7 +2,12 @@
 # inclusion indicators are derived from the exact exclusion zeros in beta.
 .imr_parameter_blocks <- function(object, parm = "all") {
   families <- c("coefficients", "variance", "selection", "interaction", "latent")
-  if (identical(parm, "all")) parm <- families
+  if (identical(parm, "all")) {
+    parm <- if (is.null(object$posterior$coefficients)) setdiff(families, c("coefficients", "variance")) else families
+  }
+  if (is.null(object$posterior$coefficients) && any(parm %in% c("coefficients", "variance"))) {
+    .imr_abort("This fit stores selection and interaction draws. Regression parameter draws require conditional posterior sampling or a different marginalization choice.")
+  }
   if (!is.character(parm) || !length(parm) || any(!parm %in% families) || anyDuplicated(parm)) {
     .imr_abort("`parm` must name coefficients, variance, selection, interaction, latent, or all.")
   }
@@ -26,6 +31,10 @@
   }
   if ("selection" %in% parm) {
     for (l in seq_len(model$n_platforms)) {
+      if (!is.null(post$selection)) {
+        add("selection", model$platform_names[l], post$selection[[l]])
+        next
+      }
       members <- model$platform_subgroups[[l]]
       features <- model$feature_names[[l]]
       value <- array(0L, c(
@@ -57,17 +66,20 @@
   output
 }
 
-#' Extract Stored Joint Posterior Draws
+#' Extract Stored Posterior Draws
 #'
-#' Returns retained samples from a fitted joint chain. This function performs
+#' Returns stored parameter samples, retaining iteration and chain identities.
+#' For a conditional-regression object the second dimension is labelled
+#' `mixture`; its rows are not another selection chain. This function performs
 #' no sampling and does not alter the random-number state.
-#' @param object A joint `imr` fit.
+#' @param object An `imr` fit or an `imr_posterior` conditional-regression object.
 #' @param parm `"coefficients"`, `"variance"`, `"selection"`, `"interaction"`,
-#'   `"latent"` or `"all"`. The default is regression coefficients.
+#'   `"latent"` or `"all"`. The default is regression coefficients, or
+#'   selection for a Laplace fit without regression draws.
 #' @return Named arrays with dimensions iteration by chain by parameter,
 #'   grouped by availability subgroup or platform. `parm = "all"` returns a
-#'   list of these families. Selection indicators are derived as `beta != 0`;
-#'   they occupy no duplicate history in the fitted object. Latent responses
+#'   list of these families. Selection indicators are derived as `beta != 0` when regression draws
+#'   exist; Laplace fits store selection histories directly. Latent responses
 #'   require `imr_mcmc(keep_latent = TRUE)` for a binary or censored fit.
 #' @examples
 #' # Short interface example; increase the budget and inspect diagnostics for inference.
@@ -84,12 +96,23 @@
 #' dim(posterior_draws(fit)[[1]])
 #' @export
 posterior_draws <- function(object, parm = "coefficients") {
-  .imr_check_fit(object)
+  conditional <- inherits(object, "imr_posterior")
+  if (conditional) {
+    .imr_check_regression_posterior(object)
+    object <- .imr_conditional_view(object)
+  } else {
+    .imr_check_fit(object)
+  }
+  if (missing(parm) && is.null(object$posterior$coefficients)) parm <- "selection"
   parm <- match.arg(parm, c("coefficients", "variance", "selection", "interaction", "latent", "all"))
   if (parm == "latent" && (is.null(object$posterior$latent) || object$control$outcome_type == "continuous")) {
     .imr_abort("This fit has no stored augmented responses; fit binary/censored data with `imr_mcmc(keep_latent = TRUE)`.")
   }
-  blocks <- .imr_parameter_blocks(object, parm)
+  requested <- if (conditional && parm == "all") c("coefficients", "variance", "latent") else parm
+  if (conditional && any(requested %in% c("selection", "interaction"))) {
+    .imr_abort("Use the originating fit for selection and interaction draws.")
+  }
+  blocks <- .imr_parameter_blocks(object, requested)
   by_family <- split(blocks, vapply(blocks, `[[`, "", "family"))
   result <- lapply(by_family, function(x) {
     stats::setNames(

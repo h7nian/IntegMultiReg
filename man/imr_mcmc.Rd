@@ -2,7 +2,7 @@
 % Please edit documentation in R/controls.R
 \name{imr_mcmc}
 \alias{imr_mcmc}
-\title{MCMC Settings for Joint Posterior Sampling}
+\title{MCMC Settings for Integrative Regression}
 \usage{
 imr_mcmc(
   draws = 2000L,
@@ -16,7 +16,8 @@ imr_mcmc(
   theta_step = 0.4,
   swap_rate = 0.5,
   diagnostics = TRUE,
-  max_draw_memory_mb = 1024
+  max_draw_memory_mb = 1024,
+  variance_step = NULL
 )
 }
 \arguments{
@@ -38,7 +39,9 @@ serially, avoiding nested parallelism.}
 \item{keep_latent}{Retain augmented responses for binary/censored models.}
 
 \item{initial}{\code{"dispersed"}, \code{"empty"}, or \code{"full"} selection starts, or
-a list of explicitly named starting states, one per chain.}
+a list of explicitly named starting states, one per chain. \code{NULL} selects
+the original initialization for a Laplace fit and dispersed starts for
+the other samplers.}
 
 \item{theta_step}{Standard deviation of the log-interaction proposal.}
 
@@ -52,6 +55,12 @@ fitting. These can also be computed later by \code{\link[=mcmc_diagnostics]{mcmc
 \item{max_draw_memory_mb}{Limit on estimated retained-array size in MiB.
 This is not a limit on total process memory; fitting/combining draws needs
 additional workspace. Increase explicitly for large stored posteriors.}
+
+\item{variance_step}{Standard deviation of the log-variance proposal when
+coefficients are marginalized. \code{NULL} uses a subgroup-specific value
+based on its sample size and variance prior. Other samplers do not use
+this proposal. \code{theta_step} and \code{swap_rate} apply to the three exact
+samplers; the original Laplace path retains its proposal rules.}
 }
 \value{
 A validated \code{imr_mcmc} specification for \code{\link[=imr]{imr()}}.

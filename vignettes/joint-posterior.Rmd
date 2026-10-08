@@ -7,34 +7,35 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-Version 0.3.0 keeps the pMOM regression and MRF selection model but replaces the
-previous Laplace-based selection and conditional coefficient workflow with one
-joint sampler. Its transition rules and summaries are described below. Exact
-conditional calculations remove that Laplace approximation; finite MCMC error
-and incomplete exploration remain possible.
+This guide describes `imr(..., marginalize = "none")`, the default joint
+sampler in version 0.3.0. It keeps the pMOM regression and MRF selection model
+and uses exact conditional calculations instead of Laplace model scores.
+Finite MCMC error and incomplete exploration remain possible. The
+[sampler comparison guide](marginalization.html) covers the other three choices,
+including the retained original Laplace calculation.
 
 # Joint target
 
-Let s index availability subgroups, l platforms and j molecular features.
-Write v_s for residual variance, z_s for the working response and A_s for active
+Let $s$ index availability subgroups, $l$ platforms and $j$ molecular features.
+Write $\sigma_s^2$ for residual variance, $z_s$ for the working response and $A_s$ for active
 coefficients, including the always-active intercept and clinical variables.
-The sampler targets
+Denote the collection of residual variances by $\boldsymbol{\sigma}^2$. The sampler targets
 
 \[
-p(\Gamma,\beta,v,\Theta,z\mid D)
-\propto p(D,z\mid\beta,v,\Gamma)
-\prod_s p(\beta_{s,A_s}\mid v_s,\Gamma_s)p(v_s)
+p(\Gamma,\beta,\boldsymbol{\sigma}^2,\Theta,z\mid D)
+\propto p(D,z\mid\beta,\boldsymbol{\sigma}^2,\Gamma)
+\prod_s p(\beta_{s,A_s}\mid \sigma_s^2,\Gamma_s)p(\sigma_s^2)
 \prod_l p(\Gamma_l\mid\Theta_l)p(\Theta_l).
 \]
 
 The Gaussian working likelihood and first-order pMOM prior are
 
 \[
-z_s\mid\beta_s,v_s\sim N(X_s\beta_s,v_sI),
+z_s\mid\beta_s,\sigma_s^2\sim N(X_s\beta_s,\sigma_s^2I),
 \qquad
-p(\beta_{sj}\mid\gamma_{sj}=1,v_s)
-=\frac{\beta_{sj}^2}{\tau_{sj}v_s}
-\phi(\beta_{sj};0,\tau_{sj}v_s).
+p(\beta_{sj}\mid\gamma_{sj}=1,\sigma_s^2)
+=\frac{\beta_{sj}^2}{\tau_{sj}\sigma_s^2}
+\phi(\beta_{sj};0,\tau_{sj}\sigma_s^2).
 \]
 
 An excluded molecular coefficient is exactly zero. Clinical coefficients and
@@ -43,7 +44,7 @@ molecular and forced coefficients separate scales. The inverse-gamma density
 uses the shape/rate convention
 
 \[
-p(v_s)\propto v_s^{-a-1}\exp(-b/v_s).
+p(\sigma_s^2)\propto (\sigma_s^2)^{-a-1}\exp(-b/\sigma_s^2).
 \]
 
 Binary models retain the variance parameter with shape and rate both 100,000,
@@ -51,12 +52,12 @@ anchoring it near one. This is not exactly the fixed-unit-variance probit model.
 
 # Joint selection and coefficient updates
 
-For feature j, hold the remaining coefficients and the variance fixed and set
+For feature $j$, hold the remaining coefficients and the variance fixed and set
 
 \[
 r_{sj}=z_s-\sum_{k\ne j}x_{sk}\beta_{sk},
 \qquad
-V_{sj}=\frac{v_s}{x_{sj}^{T}x_{sj}+1/\tau_{sj}},
+V_{sj}=\frac{\sigma_s^2}{x_{sj}^{T}x_{sj}+1/\tau_{sj}},
 \qquad
 m_{sj}=\frac{x_{sj}^{T}r_{sj}}{x_{sj}^{T}x_{sj}+1/\tau_{sj}}.
 \]
@@ -66,13 +67,13 @@ coefficient gives the conditional inclusion Bayes factor
 
 \[
 B_{sj}
-=\sqrt{\frac{V_{sj}}{\tau_{sj}v_s}}
+=\sqrt{\frac{V_{sj}}{\tau_{sj}\sigma_s^2}}
 \exp\!\left(\frac{m_{sj}^2}{2V_{sj}}\right)
-\frac{m_{sj}^2+V_{sj}}{\tau_{sj}v_s}.
+\frac{m_{sj}^2+V_{sj}}{\tau_{sj}\sigma_s^2}.
 \]
 
 For a platform feature, the implementation updates its entire subgroup
-selection pattern g together. Conditional pattern probabilities are
+selection pattern $g$ together. Conditional pattern probabilities are
 
 \[
 P(\gamma_{lj}=g\mid\text{rest},D)
@@ -96,15 +97,20 @@ p(\beta_{sj}\mid\gamma_{sj}=1,\text{rest},D)
 
 The sampler also uses this conditional for forced coefficients. Rejection
 sampling uses a mixture of a standard normal and a signed square root of a
-chi-square variable with three degrees of freedom. If a=m/c and b=sqrt(V)/c,
-where c=max(abs(m),sqrt(V)), the mixture probability for the normal component
-is a²/(a²+b²), and a candidate u is accepted with probability
+chi-square variable with three degrees of freedom. Define
+
+\[
+c=\max(|m|,\sqrt{V}),\qquad a=m/c,\qquad b=\sqrt{V}/c.
+\]
+
+The normal component has mixing probability $a^2/(a^2+b^2)$, and a candidate
+$u$ is accepted with probability
 
 \[
 \frac{(a+bu)^2}{2(a^2+b^2u^2)}.
 \]
 
-The inequality (a+bu)² ≤ 2(a²+b²u²) supplies a valid envelope. Both signs of
+The inequality $(a+bu)^2 \leq 2(a^2+b^2u^2)$ supplies a valid envelope. Both signs of
 active coefficients can be visited; the sampler does not restrict effects to
 be positive.
 
@@ -120,21 +126,21 @@ correlation structures.
 
 # Variance, augmented responses and interactions
 
-If d_s=|A_s| includes all active forced and molecular effects, the variance
+If $d_s=|A_s|$ includes all active forced and molecular effects, the variance
 conditional is
 
 \[
-v_s\mid\text{rest},D\sim IG\!\left(
+\sigma_s^2\mid\text{rest},D\sim IG\!\left(
  a+\frac{n_s}{2}+\frac{3d_s}{2},\quad
  b+\frac12\left[\|z_s-X_s\beta_s\|^2+
  \sum_{j\in A_s}\frac{\beta_{sj}^2}{\tau_{sj}}\right]\right).
 \]
 
-The additional 3d_s/2 follows from the pMOM density, including its Gaussian
+The additional $3d_s/2$ follows from the pMOM density, including its Gaussian
 normalizer. Replacing it with the Gaussian-prior expression changes the target.
 
 Continuous responses are fixed. Binary latent responses are normal with mean
-X_s beta_s and variance v_s, truncated above zero for outcome one and below
+$X_s\beta_s$ and variance $\sigma_s^2$, truncated above zero for outcome one and below
 zero for outcome zero. Observed survival events are fixed at their working
 response; censored responses are normal draws above the working censoring
 bound. The default survival working response is log time. Tail calculations
@@ -149,18 +155,18 @@ p(\Gamma_l\mid\Theta_l)
 +\sum_j\gamma_{lj}^T\Theta_l\gamma_{lj}\right\},
 \]
 
-where p_l is its number of features and
+where $p_l$ is its number of features and
 
 \[
 Z_l(\Theta_l)=\sum_{g\in\{0,1\}^{S_l}}
 \exp\{\nu_l\mathbf1^Tg+g^T\Theta_lg\}.
 \]
 
-Theta_l is symmetric with zero diagonal, so a pair interaction enters the
+$\Theta_l$ is symmetric with zero diagonal, so a pair interaction enters the
 quadratic form twice. Positive off-diagonal entries have independent Gamma
-shape/rate priors. Proposals are normal random walks on log theta. The log
+shape/rate priors. Proposals are normal random walks on $\log\theta$. The log
 acceptance ratio contains the change in the normalized MRF density, the Gamma
-prior and the proposal correction log(theta_new/theta_old). BMS stores no
+prior and the proposal correction $\log\theta_{\rm new}-\log\theta_{\rm old}$. BMS stores no
 interaction parameters.
 
 # Stored draws and posterior summaries
@@ -208,8 +214,8 @@ with refit CV.
 
 # Relationship to earlier results
 
-The 2017 article specifies the statistical model; version 0.3.0 uses a new
-joint inference algorithm. Archived implementations used Laplace model scores
+The 2017 article specifies the statistical model. Version 0.3.0 adds this
+joint inference algorithm alongside the retained Laplace path. Archived implementations used Laplace model scores
 and, in some versions, different MRF updates, prior indexing and CV rules.
 Results from those versions are not interchangeable with a new joint fit.
 Keep their original source and outputs when explaining historical numerical

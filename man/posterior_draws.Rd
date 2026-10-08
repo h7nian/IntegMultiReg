@@ -2,25 +2,28 @@
 % Please edit documentation in R/posterior.R
 \name{posterior_draws}
 \alias{posterior_draws}
-\title{Extract Stored Joint Posterior Draws}
+\title{Extract Stored Posterior Draws}
 \usage{
 posterior_draws(object, parm = "coefficients")
 }
 \arguments{
-\item{object}{A joint \code{imr} fit.}
+\item{object}{An \code{imr} fit or an \code{imr_posterior} conditional-regression object.}
 
 \item{parm}{\code{"coefficients"}, \code{"variance"}, \code{"selection"}, \code{"interaction"},
-\code{"latent"} or \code{"all"}. The default is regression coefficients.}
+\code{"latent"} or \code{"all"}. The default is regression coefficients, or
+selection for a Laplace fit without regression draws.}
 }
 \value{
 Named arrays with dimensions iteration by chain by parameter,
 grouped by availability subgroup or platform. \code{parm = "all"} returns a
-list of these families. Selection indicators are derived as \code{beta != 0};
-they occupy no duplicate history in the fitted object. Latent responses
+list of these families. Selection indicators are derived as \code{beta != 0} when regression draws
+exist; Laplace fits store selection histories directly. Latent responses
 require \code{imr_mcmc(keep_latent = TRUE)} for a binary or censored fit.
 }
 \description{
-Returns retained samples from a fitted joint chain. This function performs
+Returns stored parameter samples, retaining iteration and chain identities.
+For a conditional-regression object the second dimension is labelled
+\code{mixture}; its rows are not another selection chain. This function performs
 no sampling and does not alter the random-number state.
 }
 \examples{

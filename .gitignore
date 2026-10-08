@@ -31,3 +31,6 @@ data-raw/cache/
 /migration.md
 node_modules/
 /Rplots.pdf
+config.log
+config.status
+autom4te.cache/

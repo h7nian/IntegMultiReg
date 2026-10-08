@@ -1,6 +1,9 @@
 # Independent small-model integrals are the reference, not an older sampler.
 library(IntegMultiReg)
-source(".github/reference/native-bridge.R")
+sampler <- match.arg(Sys.getenv("IMR_REFERENCE_MARGINALIZE", "none"),
+  c("none", "variance", "coefficients"))
+source(if (sampler == "none") ".github/reference/native-bridge.R" else
+  ".github/reference/marginal-bridge.R")
 root <- file.path(Sys.getenv("RUNNER_TEMP", tempdir()), "joint-reference-evidence")
 dir.create(root, recursive = TRUE, showWarnings = FALSE)
 read <- function(name) readRDS(file.path(".github/reference/fixtures", paste0(name, ".rds")))
@@ -21,7 +24,9 @@ for (case in c("continuous", "correlated-swap", "binary", "right.censored", "ava
   nu <- if (missing_platform) c(-1, -1.5) else -1
   elapsed <- system.time(chains <- lapply(1:4, function(i) {
     native_chain(groups, features, nu,
-      seed = 8100L + i, model_variant = variant,
+      draws = if (sampler != "none" && case == "continuous") 120000L else 30000L,
+      burnin = if (sampler != "none" && case == "continuous") 5000L else 2000L,
+      seed = (if (sampler == "none") 8100L else 10100L) + i, model_variant = variant,
       initial = c("empty", "full", "alternating", "empty")[i]
     )
   }))
@@ -41,7 +46,7 @@ for (case in c("continuous", "correlated-swap", "binary", "right.censored", "ava
   stopifnot(length(target) == ncol(values[[1]]))
   batch <- do.call(rbind, lapply(values, function(m) {
     do.call(rbind, lapply(
-      1:60,
+      seq_len(nrow(m) %/% 500L),
       function(b) colMeans(m[(b - 1) * 500 + 1:500, , drop = FALSE])
     ))
   }))

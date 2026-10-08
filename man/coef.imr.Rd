@@ -7,7 +7,7 @@
 \method{coef}{imr}(object, ...)
 }
 \arguments{
-\item{object}{A joint \code{imr} fit.}
+\item{object}{An \code{imr} fit.}
 
 \item{...}{Unused; unsupported arguments fail.}
 }

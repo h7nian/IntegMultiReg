@@ -6,7 +6,7 @@
 \alias{imr.list}
 \alias{imr.imr_data}
 \alias{imr.formula}
-\title{Fit Joint Integrative Bayesian Regressions}
+\title{Fit Integrative Bayesian Regressions}
 \usage{
 imr(x, ...)
 
@@ -20,6 +20,8 @@ imr(x, ...)
   model_variant = c("imr", "bms"),
   priors = imr_priors(),
   mcmc = imr_mcmc(),
+  marginalize = c("none", "variance", "coefficients", "coefficients_and_variance"),
+  control = imr_control(),
   min_subgroup_size = 30L,
   standardize = TRUE,
   survival_scale = c("log", "identity"),
@@ -58,6 +60,18 @@ subgroup regressions under the same coefficient and variance priors.}
 
 \item{mcmc}{Sampling and storage settings from \code{\link[=imr_mcmc]{imr_mcmc()}}.}
 
+\item{marginalize}{Regression parameters removed from the main-chain target:
+\code{"none"} samples coefficients and residual variance; \code{"variance"} integrates
+out residual variance; \code{"coefficients"} integrates out the coefficient vector;
+\code{"coefficients_and_variance"} retains the original Laplace selection sampler.
+The first three paths provide full posterior parameter draws, with exact
+conditional recovery where needed. Coefficient-only marginalization uses
+polynomial-exact Gaussian integration and is intended for small candidate
+models. The original path retains its variance-matched Gaussian and Laplace
+approximation, proposal rules and numerical defaults.}
+
+\item{control}{Numerical settings from \code{\link[=imr_control]{imr_control()}}.}
+
 \item{min_subgroup_size}{Groups with at most this many subjects are excluded.}
 
 \item{standardize}{Center/scale predictors within each training subgroup.}
@@ -76,26 +90,30 @@ interface.}
 }
 \value{
 An \code{imr} object with schema version 4, containing controls, model
-metadata, preprocessing, joint posterior arrays and MCMC diagnostics.
+metadata, preprocessing, posterior arrays and MCMC diagnostics.
 Array dimensions preserve iteration, chain and parameter identities.
+Marginalizing both regression parameters returns the additional class
+\code{imr_selection}; its predictions use \code{\link[=predict.imr_selection]{predict.imr_selection()}}.
 }
 \description{
-Fits a regression in each availability subgroup and samples selection,
-regression coefficients, residual variances and sharing parameters jointly.
-Use \code{\link[=coef]{coef()}}, \code{\link[=confint]{confint()}}, \code{\link[=summary]{summary()}} and \code{\link[=predict]{predict()}} directly on the fit;
-\code{\link[=posterior_draws]{posterior_draws()}} extracts its stored samples without further MCMC.
+Fits a regression in each availability subgroup. \code{marginalize} identifies
+regression parameters to integrate out of the transition target. The three
+exact-target samplers also supply conditional draws of marginalized parameters
+for coefficient summaries and prediction. The original Laplace path retains
+selection, interaction and optional augmented-response draws.
+\code{\link[=posterior_draws]{posterior_draws()}} extracts stored samples without further MCMC.
 }
 \section{Model and computation}{
 
 On the working response scale, subgroup s has
-\deqn{z_s=X_s\beta_s+\epsilon_s,\quad\epsilon_s\sim N(0,v_s I).}{z_s = X_s beta_s + error_s; error_s ~ Normal(0, v_s I).}
+\deqn{z_s=X_s\beta_s+\epsilon_s,\quad\epsilon_s\sim N(0,\sigma_s^2 I).}{z_s = X_s beta_s + error_s; error_s ~ Normal(0, sigma_s^2 I).}
 Continuous responses are observed. Binary responses constrain latent values
 above/below zero. Survival uses log time by default; right-censored responses
 are augmented above their observed censoring bounds.
 
 Every active coefficient, including the intercept and clinical effects, has
 the first-order product-moment prior
-\deqn{p(\beta_j\mid v_s)=\frac{\beta_j^2}{\tau_jv_s}\phi(\beta_j;0,\tau_jv_s).}{p(beta_j | v_s) = beta_j^2 / (tau_j v_s) * NormalDensity(beta_j; 0, tau_j v_s).}
+\deqn{p(\beta_j\mid \sigma_s^2)=\frac{\beta_j^2}{\tau_j\sigma_s^2}\phi(\beta_j;0,\tau_j\sigma_s^2).}{p(beta_j | sigma_s^2) = beta_j^2 / (tau_j sigma_s^2) * NormalDensity(beta_j; 0, tau_j sigma_s^2).}
 Molecular effects are exactly zero when excluded. Clinical effects are always
 active. \code{forced_scale} and \code{molecular_scale} specify their respective tau's.
 Residual variance has an inverse-gamma shape/rate prior; binary fits anchor
@@ -104,7 +122,7 @@ its latent scale near one with shape and rate both equal to 100000.
 IMR shares selection information through the normalized symmetric MRF
 \deqn{p(\gamma_{lj}\mid\Theta_l)\propto
 \exp\{\nu_l\mathbf 1^T\gamma_{lj}+\gamma_{lj}^T\Theta_l\gamma_{lj}\}.}{p(gamma_lj | Theta_l) is proportional to exp(nu_l * sum(gamma_lj) + transpose(gamma_lj) * Theta_l * gamma_lj).}
-BMS sets interactions to zero. The sampler jointly updates a feature's
+BMS sets interactions to zero. With \code{marginalize = "none"}, the sampler jointly updates a feature's
 selection indicators across its subgroups and then its active coefficients,
 using exact scalar pMOM Bayes factors. Whole-feature exchanges aid movement
 between correlated predictors. Variances and augmented responses use their

@@ -13,10 +13,33 @@ utilities and censored working responses are sampled with current coefficients
 and variances. Positive survival times are logged by default. Binary variance
 uses the original concentrated prior near one; it is not a point mass.
 
+## Sampling choices
+
+`marginalize` names the regression parameters integrated out of the main-chain
+target. `"none"` retains coefficients and residual variance; `"variance"`
+retains coefficients; `"coefficients"` retains residual variance. Each supplies
+regression draws, using conditional recovery for a marginalized parameter.
+The coefficient integral uses positive Gaussian quadrature that is exact for
+the pMOM polynomial, subject to floating-point error. Its node count grows as
+`(d + 1)!`, so the current implementation is for small candidate models.
+
+`"coefficients_and_variance"` retains the original Laplace calculation with
+its corrected symmetric-MRF and boundary-Hastings updates and standard prior
+indexing. The variance integral, approximation, proposal rules and numerical
+defaults are preserved. It is not the newly derived exact full integral.
+`sample_regression_posterior()` provides optional conditional regression draws
+with the empirical model weights from this selection fit.
+
+All four use the same model and priors. The retained Laplace path approximates
+model weights, so its finite-run differences from the three exact-target paths
+may include approximation error as well as Monte Carlo error. The
+[sampler guide](https://h7nian.github.io/IntegMultiReg/articles/marginalization.html)
+gives the targets and computational limits.
+
 ## Joint posterior computation
 
-Version 0.3.0 samples selection, coefficients, variances, interactions and latent
-responses together. The update of one feature integrates its coefficient in each
+With `marginalize = "none"`, version 0.3.0 samples selection, coefficients,
+variances, interactions and latent responses together. The update of one feature integrates its coefficient in each
 available subgroup, samples the full subgroup inclusion pattern, then samples
 the active coefficients immediately. The scalar pMOM Bayes factor is analytic.
 Whole-feature exchanges improve movement between correlated predictors.
@@ -38,10 +61,11 @@ scientific convergence or interval calibration.
 
 | Choice | Computation | Scope |
 |---|---|---|
-| `cv_method = "refit"` | Refit preprocessing, formula encoding and joint MCMC within each training fold | Evaluate the fitting procedure with fixed hyperparameters |
+| `cv_method = "refit"` | Refit preprocessing, formula encoding and the chosen sampler within each training fold | Evaluate the fitting procedure with fixed hyperparameters |
 | `cv_method = "reweight"` | PSIS on inverse held-out observed-likelihood weights from the full joint posterior | Posterior approximation conditional on full-fit preprocessing |
 
-Reweighting uses the observed-data likelihood, integrating binary latent
+Reweighting requires stored regression draws and is unavailable for a Laplace
+selection fit. It uses the observed-data likelihood, integrating binary latent
 utilities and using survival probabilities for censored observations. Held-out
 outcomes belong in those importance ratios. Pareto k and effective sample size
 are reported per fold; unstable weights require refitting. The procedure is

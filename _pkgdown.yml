@@ -34,6 +34,8 @@ navbar:
     guides:
       text: Guides
       menu:
+      - text: Choose a sampling algorithm
+        href: articles/marginalization.html
       - text: Joint posterior computation
         href: articles/joint-posterior.html
       - text: Compare covariate formulas
@@ -54,7 +56,8 @@ reference:
   - imr
   - imr_priors
   - imr_mcmc
-- title: Summarize the joint posterior
+  - imr_control
+- title: Inspect posterior samples
   desc: Extract and summarize the samples stored by the fitted model.
   contents:
   - print.imr
@@ -64,6 +67,12 @@ reference:
   - inclusion_probabilities
   - posterior_draws
   - mcmc_diagnostics
+- title: Conditional regression for a Laplace selection fit
+  desc: Sample and summarize regression parameters using the stored selection weights.
+  contents:
+  - sample_regression_posterior
+  - imr_posterior_methods
+  - predict.imr_posterior
 - title: Check and compare objects
   contents:
   - validate_imr_object
@@ -71,6 +80,7 @@ reference:
 - title: Predict and cross-validate
   contents:
   - predict.imr
+  - predict.imr_selection
   - cv_imr
   - print.imr_cv
   - print.imr_predictions

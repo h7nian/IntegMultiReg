@@ -16,7 +16,9 @@ cv_imr(
 )
 }
 \arguments{
-\item{object}{A joint \code{imr} fit.}
+\item{object}{An \code{imr} fit. Refit CV retains its marginalization choice.
+Reweighting requires regression draws and is unavailable for
+\code{marginalize = "coefficients_and_variance"} fits.}
 
 \item{k}{Folds per round, at least two. Inferred from supplied folds if omitted.}
 
@@ -52,7 +54,7 @@ fold. Hyperparameters stay fixed; selecting them from the data requires an
 outer validation layer. Matching actual folds pairs candidate comparisons.
 
 Reweighting uses the joint observed-response likelihood of the held-out fold:
-\deqn{\log r_{bc,f}=-\sum_{i\in f}\log p(y_i\mid\beta^{(b,c)},v^{(b,c)}).}{Log importance ratio for a fold = negative sum of its observed-data log likelihood over each joint draw.}
+\deqn{\log r_{bc,f}=-\sum_{i\in f}\log p(y_i\mid\beta^{(b,c)},(\sigma^2)^{(b,c)}).}{Log importance ratio for a fold = negative sum of its observed-data log likelihood over each posterior draw.}
 Binary likelihoods integrate out latent utilities; censored survival uses
 survival probabilities. The loo package smooths these ratios by PSIS and
 estimates their Pareto k and effective sample size. All retained joint draws

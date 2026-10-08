@@ -9,9 +9,9 @@
 #' For a transformed design row x, each draw gives
 #' \deqn{\eta^{(b,c)}=x^T\beta^{(b,c)}.}{eta = transpose(x) * beta for each joint draw.}
 #' Continuous conditional means are eta, and binary probabilities are
-#' \deqn{p^{(b,c)}=\Phi(\eta^{(b,c)}/\sqrt{v^{(b,c)}}).}{Binary probability = NormalCDF(eta / sqrt(variance)).}
+#' \deqn{p^{(b,c)}=\Phi(\eta^{(b,c)}/\sqrt{(\sigma^2)^{(b,c)}}).}{Binary probability = NormalCDF(eta / sqrt(variance)).}
 #' For log-time survival, the draw-wise conditional mean time is
-#' \deqn{\exp(\eta^{(b,c)}+v^{(b,c)}/2).}{Conditional mean survival time = exp(eta + variance/2).}
+#' \deqn{\exp(\eta^{(b,c)}+(\sigma^2)^{(b,c)}/2).}{Conditional mean survival time = exp(eta + variance/2).}
 #' `new_observation` samples Gaussian working responses, then applies the binary
 #' threshold or survival exponential where needed. Future censoring is not simulated.
 #' Response-scale log-time survival summaries use posterior medians because an
@@ -19,7 +19,8 @@
 #' Other point summaries are posterior means. Intervals use empirical inverse
 #' CDF quantiles (type 1), preserving binary values and point masses.
 #'
-#' @param object A joint `imr` fit.
+#' @param object An `imr` fit with stored regression draws. Laplace selection
+#'   fits dispatch to [predict.imr_selection()] instead.
 #' @param newdata An [imr_data()] object or list of platform data frames.
 #' @param platform_names Optional training platform names or indices for that list.
 #'   Named lists are matched to fitted names when possible.

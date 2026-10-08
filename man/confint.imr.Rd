@@ -2,12 +2,12 @@
 % Please edit documentation in R/methods.R
 \name{confint.imr}
 \alias{confint.imr}
-\title{Credible Intervals from a Joint IMR Fit}
+\title{Credible Intervals from an IMR Fit}
 \usage{
 \method{confint}{imr}(object, parm = "coefficients", level = 0.95, ...)
 }
 \arguments{
-\item{object}{A joint \code{imr} fit.}
+\item{object}{An \code{imr} fit.}
 
 \item{parm}{\code{"coefficients"} (default), \code{"variance"}, \code{"selection"},
 \code{"interaction"}, \code{"latent"}, \code{"all"}, or coefficient names/indices.}
@@ -22,7 +22,8 @@ standard deviation and interval endpoints. No additional sampling occurs.
 }
 \description{
 Extracts posterior means, spreads and equal-tail intervals from the stored
-joint samples. The default parameter family is regression coefficients.
+samples. The default parameter family is regression coefficients; Laplace
+fits require an explicit selection or interaction family.
 \deqn{[Q_{(1-L)/2},Q_{(1+L)/2}].}{Interval = empirical quantiles at (1-level)/2 and (1+level)/2.}
 Quantiles use type 1 to preserve discrete support and exclusion point masses.
 }

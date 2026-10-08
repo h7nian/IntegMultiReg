@@ -17,3 +17,6 @@
 ^pkgdown$
 ^CONTRIBUTING\.md$
 ^Rplots\.pdf$
+^config\.log$
+^config\.status$
+^autom4te\.cache$

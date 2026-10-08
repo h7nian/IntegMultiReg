@@ -2,7 +2,7 @@
 % Please edit documentation in R/cv.R
 \name{print.imr_cv}
 \alias{print.imr_cv}
-\title{Print Joint-Posterior Cross-Validation Results}
+\title{Print IMR Cross-Validation Results}
 \usage{
 \method{print}{imr_cv}(x, digits = 3L, ...)
 }
@@ -17,5 +17,5 @@
 \code{x}, invisibly.
 }
 \description{
-Print Joint-Posterior Cross-Validation Results
+Print IMR Cross-Validation Results
 }

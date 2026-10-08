@@ -20,8 +20,8 @@ Description: A Bayesian framework that integrates several regression models to
     methodology was introduced for time-to-event outcomes by Chekouo,
     Stingo, Doecke and Do (2017) <doi:10.1111/biom.12587>; this package
     additionally supports continuous (Gaussian) and binary (probit) outcomes.
-    Posterior inference is carried out by a Markov chain Monte Carlo sampler
-    implemented in C for computational efficiency.
+    Posterior inference uses joint or marginalized Markov chain Monte Carlo
+    sampling, with native C kernels for joint and Laplace-based computation.
 License: GPL (>= 3)
 URL: https://h7nian.github.io/IntegMultiReg/,
     https://github.com/h7nian/IntegMultiReg
@@ -45,6 +45,7 @@ Suggests:
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+SystemRequirements: GNU Scientific Library (GSL)
 NeedsCompilation: yes
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1

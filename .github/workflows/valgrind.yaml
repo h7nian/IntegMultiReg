@@ -28,7 +28,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes valgrind
+          sudo apt-get install --yes valgrind libgsl-dev
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           needs: check
@@ -78,7 +78,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes valgrind
+          sudo apt-get install --yes valgrind libgsl-dev
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:

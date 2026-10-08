@@ -55,9 +55,10 @@ The joint sampler is checked against independent small-model integrals with
 `Rscript .github/scripts/verify-joint-reference.R`. Maintained integration and
 quadrature sources are in `.github/reference/`; their frozen fixtures are
 independent of production transition code. Regenerate fixtures only with the
-reference calculations, never from MCMC output. Retired Laplace/cache tests
-are available in Git history; they are not valid numerical oracles for the
-new joint target. Current native tests cover GC protection, numerical-error
+reference calculations, never from MCMC output. Compare the new marginal
+samplers with those same independent targets. Compare retained Laplace outputs
+with their pinned original source, preserving its approximation and precision;
+those outputs are not an exact-posterior oracle. Current native tests cover GC protection, numerical-error
 cleanup, RNG restoration, serial/parallel equivalence and all outcomes.
 
 The manually dispatched workflows named **Historical** audit pinned older

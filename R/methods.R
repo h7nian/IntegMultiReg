@@ -1,4 +1,7 @@
 .imr_mpip <- function(object, platform) {
+  if (!is.null(object$posterior$selection_mean)) {
+    return(object$posterior$selection_mean[[platform]])
+  }
   model <- object$model
   members <- model$platform_subgroups[[platform]]
   features <- model$feature_names[[platform]]
@@ -15,11 +18,13 @@
 
 #' Extract Posterior Inclusion Probabilities
 #'
-#' Computes the fraction of retained joint draws with a nonzero molecular
-#' coefficient, separately for each platform and availability subgroup.
+#' Computes the fraction of retained draws in which a molecular feature is
+#' included, separately for each platform and availability subgroup. Fits with
+#' regression draws identify inclusion by nonzero coefficients; Laplace fits
+#' use their stored selection indicators.
 #' \deqn{\widehat\pi_{lsj}=\frac{1}{BC}\sum_{c=1}^{C}\sum_{b=1}^{B}I(\beta_{lsj}^{(b,c)}\ne0).}{mPIP_lsj = fraction of all retained chain draws in which beta_lsj is nonzero.}
 #' This is a selection probability; [coef()] extracts regression effects.
-#' @param object A joint `imr` fit.
+#' @param object An `imr` fit.
 #' @return A named list of subgroup-by-feature matrices, one per platform.
 #' @examples
 #' # Short interface example; increase the budget and inspect diagnostics for inference.
@@ -46,7 +51,7 @@ inclusion_probabilities <- function(object) {
 #' \deqn{\widehat\beta_j=\frac{1}{BC}\sum_{c,b}\beta_j^{(b,c)}.}{Posterior coefficient mean = average over retained iterations and chains.}
 #' Coefficients use the fitted subgroup predictor scales; log-time survival
 #' fits describe log time. Extraction performs no sampling.
-#' @param object A joint `imr` fit.
+#' @param object An `imr` fit.
 #' @param ... Unused; unsupported arguments fail.
 #' @return A named list of coefficient vectors by availability subgroup.
 #' @examples
@@ -66,6 +71,7 @@ inclusion_probabilities <- function(object) {
 coef.imr <- function(object, ...) {
   .imr_reject_dots(...)
   .imr_check_fit(object)
+  if (is.null(object$posterior$coefficients)) .imr_abort("This selection fit has no stored regression coefficients; use conditional posterior sampling before coefficient extraction.")
   lapply(object$posterior$coefficients, function(x) {
     values <- vapply(seq_len(dim(x)[3L]), function(j) mean(x[, , j]), 0)
     stats::setNames(values, dimnames(x)[[3L]])
@@ -84,12 +90,12 @@ coef.imr <- function(object, ...) {
   )
 }
 
-#' Print a Joint IMR Fit
+#' Print an IMR Fit
 #'
 #' Reports the model, stored chain budget, feature ranking and available MCMC
 #' diagnostics. Ranking uses the maximum marginal inclusion probability over
 #' subgroups, which is not the probability of selection in at least one subgroup.
-#' @param x A joint `imr` fit.
+#' @param x An `imr` fit.
 #' @param threshold Inclusion-probability cutoff for selected-feature counts.
 #' @param rank Display ranked features, including low-probability features.
 #' @param top Maximum ranked features per platform.
@@ -104,7 +110,7 @@ print.imr <- function(x, threshold = .5, rank = FALSE, top = 5L, ...) {
   top <- .imr_check_integer_scalar(top, "top", min = 1)
   control <- x$control
   model <- x$model
-  cat(toupper(control$model_variant), "joint posterior fit\n")
+  cat(toupper(control$model_variant), " ", .imr_sampler_description(control), "\n", sep = "")
   cat("Outcome:", control$outcome_type, "(", control$response_scale, "scale )\n")
   cat(sprintf(
     "%d chains; %d retained draws per chain after %d burn-in updates; thinning %d.\n",
@@ -130,12 +136,13 @@ print.imr <- function(x, threshold = .5, rank = FALSE, top = 5L, ...) {
   if (any(x$status == "constant_in_chain")) cat(sum(x$status == "constant_in_chain"), "parameter(s) are constant in at least one chain but vary across samples.\n")
 }
 
-#' Summarize a Joint IMR Posterior
+#' Summarize an IMR Posterior
 #'
 #' Summarizes coefficients, residual variances, selection indicators and
-#' interactions from the same joint draws. Stored latent responses can be
+#' interactions from the stored draws. Laplace fits contain selection and
+#' interaction draws without regression parameters. Stored latent responses can be
 #' included with `parm = "latent"` or `"all"`.
-#' @param object A joint `imr` fit.
+#' @param object An `imr` fit.
 #' @param parm A parameter family, or `"all"` for all stored families.
 #' @param level Equal-tail probability level, strictly between zero and one.
 #' @param ... Unused arguments are rejected.
@@ -182,13 +189,14 @@ print.summary.imr <- function(x, digits = 4L, max_rows = 30L, ...) {
   invisible(x)
 }
 
-#' Credible Intervals from a Joint IMR Fit
+#' Credible Intervals from an IMR Fit
 #'
 #' Extracts posterior means, spreads and equal-tail intervals from the stored
-#' joint samples. The default parameter family is regression coefficients.
+#' samples. The default parameter family is regression coefficients; Laplace
+#' fits require an explicit selection or interaction family.
 #' \deqn{[Q_{(1-L)/2},Q_{(1+L)/2}].}{Interval = empirical quantiles at (1-level)/2 and (1+level)/2.}
 #' Quantiles use type 1 to preserve discrete support and exclusion point masses.
-#' @param object A joint `imr` fit.
+#' @param object An `imr` fit.
 #' @param parm `"coefficients"` (default), `"variance"`, `"selection"`,
 #'   `"interaction"`, `"latent"`, `"all"`, or coefficient names/indices.
 #' @param level Equal-tail probability level.

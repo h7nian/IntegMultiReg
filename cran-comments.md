@@ -1,14 +1,14 @@
 ## Development version 0.3.0
 
-This development revision replaces Laplace selection plus conditional
-coefficient sampling with a joint pMOM/MRF sampler. Coefficients, variances,
-selection indicators and interactions belong to the same retained states.
-The old conditional-only API and engines are removed. Prior and MCMC options
-use grouped constructors, and saved selection-only fits require refitting.
+This revision adds joint and partially marginalized pMOM/MRF samplers while
+retaining the previously corrected Laplace selection algorithm and its optional
+conditional regression sampling. `marginalize` selects the regression parameters
+integrated out of the transition target. Priors, MCMC settings and numerical
+controls use separate constructors. The fitted-object schema has changed.
 
-Cross-validation defaults to training-fold refits. Optional reweighting uses
-PSIS on the joint observed-data likelihood and reports fold weight diagnostics.
-The native engine uses R allocation and RNG APIs and no longer requires GSL.
+Cross-validation defaults to training-fold refits with the chosen sampler.
+Optional PSIS reweighting requires regression posterior draws and reports fold
+weight diagnostics. GSL remains a dependency of the retained Laplace engine.
 
 ## Validation status
 

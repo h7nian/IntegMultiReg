@@ -28,7 +28,9 @@ build_website <- function() {
   }
   required <- c("index.html", "reference/index.html", "reference/cv_imr.html",
                 "articles/IntegMultiReg.html", "articles/covariate-comparison.html",
-                "articles/reproducibility.html", "reference/inclusion_probabilities.html",
+                "articles/reproducibility.html", "articles/marginalization.html",
+                "reference/sample_regression_posterior.html", "reference/imr_control.html",
+                "reference/inclusion_probabilities.html",
                 "reference/posterior_draws.html", "articles/joint-posterior.html", "method-coverage.html",
                 "migration.html", "news/index.html", "authors.html")
   stopifnot(all(file.exists(file.path("docs", required))))

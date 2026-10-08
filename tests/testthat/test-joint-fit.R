@@ -105,7 +105,7 @@ test_that("draw budgets, priors and old APIs fail before expensive computation",
   bad <- fit_bin
   bad$posterior$coefficients[[1]][1, 1, 1] <- 0
   expect_error(validate_imr_object(bad), "forced coefficient")
-  retired <- c("sample_regression_posterior", "selection_summary", "upgrade_imr_object")
+  retired <- c("selection_summary", "upgrade_imr_object")
   expect_false(any(retired %in% getNamespaceExports("IntegMultiReg")))
 })
 

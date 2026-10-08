@@ -36,7 +36,8 @@
   refit_control <- list(
     outcome_type = control$outcome_type, model_variant = control$model_variant,
     standardize = control$standardize, min_subgroup_size = 0L,
-    priors = control$priors, mcmc = mcmc,
+    priors = control$priors, mcmc = mcmc, marginalize = .imr_marginalize(control),
+    control = control$numerical %||% imr_control(),
     survival_scale = if (control$outcome_type == "right.censored") control$response_scale else "identity",
     verbose = verbose
   )

@@ -2,12 +2,12 @@
 % Please edit documentation in R/methods.R
 \name{print.imr}
 \alias{print.imr}
-\title{Print a Joint IMR Fit}
+\title{Print an IMR Fit}
 \usage{
 \method{print}{imr}(x, threshold = 0.5, rank = FALSE, top = 5L, ...)
 }
 \arguments{
-\item{x}{A joint \code{imr} fit.}
+\item{x}{An \code{imr} fit.}
 
 \item{threshold}{Inclusion-probability cutoff for selected-feature counts.}
 

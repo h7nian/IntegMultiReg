@@ -20,6 +20,11 @@ selection information across groups; BMS fits the groups independently.
 Version 0.3.0 samples selection indicators, regression coefficients, residual
 variances and sharing parameters in one joint MCMC run.
 
+This tutorial uses the default `marginalize = "none"`. The package also supports
+integrating out residual variance, coefficients, or both; see
+[Choose a sampling algorithm](marginalization.html) for their targets, limits and
+uncertainty outputs. The original Laplace path remains available.
+
 # Prepare, check and fit data
 
 Each platform has an `id` column and numeric features. Outcome and clinical

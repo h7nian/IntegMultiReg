@@ -1,0 +1,227 @@
+---
+title: "Choose a sampling algorithm"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Choose a sampling algorithm}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+`imr(..., marginalize = ...)` identifies the regression parameters integrated
+out of the main-chain target. Integration accounts for their uncertainty; it
+does not fix them at estimates. All choices use the same data preparation,
+pMOM priors and availability-subgroup MRF model.
+
+| `marginalize` | Main-chain regression state | Numerical calculation |
+|---|---|---|
+| `"none"` | $\beta$ and $\sigma^2$ | Joint sampling with exact local coefficient integrals |
+| `"variance"` | $\beta$ | Analytic variance integral; weighted-t coefficient updates |
+| `"coefficients"` | $\sigma^2$ | Polynomial-exact Gaussian integration; small models only |
+| `"coefficients_and_variance"` | Neither | Retained Laplace-based selection algorithm |
+
+The default is `"none"`. The first three methods target exact marginals of the
+specified posterior, up to floating-point calculations and finite MCMC error.
+The last retains the original approximation. Changing `marginalize` is an
+algorithm comparison, not a performance optimization of the same algorithm.
+
+# Common subgroup model
+
+For one subgroup, write $z$ for its observed or augmented working response,
+$X_\gamma$ for the active design, and $d$ for its number of coefficients,
+including the always-active intercept and clinical terms. Let
+
+\[
+T=\operatorname{diag}(\tau_1,\ldots,\tau_d),
+\qquad
+A_\gamma=a+\frac n2+\frac{3d}{2},
+\]
+
+\[
+Q_\gamma(\beta)=b+\frac12
+\left(\|z-X_\gamma\beta\|^2+\beta^TT^{-1}\beta\right).
+\]
+
+Multiplying the Gaussian likelihood, first-order pMOM priors and the
+inverse-gamma variance prior gives the subgroup density
+
+\[
+J_\gamma(\beta,\sigma^2)
+=C_\gamma\left(\prod_{j=1}^d\beta_j^2\right)
+(\sigma^2)^{-A_\gamma-1}
+\exp\{-Q_\gamma(\beta)/\sigma^2\},
+\]
+
+\[
+C_\gamma=\frac{b^a}
+{\Gamma(a)(2\pi)^{(n+d)/2}|T|^{3/2}}.
+\]
+
+The model-dependent constant matters when comparing selection states of
+different dimensions. Subgroup factors multiply, with the normalized MRF prior
+linking selection indicators. For binary or censored data, these are densities
+of augmented responses. Observed-data evidence would also require integrating
+the unobserved responses over their permitted regions.
+
+# Sample both regression parameters
+
+With `marginalize = "none"`, the main chain retains both parameters. A feature
+update integrates its local coefficient, selects its subgroup inclusion pattern,
+and immediately draws active coefficients. The variance update is
+
+\[
+\sigma^2\mid\beta,\gamma,z\sim
+IG\{A_\gamma,Q_\gamma(\beta)\}.
+\]
+
+The [joint sampler guide](joint-posterior.html) derives the scalar Bayes factor,
+coefficient draws, feature exchanges and latent-response updates.
+
+# Integrate residual variance
+
+The inverse-gamma integral gives
+
+\[
+G_\gamma(\beta)=C_\gamma\Gamma(A_\gamma)
+\frac{\prod_j\beta_j^2}{Q_\gamma(\beta)^{A_\gamma}}.
+\]
+
+For a candidate coefficient, hold the other coefficients fixed and define
+
+\[
+r_j=z-\sum_{k\ne j}x_k\beta_k,
+\qquad \kappa_j=x_j^Tx_j+\tau_j^{-1},
+\qquad m_j=x_j^Tr_j/\kappa_j.
+\]
+
+If $d_0$ other coefficients are active, let
+
+\[
+A_0=a+n/2+3d_0/2,
+\qquad
+B_0=b+\frac12\left(r_j^Tr_j+\sum_{k\ne j}\beta_k^2/\tau_k\right),
+\qquad B_1=B_0-\kappa_jm_j^2/2.
+\]
+
+The inclusion Bayes factor after integrating variance is
+
+\[
+\overline{B}_j=
+\frac{1}{\tau_j^{3/2}\sqrt{\kappa_j}}
+\left(\frac{B_0}{B_1}\right)^{A_0}
+\left(\frac{A_0m_j^2}{B_1}+\frac1{\kappa_j}\right).
+\]
+
+The code evaluates $B_1$ as a sum of nonnegative residual and prior terms to
+avoid subtractive cancellation. Active coefficients follow a squared-coefficient
+weighted Student density:
+
+\[
+p(\beta_j\mid\gamma_j=1,\text{rest})\propto
+\beta_j^2\left\{B_1+\kappa_j(\beta_j-m_j)^2/2\right\}^{-A_0-3/2}.
+\]
+
+The implementation samples this density by rejection, using a Student proposal
+and its square-weighted component. Latent responses use the corresponding
+truncated Student full conditionals. They do not use a variance draw from a
+previous iteration. Conditional inverse-gamma recovery supplies variance draws
+for summaries and prediction without affecting subsequent transitions.
+
+# Integrate regression coefficients
+
+Complete the square using
+
+\[
+K_\gamma=X_\gamma^TX_\gamma+T^{-1},
+\qquad m_\gamma=K_\gamma^{-1}X_\gamma^Tz,
+\]
+
+\[
+B_\gamma=b+\frac12
+\left(z^Tz-m_\gamma^TK_\gamma m_\gamma\right),
+\qquad H_\gamma=a+n/2+d.
+\]
+
+The coefficient-integrated subgroup factor is
+
+\[
+F_\gamma(\sigma^2)=D_\gamma
+(\sigma^2)^{-H_\gamma-1}e^{-B_\gamma/\sigma^2}
+M_\gamma(\sigma^2),
+\]
+
+\[
+D_\gamma=C_\gamma(2\pi)^{d/2}|K_\gamma|^{-1/2},
+\qquad
+M_\gamma(\sigma^2)=
+E_{U\sim N(m_\gamma,\sigma^2K_\gamma^{-1})}
+\left[\prod_{j=1}^d U_j^2\right].
+\]
+
+The product moment includes coefficient correlations. The code evaluates it
+with positive Gaussian quadrature after a triangular transform. Orders
+$d+1,d,\ldots,2$ integrate the polynomial exactly in exact arithmetic. The
+result requires $(d+1)!$ nodes. The default `max_integration_nodes = 200000`
+therefore permits at most seven candidate coefficients per subgroup, including
+forced terms. Fitting checks the largest candidate model before sampling and
+fails if the budget is insufficient; it does not discard selection states.
+
+The variance conditional is generally not a single inverse-gamma density.
+A normal random walk on log variance uses $F_\gamma$ with the proposal ratio
+$\sigma^{2\prime}/\sigma^2$. Selection and feature exchanges also use
+$F_\gamma$. Latent-response proposals include the full marginal-density and
+proposal-density corrections. Conditional multivariate pMOM rejection sampling
+supplies coefficient draws; the primary transitions do not condition on them.
+
+# Retain the original Laplace calculation
+
+`marginalize = "coefficients_and_variance"` keeps the previously corrected
+selection algorithm. It analytically integrates variance and uses the original
+Gaussian moment approximation and Laplace calculation for coefficient
+integration. Numerical tolerances, iteration caps, selection proposals and
+latent-response rules remain as before. `imr_control()` exposes the existing
+Laplace settings. The legacy finite survival-proposal bound is also retained;
+unsupported censoring bounds raise an error.
+
+For comparison, the exact Gaussian product moment can be written
+
+\[
+M_\gamma(\sigma^2)=\sum_{k=0}^d c_{\gamma k}(\sigma^2)^k,
+\]
+
+which would give the exact full integral
+
+\[
+m_\gamma(z)=D_\gamma\sum_{k=0}^d c_{\gamma k}
+\frac{\Gamma(H_\gamma-k)}{B_\gamma^{H_\gamma-k}}.
+\]
+
+That formula is not a replacement silently applied to the original engine.
+Some polynomial coefficients may be negative even though the moment is
+positive, so a positive inverse-gamma-mixture interpretation does not follow.
+
+The retained engine uses its Gamma interaction proposals. The other three use
+log-normal proposals; both include the normalized MRF target and their proposal
+corrections. Runtime differences consequently reflect more than which
+regression parameters are marginalized.
+
+# Summaries and comparison
+
+The first three choices store full regression draws. They perform auxiliary
+recovery on every sweep so that thinning or retaining latent output does not
+change the primary random stream. Log-density traces describe each algorithm's
+own target and are not comparable model-evidence scores.
+
+A Laplace fit stores selection and interaction draws. Its `predict()` method
+keeps the original rescored-state point approximation. Optional
+`sample_regression_posterior()` returns conditional regression draws with the
+empirical selection weights. Conditional-chain diagnostics cannot replace the
+source selection-chain diagnostics; short chains do not guarantee exact
+conditional reconstruction.
+
+Use the same data, priors and preprocessing when comparing algorithms, and
+report their budgets, starts, effective sample sizes, uncertainty and elapsed
+time. Matching posterior conclusions is a Monte Carlo question for the first
+three choices. Comparisons with the retained original algorithm must also allow
+for Laplace approximation error. Optimization of one fixed algorithm has a
+stricter regression criterion: preserve its arithmetic precision, full output
+and random stream under the same build and settings.

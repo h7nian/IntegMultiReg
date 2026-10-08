@@ -134,8 +134,8 @@ plot.imr <- function(x, type = c(
   if (type %in% c("trace", "interaction_trace", "selection_trace", "coefficient_trace", "variance_trace")) {
     if (type == "trace") {
       values <- x$posterior$log_density
-      title <- "Joint log-density trace"
-      ylab <- "Joint log density"
+      title <- "Target log-density trace"
+      ylab <- "Log target density"
     } else if (type %in% c("coefficient_trace", "variance_trace")) {
       subgroup <- .imr_check_integer_scalar(subgroup, "subgroup", min = 1L, max = length(x$model$subgroup_names))
       if (type == "variance_trace") {

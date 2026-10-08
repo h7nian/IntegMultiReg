@@ -1,20 +1,22 @@
-#' Fit Joint Integrative Bayesian Regressions
+#' Fit Integrative Bayesian Regressions
 #'
-#' Fits a regression in each availability subgroup and samples selection,
-#' regression coefficients, residual variances and sharing parameters jointly.
-#' Use [coef()], [confint()], [summary()] and [predict()] directly on the fit;
-#' [posterior_draws()] extracts its stored samples without further MCMC.
+#' Fits a regression in each availability subgroup. `marginalize` identifies
+#' regression parameters to integrate out of the transition target. The three
+#' exact-target samplers also supply conditional draws of marginalized parameters
+#' for coefficient summaries and prediction. The original Laplace path retains
+#' selection, interaction and optional augmented-response draws.
+#' [posterior_draws()] extracts stored samples without further MCMC.
 #'
 #' @section Model and computation:
 #' On the working response scale, subgroup s has
-#' \deqn{z_s=X_s\beta_s+\epsilon_s,\quad\epsilon_s\sim N(0,v_s I).}{z_s = X_s beta_s + error_s; error_s ~ Normal(0, v_s I).}
+#' \deqn{z_s=X_s\beta_s+\epsilon_s,\quad\epsilon_s\sim N(0,\sigma_s^2 I).}{z_s = X_s beta_s + error_s; error_s ~ Normal(0, sigma_s^2 I).}
 #' Continuous responses are observed. Binary responses constrain latent values
 #' above/below zero. Survival uses log time by default; right-censored responses
 #' are augmented above their observed censoring bounds.
 #'
 #' Every active coefficient, including the intercept and clinical effects, has
 #' the first-order product-moment prior
-#' \deqn{p(\beta_j\mid v_s)=\frac{\beta_j^2}{\tau_jv_s}\phi(\beta_j;0,\tau_jv_s).}{p(beta_j | v_s) = beta_j^2 / (tau_j v_s) * NormalDensity(beta_j; 0, tau_j v_s).}
+#' \deqn{p(\beta_j\mid \sigma_s^2)=\frac{\beta_j^2}{\tau_j\sigma_s^2}\phi(\beta_j;0,\tau_j\sigma_s^2).}{p(beta_j | sigma_s^2) = beta_j^2 / (tau_j sigma_s^2) * NormalDensity(beta_j; 0, tau_j sigma_s^2).}
 #' Molecular effects are exactly zero when excluded. Clinical effects are always
 #' active. `forced_scale` and `molecular_scale` specify their respective tau's.
 #' Residual variance has an inverse-gamma shape/rate prior; binary fits anchor
@@ -23,7 +25,7 @@
 #' IMR shares selection information through the normalized symmetric MRF
 #' \deqn{p(\gamma_{lj}\mid\Theta_l)\propto
 #' \exp\{\nu_l\mathbf 1^T\gamma_{lj}+\gamma_{lj}^T\Theta_l\gamma_{lj}\}.}{p(gamma_lj | Theta_l) is proportional to exp(nu_l * sum(gamma_lj) + transpose(gamma_lj) * Theta_l * gamma_lj).}
-#' BMS sets interactions to zero. The sampler jointly updates a feature's
+#' BMS sets interactions to zero. With `marginalize = "none"`, the sampler jointly updates a feature's
 #' selection indicators across its subgroups and then its active coefficients,
 #' using exact scalar pMOM Bayes factors. Whole-feature exchanges aid movement
 #' between correlated predictors. Variances and augmented responses use their
@@ -54,6 +56,16 @@
 #'   subgroup regressions under the same coefficient and variance priors.
 #' @param priors Statistical settings from [imr_priors()].
 #' @param mcmc Sampling and storage settings from [imr_mcmc()].
+#' @param marginalize Regression parameters removed from the main-chain target:
+#'   `"none"` samples coefficients and residual variance; `"variance"` integrates
+#'   out residual variance; `"coefficients"` integrates out the coefficient vector;
+#'   `"coefficients_and_variance"` retains the original Laplace selection sampler.
+#'   The first three paths provide full posterior parameter draws, with exact
+#'   conditional recovery where needed. Coefficient-only marginalization uses
+#'   polynomial-exact Gaussian integration and is intended for small candidate
+#'   models. The original path retains its variance-matched Gaussian and Laplace
+#'   approximation, proposal rules and numerical defaults.
+#' @param control Numerical settings from [imr_control()].
 #' @param min_subgroup_size Groups with at most this many subjects are excluded.
 #' @param standardize Center/scale predictors within each training subgroup.
 #' @param survival_scale `"log"` for an AFT model or `"identity"` for a Gaussian
@@ -61,8 +73,10 @@
 #' @param verbose Print progress for each chain.
 #' @param ... Passed by the generic to its method; unsupported arguments fail.
 #' @return An `imr` object with schema version 4, containing controls, model
-#'   metadata, preprocessing, joint posterior arrays and MCMC diagnostics.
+#'   metadata, preprocessing, posterior arrays and MCMC diagnostics.
 #'   Array dimensions preserve iteration, chain and parameter identities.
+#'   Marginalizing both regression parameters returns the additional class
+#'   `imr_selection`; its predictions use [predict.imr_selection()].
 #' @seealso [posterior_draws()], [inclusion_probabilities()], [cv_imr()]
 #' @references Chekouo T, Stingo FC, Doecke JD, Do K-A (2017).
 #'   A Bayesian Integrative Approach for Multi-Platform Genomic Data: A Kidney
@@ -92,9 +106,13 @@ imr.list <- function(x, outcome, covariates = NULL,
                      outcome_type = c("right.censored", "binary", "continuous"),
                      model_variant = c("imr", "bms"),
                      priors = imr_priors(), mcmc = imr_mcmc(),
+                     marginalize = c("none", "variance", "coefficients", "coefficients_and_variance"),
+                     control = imr_control(),
                      min_subgroup_size = 30L, standardize = TRUE,
                      survival_scale = c("log", "identity"), verbose = FALSE, ...) {
   .imr_reject_dots(...)
+  marginalize <- match.arg(marginalize)
+  numerical <- .imr_validate_specification(control, imr_control, "imr_control")
   outcome_type <- match.arg(outcome_type)
   model_variant <- match.arg(model_variant)
   survival_scale <- match.arg(survival_scale)
@@ -103,6 +121,14 @@ imr.list <- function(x, outcome, covariates = NULL,
   min_subgroup_size <- .imr_check_integer_scalar(min_subgroup_size, "min_subgroup_size", min = 0)
   priors <- .imr_validate_specification(priors, imr_priors, "imr_priors")
   mcmc <- .imr_validate_specification(mcmc, imr_mcmc, "imr_mcmc")
+  if (is.null(mcmc$initial) && marginalize != "coefficients_and_variance") mcmc$initial <- "dispersed"
+  if (!is.null(mcmc$variance_step) && marginalize != "coefficients") {
+    .imr_abort("`variance_step` applies only when coefficients are marginalized.")
+  }
+  if (marginalize == "coefficients_and_variance" &&
+    (mcmc$theta_step != .4 || mcmc$swap_rate != .5)) {
+    .imr_abort("The original Laplace sampler retains its proposal rules; theta_step and swap_rate apply to the other samplers.")
+  }
   data <- imr_data(x, outcome, covariates, outcome_type = outcome_type)
   if (length(priors$nu) == 1L) priors$nu <- rep(priors$nu, length(data$platforms))
   if (length(priors$nu) != length(data$platforms)) .imr_abort("`priors$nu` needs one value or one per platform.")
@@ -117,9 +143,18 @@ imr.list <- function(x, outcome, covariates = NULL,
     model_variant = model_variant, response_scale = if (outcome_type == "right.censored") survival_scale else if (outcome_type == "binary") "probit" else "identity",
     priors = priors, mcmc = mcmc, rng_kind = RNGkind(),
     min_subgroup_size = min_subgroup_size, standardize = standardize,
-    inference = "joint_pmom_mrf", package_version = "0.3.0"
+    inference = if (marginalize == "none") "joint_pmom_mrf" else paste0(marginalize, "_marginal_pmom_mrf"),
+    marginalize = marginalize, numerical = numerical, package_version = "0.3.0"
   )
   spec <- .imr_joint_specification(prepared$model, prepared$preprocessing, control)
+  if (marginalize == "coefficients") {
+    largest <- max(vapply(spec$groups, function(g) ncol(g$design), 1L))
+    if (lgamma(largest + 2) > log(numerical$max_integration_nodes)) {
+      .imr_abort(sprintf("Exact coefficient integration needs up to (d+1)! Gaussian nodes (d = %d here), exceeding `control$max_integration_nodes`. Use a smaller candidate model or another marginalization choice; no model states have been discarded.", largest))
+    }
+  }
+  if (marginalize == "coefficients_and_variance") spec$preprocessing <- prepared$preprocessing
+
   parameters <- sum(vapply(spec$groups, function(g) ncol(g$design), 1L)) + length(spec$groups) + 1L
   if (model_variant == "imr") {
     parameters <- parameters + sum(vapply(
@@ -129,6 +164,13 @@ imr.list <- function(x, outcome, covariates = NULL,
   }
   if (mcmc$keep_latent && outcome_type != "continuous") parameters <- parameters + sum(prepared$model$sample_sizes)
   expected_bytes <- 8 * as.double(mcmc$draws) * mcmc$chains * parameters
+  if (marginalize == "coefficients_and_variance") {
+    selected <- sum(lengths(prepared$model$platform_subgroups) * lengths(prepared$model$feature_names))
+    interaction <- if (model_variant == "imr") sum(choose(lengths(prepared$model$platform_subgroups), 2)) else 0
+    latent <- if (mcmc$keep_latent && outcome_type != "continuous") sum(prepared$model$sample_sizes) else 0
+    expected_bytes <- as.double(mcmc$draws) * mcmc$chains * (4 * selected + 8 * (interaction + latent + 1))
+  }
+
   if (!is.finite(expected_bytes) || expected_bytes > mcmc$max_draw_memory_mb * 1024^2) {
     .imr_abort(sprintf("Retained posterior arrays need about %.1f MiB; reduce retained `draws` or raise `mcmc$max_draw_memory_mb`. This excludes temporary fitting memory.", expected_bytes / 1024^2))
   }
@@ -139,25 +181,37 @@ imr.list <- function(x, outcome, covariates = NULL,
   on.exit(.imr_restore_rng(saved_rng), add = TRUE)
   set.seed(seed)
   seeds <- matrix(sample.int(.Machine$integer.max, 2L * mcmc$chains, replace = FALSE), nrow = 2L)
+  if (marginalize == "coefficients_and_variance") {
+    # The first original chain uses the supplied seed directly, preserving its
+    # one-chain replay when initial = NULL. Other chains remain separately seeded.
+    seeds[1L, 1L] <- seed
+  }
   control$seed <- seed
   control$chain_seeds <- seeds[1L, ]
   control$initial_seeds <- seeds[2L, ]
   tasks <- lapply(seq_len(mcmc$chains), function(i) list(chain = i, seed = seeds[1L, i], initial_seed = seeds[2L, i]))
-  chains <- .imr_map_tasks(tasks, .imr_joint_chain, mcmc$workers,
+  chains <- .imr_map_tasks(tasks, .imr_sample_chain, mcmc$workers,
     spec = spec, model = prepared$model, control = control, verbose = verbose
   )
   control$initial <- lapply(chains, `[[`, "initial")
-  control$acceptance <- data.frame(
-    chain = seq_len(mcmc$chains),
-    do.call(rbind, lapply(chains, `[[`, "acceptance"))
-  )
-  names(control$acceptance)[-1L] <- c("swap_proposals", "swap_accepts", "interaction_proposals", "interaction_accepts")
+  if (length(chains[[1L]]$acceptance)) {
+    control$acceptance <- data.frame(
+      chain = seq_len(mcmc$chains),
+      do.call(rbind, lapply(chains, function(x) x$acceptance))
+    )
+    if (is.null(names(chains[[1L]]$acceptance))) {
+      names(control$acceptance)[-1L] <- c("swap_proposals", "swap_accepts", "interaction_proposals", "interaction_accepts")
+    }
+  }
+  if (marginalize == "coefficients_and_variance") {
+    control$laplace_diagnostics <- lapply(chains, function(x) x$laplace_diagnostics)
+  }
   fit <- structure(list(
     schema_version = 4L, control = control,
     model = prepared$model, preprocessing = prepared$preprocessing,
     posterior = .imr_combine_chains(chains, prepared$model, prepared$preprocessing, spec, mcmc),
     diagnostics = NULL
-  ), class = "imr")
+  ), class = if (marginalize == "coefficients_and_variance") c("imr_selection", "imr") else "imr")
   validate_imr_object(fit)
   if (mcmc$diagnostics) {
     fit$diagnostics <- .imr_compute_diagnostics(fit)
