@@ -9,8 +9,8 @@ point mass at zero. Residual variances use inverse-gamma shape/rate priors and
 MRF interactions use Gamma shape/rate priors.
 
 Continuous, binary and right-censored outcomes share this structure. Binary
-utilities and censored working responses are sampled with current coefficients
-and variances. Positive survival times are logged by default. Binary variance
+utilities and censored working responses are updated under the chosen sampler's
+joint or marginal target. Positive survival times are logged by default. Binary variance
 uses the original concentrated prior near one; it is not a point mass.
 
 ## Sampling choices
@@ -34,7 +34,10 @@ All four use the same model and priors. The retained Laplace path approximates
 model weights, so its finite-run differences from the three exact-target paths
 may include approximation error as well as Monte Carlo error. The
 [sampler guide](https://h7nian.github.io/IntegMultiReg/articles/marginalization.html)
-gives the targets and computational limits.
+gives the targets and computational limits. All four sampling loops run in C,
+with shared R preprocessing and result methods. Dense operations in the two
+single-block marginal samplers retain R's BLAS/LAPACK interfaces. Frozen R
+implementations are used only for exact-output regression tests.
 
 ## Joint posterior computation
 

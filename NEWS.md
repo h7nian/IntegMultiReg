@@ -1,5 +1,13 @@
 # IntegMultiReg 0.3.0
 
+* The variance- and coefficient-marginal samplers now run their updates,
+  conditional recovery and sample storage in C. They share native MRF and
+  storage helpers and preserve the R reference's arithmetic and random stream.
+  Dense algebra continues through R's BLAS/LAPACK interfaces. The reference
+  implementations are retained only in regression tests.
+* `verbose = TRUE` now reports progress for both single-block marginal samplers.
+  Reporting does not consume random numbers or change the sampled states.
+
 * `imr()` exposes four `marginalize` choices: `"none"`, `"variance"`,
   `"coefficients"` and `"coefficients_and_variance"`. The original Laplace
   selection calculation remains available with its numerical defaults and

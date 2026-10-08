@@ -86,7 +86,7 @@
     thin = control$mcmc$thin, seed = task$seed, model_variant = control$model_variant,
     keep_latent = control$mcmc$keep_latent, interaction_prior = control$priors$interaction,
     theta_step = control$mcmc$theta_step, swap_rate = control$mcmc$swap_rate,
-    initial_state = initial
+    initial_state = initial, verbose = verbose
   )
   engine <- .imr_variance_marginal_sample
   if (marginalize == "coefficients") {

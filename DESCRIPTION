@@ -21,7 +21,7 @@ Description: A Bayesian framework that integrates several regression models to
     Stingo, Doecke and Do (2017) <doi:10.1111/biom.12587>; this package
     additionally supports continuous (Gaussian) and binary (probit) outcomes.
     Posterior inference uses joint or marginalized Markov chain Monte Carlo
-    sampling, with native C kernels for joint and Laplace-based computation.
+    sampling, with native C sampling loops for all four marginalization choices.
 License: GPL (>= 3)
 URL: https://h7nian.github.io/IntegMultiReg/,
     https://github.com/h7nian/IntegMultiReg

@@ -102,6 +102,7 @@ jobs:
           R CMD INSTALL --preclean --install-tests .
           Rscript .github/scripts/verify-tests.R
           Rscript .github/scripts/verify-marginal-workers.R
+          Rscript .github/scripts/verify-native-marginal-replay.R
 
       - name: Preserve sampler results across the performance refactor
         shell: bash
@@ -135,4 +136,5 @@ jobs:
             ${{ runner.temp }}/sampler-replay-evidence
             ${{ runner.temp }}/laplace-replay-evidence
             ${{ runner.temp }}/marginal-worker-evidence
+            ${{ runner.temp }}/native-marginal-evidence
           if-no-files-found: warn

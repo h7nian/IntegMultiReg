@@ -24,6 +24,15 @@ specified posterior, up to floating-point calculations and finite MCMC error.
 The last retains the original approximation. Changing `marginalize` is an
 algorithm comparison, not a performance optimization of the same algorithm.
 
+All four choices run their sampling loops in C. They share R input preparation,
+parameter naming, chain management and result methods. The two single-block
+marginal samplers retain R's BLAS/LAPACK interfaces for dense matrix operations
+and static factorizations, preserving the reference arithmetic and the caller's
+matrix-product settings. Their former R implementations are frozen test
+references, not additional runtime backends. Native regression tests compare
+complete samples, attributes and random-number states without a tolerance.
+`verbose = TRUE` reports progress for every choice.
+
 # Common subgroup model
 
 For one subgroup, write $z$ for its observed or augmented working response,

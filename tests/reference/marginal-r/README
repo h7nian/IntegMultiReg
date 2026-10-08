@@ -1,0 +1,12 @@
+Frozen R reference for native marginal-sampler regression tests.
+
+Source: h7nian/IntegMultiReg commit 67a59e2f8cae92cb5efc09656d7ee929216e58f1.
+helpers.R, variance.R and coefficients.R are unchanged copies of the three
+R/marginal-*.R implementations at that commit. The five data fixtures come
+from that commit's .github/reference/fixtures. These files are test inputs,
+not a second runtime implementation or an alternative public backend.
+
+Keep the reference fixed. Compare complete output (including attributes) and
+RNG state with identical(num.eq = FALSE); do not relax to a tolerance when
+optimizing an existing algorithm. Independent posterior correctness checks
+remain in .github/scripts/verify-joint-reference.R with marginal-bridge.R.
