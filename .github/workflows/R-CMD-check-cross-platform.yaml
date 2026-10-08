@@ -119,7 +119,9 @@ jobs:
           original_source="$RUNNER_TEMP/laplace-original-source"
           original_library="$RUNNER_TEMP/laplace-original-library"
           mkdir -p "$original_source" "$original_library"
-          git archive "$original_base" | tar -x -C "$original_source"
+          # The Windows tar build does not accept the runner's backslash path
+          # in -C. Let the shell enter it and unpack from standard input.
+          git archive "$original_base" | (cd "$original_source" && tar -x)
           R CMD INSTALL --preclean --no-docs --no-help --library="$original_library" "$original_source"
           Rscript .github/scripts/verify-laplace-replay.R "$RUNNER_TEMP/laplace-replay-evidence" baseline "$original_library"
           Rscript .github/scripts/verify-laplace-replay.R "$RUNNER_TEMP/laplace-replay-evidence" candidate
