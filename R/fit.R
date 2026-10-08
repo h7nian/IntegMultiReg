@@ -122,13 +122,7 @@ imr.list <- function(x, outcome, covariates = NULL,
   priors <- .imr_validate_specification(priors, imr_priors, "imr_priors")
   mcmc <- .imr_validate_specification(mcmc, imr_mcmc, "imr_mcmc")
   if (is.null(mcmc$initial) && marginalize != "coefficients_and_variance") mcmc$initial <- "dispersed"
-  if (!is.null(mcmc$variance_step) && marginalize != "coefficients") {
-    .imr_abort("`variance_step` applies only when coefficients are marginalized.")
-  }
-  if (marginalize == "coefficients_and_variance" &&
-    (mcmc$theta_step != .4 || mcmc$swap_rate != .5)) {
-    .imr_abort("The original Laplace sampler retains its proposal rules; theta_step and swap_rate apply to the other samplers.")
-  }
+  effective <- .imr_sampler_settings(marginalize, mcmc, numerical, model_variant)
   data <- imr_data(x, outcome, covariates, outcome_type = outcome_type)
   if (length(priors$nu) == 1L) priors$nu <- rep(priors$nu, length(data$platforms))
   if (length(priors$nu) != length(data$platforms)) .imr_abort("`priors$nu` needs one value or one per platform.")
@@ -144,10 +138,21 @@ imr.list <- function(x, outcome, covariates = NULL,
     priors = priors, mcmc = mcmc, rng_kind = RNGkind(),
     min_subgroup_size = min_subgroup_size, standardize = standardize,
     inference = if (marginalize == "none") "joint_pmom_mrf" else paste0(marginalize, "_marginal_pmom_mrf"),
-    marginalize = marginalize, numerical = numerical, package_version = "0.3.0"
+    marginalize = marginalize,
+    approximation = if (marginalize == "coefficients_and_variance") "laplace" else "none",
+    numerical = numerical, effective = effective, package_version = "0.3.0"
   )
   spec <- .imr_joint_specification(prepared$model, prepared$preprocessing, control)
   if (marginalize == "coefficients") {
+    control$effective$mcmc$variance_step <- stats::setNames(
+      if (is.null(mcmc$variance_step)) {
+        vapply(spec$groups, function(g) {
+          min(.4, 1.5 / sqrt(g$residual_prior[1L] + nrow(g$design) / 2))
+        }, 0)
+      } else {
+        rep(mcmc$variance_step, length(spec$groups))
+      }, prepared$model$subgroup_names
+    )
     largest <- max(vapply(spec$groups, function(g) ncol(g$design), 1L))
     if (lgamma(largest + 2) > log(numerical$max_integration_nodes)) {
       .imr_abort(sprintf("Exact coefficient integration needs up to (d+1)! Gaussian nodes (d = %d here), exceeding `control$max_integration_nodes`. Use a smaller candidate model or another marginalization choice; no model states have been discarded.", largest))
@@ -194,15 +199,8 @@ imr.list <- function(x, outcome, covariates = NULL,
     spec = spec, model = prepared$model, control = control, verbose = verbose
   )
   control$initial <- lapply(chains, `[[`, "initial")
-  if (length(chains[[1L]]$acceptance)) {
-    control$acceptance <- data.frame(
-      chain = seq_len(mcmc$chains),
-      do.call(rbind, lapply(chains, function(x) x$acceptance))
-    )
-    if (is.null(names(chains[[1L]]$acceptance))) {
-      names(control$acceptance)[-1L] <- c("swap_proposals", "swap_accepts", "interaction_proposals", "interaction_accepts")
-    }
-  }
+  control$effective$mcmc$seed <- seed
+  control$acceptance <- .imr_acceptance_table(chains, marginalize, outcome_type, model_variant == "imr")
   if (marginalize == "coefficients_and_variance") {
     control$laplace_diagnostics <- lapply(chains, function(x) x$laplace_diagnostics)
   }

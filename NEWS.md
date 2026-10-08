@@ -1,5 +1,16 @@
 # IntegMultiReg 0.3.0
 
+* All samplers use one draw-family layout, prediction interface and sampler
+  diagnostic table. Prediction results record their calculation and scale;
+  Laplace survival predictions default to the response scale, with the original
+  values available through `type = "link"`.
+* Conditional computation uses `imr_mcmc()` and shares summary and interval
+  handling with fitted draws. Non-default inapplicable controls fail explicitly.
+  See the migration guide for changed extraction defaults and argument grouping.
+* Removed inactive unadjusted selection updates, historical prior indexing and
+  local-prior likelihood branches. The original ranked-score arithmetic remains
+  explicit and separate from the posterior score.
+
 * The variance- and coefficient-marginal samplers now run their updates,
   conditional recovery and sample storage in C. They share native MRF and
   storage helpers and preserve the R reference's arithmetic and random stream.

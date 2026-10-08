@@ -50,6 +50,7 @@ imr_priors <- function(nu = -3, molecular_scale = .087, forced_scale = 10000,
 #'   the original initialization for a Laplace fit and dispersed starts for
 #'   the other samplers.
 #' @param theta_step Standard deviation of the log-interaction proposal.
+#'   Applies to IMR interactions; BMS fixes those interactions at zero.
 #' @param swap_rate Whole-feature pair proposal rate. Each update attempts
 #'   `ceiling(swap_rate * number_of_platform_features)` exchanges per platform;
 #'   zero disables exchanges.
@@ -63,6 +64,8 @@ imr_priors <- function(nu = -3, molecular_scale = .087, forced_scale = 10000,
 #' @param max_draw_memory_mb Limit on estimated retained-array size in MiB.
 #'   This is not a limit on total process memory; fitting/combining draws needs
 #'   additional workspace. Increase explicitly for large stored posteriors.
+#' Non-default settings that do not apply to the chosen computation are
+#' rejected. Fits record active settings in `control$effective`.
 #' @return A validated `imr_mcmc` specification for [imr()].
 #' @export
 #' @examples
@@ -118,6 +121,7 @@ imr_mcmc <- function(draws = 2000L, burnin = 1000L, chains = 4L, thin = 1L,
 #'   integration when only coefficients are marginalized. Its cost grows rapidly
 #'   with the number of candidate coefficients, including forced terms. An
 #'   unsupported size is rejected before sampling; no model states are dropped.
+#' Non-default settings for a different algorithm are rejected at fitting.
 #' @return An `imr_control` specification for [imr()].
 #' @examples
 #' imr_control()
@@ -146,10 +150,6 @@ imr_control <- function(laplace_max_iter = c(
 }
 
 .imr_validate_specification <- function(x, constructor, label) {
-  # Earlier development fits did not need the coefficient-marginal MH setting.
-  if (label == "imr_mcmc" && is.list(x) && !"variance_step" %in% names(x)) {
-    x <- c(x, list(variance_step = NULL))
-  }
   expected <- names(formals(constructor))
   if (!is.list(x) || is.null(names(x)) || !setequal(names(x), expected) || anyDuplicated(names(x))) {
     .imr_abort(sprintf("Use `%s()` to construct `%s`.", label, label))

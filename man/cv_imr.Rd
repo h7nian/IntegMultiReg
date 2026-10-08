@@ -2,7 +2,7 @@
 % Please edit documentation in R/cv.R
 \name{cv_imr}
 \alias{cv_imr}
-\title{Cross-Validate a Joint IMR Model}
+\title{Cross-Validate an IMR Model}
 \usage{
 cv_imr(
   object,

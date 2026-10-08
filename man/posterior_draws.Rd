@@ -4,14 +4,15 @@
 \alias{posterior_draws}
 \title{Extract Stored Posterior Draws}
 \usage{
-posterior_draws(object, parm = "coefficients")
+posterior_draws(object, parm = "all")
 }
 \arguments{
 \item{object}{An \code{imr} fit or an \code{imr_posterior} conditional-regression object.}
 
 \item{parm}{\code{"coefficients"}, \code{"variance"}, \code{"selection"}, \code{"interaction"},
-\code{"latent"} or \code{"all"}. The default is regression coefficients, or
-selection for a Laplace fit without regression draws.}
+\code{"latent"} or \code{"all"} (default). The default returns the same five named
+families for every sampler; unavailable families are \code{NULL}. Explicitly
+requesting an unavailable family gives an error.}
 }
 \value{
 Named arrays with dimensions iteration by chain by parameter,
@@ -38,5 +39,5 @@ fit <- imr(list(assay = x), y,
     seed = 1, diagnostics = FALSE
   )
 )
-dim(posterior_draws(fit)[[1]])
+dim(posterior_draws(fit)$coefficients[[1]])
 }

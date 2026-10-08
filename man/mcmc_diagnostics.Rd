@@ -4,11 +4,15 @@
 \alias{mcmc_diagnostics}
 \title{MCMC Convergence and Monte Carlo Precision Diagnostics}
 \usage{
-mcmc_diagnostics(object)
+mcmc_diagnostics(object, type = c("parameters", "sampler"))
 }
 \arguments{
 \item{object}{An \code{imr} fit or an \code{imr_posterior} object. Conditional-model
 diagnostics for the latter are separate from the source selection chains.}
+
+\item{type}{\code{"parameters"} returns R-hat, ESS and MCSE. \code{"sampler"}
+returns a common table of update methods and available Metropolis counts.
+Gibbs, integrated, fixed and observed quantities have no acceptance rate.}
 }
 \value{
 A data frame naming parameter family, subgroup/platform and parameter,

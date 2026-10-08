@@ -2,7 +2,7 @@ test_that("summaries and intervals all refer to the stored joint draws", {
   f <- small_fit()
   set.seed(90)
   rng <- .Random.seed
-  beta <- posterior_draws(f)[[1L]]
+  beta <- posterior_draws(f, "coefficients")[[1L]]
   ci <- confint(f)
   for (j in seq_len(dim(beta)[3L])) {
     q <- quantile(beta[, , j], c(.025, .5, .975), type = 1, names = FALSE)

@@ -8,12 +8,7 @@
 \alias{print.imr_posterior}
 \title{Summarize Conditional Regression Posterior Draws}
 \usage{
-\method{summary}{imr_posterior}(
-  object,
-  level = 0.95,
-  parm = c("coefficients", "variance", "latent"),
-  ...
-)
+\method{summary}{imr_posterior}(object, parm = "all", level = 0.95, ...)
 
 \method{confint}{imr_posterior}(object, parm = "coefficients", level = 0.95, ...)
 
@@ -24,14 +19,16 @@
 \arguments{
 \item{object, x}{An \code{imr_posterior} object from \code{\link[=sample_regression_posterior]{sample_regression_posterior()}}.}
 
-\item{level}{Equal-tail probability level.}
+\item{parm}{\code{"all"} (summary default), \code{"coefficients"} (interval default),
+\code{"variance"}, or \code{"latent"}.}
 
-\item{parm}{\code{"coefficients"}, \code{"variance"}, or \code{"latent"}.}
+\item{level}{Equal-tail probability level.}
 
 \item{...}{Unused arguments are rejected.}
 }
 \value{
-\code{summary()} and \code{confint()} return parameter tables. \code{coef()} returns
+\code{summary()} returns a \code{summary.imr} object with a parameters table;
+\code{confint()} returns the interval table. \code{coef()} returns
 named coefficient means by subgroup; \code{print()} returns its input invisibly.
 }
 \description{
@@ -51,8 +48,8 @@ fit <- imr(list(assay = x), y,
   mcmc = imr_mcmc(draws = 1000, burnin = 1000, chains = 2, seed = 1)
 )
 posterior <- sample_regression_posterior(fit,
-  output_draws = 1000, burnin = 1000,
-  min_draws_per_model_chain = 1000, seed = 2
+  output_draws = 1000,
+  mcmc = imr_mcmc(draws = 1000, burnin = 1000, chains = 2, seed = 2)
 )
 summary(posterior)
 coef(posterior)

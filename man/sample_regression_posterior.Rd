@@ -7,29 +7,23 @@
 sample_regression_posterior(
   object,
   output_draws = 1000L,
-  burnin = 1000L,
-  chains = 2L,
-  min_draws_per_model_chain = 200L,
-  seed = 1L,
-  latent = FALSE
+  mcmc = imr_mcmc(draws = 200L, burnin = 1000L, chains = 2L, seed = 1L, initial = NULL)
 )
 }
 \arguments{
-\item{object}{An \code{imr_selection} fit. The other three marginalization choices
-already store regression posterior draws, available with \code{\link[=posterior_draws]{posterior_draws()}}.}
+\item{object}{An \code{imr_selection} fit. Other samplers already store regression draws.}
 
-\item{output_draws}{Number of returned mixture rows.}
+\item{output_draws}{Number of mixture rows to return.}
 
-\item{burnin}{Discarded iterations of each conditional chain.}
-
-\item{chains}{Conditional chains per subgroup selection model, at least two.}
-
-\item{min_draws_per_model_chain}{Minimum retained length of each conditional
-chain; frequent models receive additional draws when needed for output.}
-
-\item{seed}{Seed for the conditional computation; the caller's RNG is restored.}
-
-\item{latent}{Retain augmented binary/censored responses paired with coefficients.}
+\item{mcmc}{Settings from \code{\link[=imr_mcmc]{imr_mcmc()}}. \code{draws} is the minimum retained budget
+per fixed-model chain; frequent models receive more draws when needed.
+\code{keep_latent}, \code{thin}, \code{seed}, \code{chains} and memory limits use the same
+conventions as fitting. NULL or dispersed initialization uses alternating
+coefficient signs within each fixed model. Model-selection proposal settings
+do not apply. Conditional updates preserve their serial RNG sequence;
+\code{workers} parallelizes sufficiently large diagnostic blocks. With
+diagnostics = FALSE, conditional-chain diagnostics are not retained and
+cannot be reconstructed from the mixture rows.}
 }
 \value{
 An \code{imr_posterior} object with coefficient, variance and optional latent
@@ -64,8 +58,8 @@ fit <- imr(list(assay = x), y,
   mcmc = imr_mcmc(draws = 1000, burnin = 1000, chains = 2, seed = 1)
 )
 posterior <- sample_regression_posterior(fit,
-  output_draws = 1000, burnin = 1000,
-  min_draws_per_model_chain = 1000, seed = 2
+  output_draws = 1000,
+  mcmc = imr_mcmc(draws = 1000, burnin = 1000, chains = 2, seed = 2)
 )
 summary(posterior)
 coef(posterior)

@@ -8,7 +8,7 @@ extern SEXP imr_marginal_sample(SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP imr_collapsed_sample(
     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
     SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP,
-    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+    SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP imr_concordance(SEXP, SEXP, SEXP);
 extern SEXP imr_pmom_standardized_draw(SEXP, SEXP, SEXP);
 extern SEXP imr_predict_selection(
@@ -20,7 +20,7 @@ extern SEXP imr_predict_selection(
 static const R_CallMethodDef CallEntries[] = {
     {"imr_joint_sample", (DL_FUNC) &imr_joint_sample, 4},
     {"imr_marginal_sample", (DL_FUNC) &imr_marginal_sample, 5},
-    {"imr_collapsed_sample", (DL_FUNC) &imr_collapsed_sample, 26},
+    {"imr_collapsed_sample", (DL_FUNC) &imr_collapsed_sample, 25},
     {"imr_concordance", (DL_FUNC) &imr_concordance, 3},
     {"imr_pmom_standardized_draw", (DL_FUNC) &imr_pmom_standardized_draw, 3},
     {"imr_predict_selection", (DL_FUNC) &imr_predict_selection, 28},

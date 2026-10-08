@@ -8,8 +8,8 @@ fit <- imr(list(assay = x), y,
   mcmc = imr_mcmc(draws = 1000, burnin = 1000, chains = 2, seed = 1)
 )
 posterior <- sample_regression_posterior(fit,
-  output_draws = 1000, burnin = 1000,
-  min_draws_per_model_chain = 1000, seed = 2
+  output_draws = 1000,
+  mcmc = imr_mcmc(draws = 1000, burnin = 1000, chains = 2, seed = 2)
 )
 summary(posterior)
 coef(posterior)

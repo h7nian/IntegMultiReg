@@ -27,14 +27,14 @@ test_that("the four targets expose the parameter draws they actually store", {
       expect_null(fit$posterior$coefficients)
       expect_null(fit$posterior$variance)
       expect_error(coef(fit), "no stored regression coefficients")
-      expect_identical(posterior_draws(fit), posterior_draws(fit, "selection"))
+      expect_identical(posterior_draws(fit)$selection, posterior_draws(fit, "selection"))
       expect_error(cv_imr(fit, cv_method = "reweight"), "requires stored regression")
     } else {
       expect_true(all(is.finite(unlist(coef(fit)))))
       expect_true(nrow(confint(fit)) > 0)
       expect_identical(
         inclusion_probabilities(fit)[[1]][1, 1],
-        mean(posterior_draws(fit)[[1]][, , 2] != 0)
+        mean(posterior_draws(fit, "coefficients")[[1]][, , 2] != 0)
       )
     }
   }
@@ -77,11 +77,11 @@ test_that("unsupported integration sizes and irrelevant proposal overrides fail 
   expect_error(imr(d$platforms, d$outcome,
     outcome_type = "continuous",
     mcmc = imr_mcmc(variance_step = .2)
-  ), "only when coefficients")
+  ), "not applicable")
   expect_error(imr(d$platforms, d$outcome,
     outcome_type = "continuous",
     marginalize = "coefficients_and_variance", mcmc = imr_mcmc(theta_step = .8)
-  ), "retains its proposal")
+  ), "not applicable")
 })
 
 test_that("conditional regression retains source selection states and separate diagnostics", {
@@ -101,7 +101,8 @@ test_that("conditional regression retains source selection states and separate d
   messages <- character()
   posterior <- withCallingHandlers(
     sample_regression_posterior(fit,
-      output_draws = 60, burnin = 40, min_draws_per_model_chain = 40, seed = 19
+      output_draws = 60,
+      mcmc = imr_mcmc(draws = 40, burnin = 40, chains = 2, seed = 19)
     ),
     warning = function(w) {
       messages <<- c(messages, conditionMessage(w))
@@ -114,7 +115,7 @@ test_that("conditional regression retains source selection states and separate d
   source <- fit$posterior$selection[[1]][posterior$selection_draw_index, 1, 1]
   expect_identical(as.integer(posterior$coefficients[[1]][, 2] != 0), as.integer(source))
   expect_true(all(c("selection_model", "draws_per_model_chain", "rhat", "ess_bulk") %in% names(mcmc_diagnostics(posterior))))
-  expect_identical(dimnames(posterior_draws(posterior)[[1]])[[2]], "mixture")
+  expect_identical(dimnames(posterior_draws(posterior, "coefficients")[[1]])[[2]], "mixture")
   expect_true(all(is.finite(unlist(coef(posterior)))))
   expect_true(nrow(confint(posterior)) > 0)
   expect_true(all(is.finite(predict(posterior, d$platforms)[[1]]$prediction)))

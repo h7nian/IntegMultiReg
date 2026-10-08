@@ -18,7 +18,6 @@ typedef struct {
 } imr_laplace_diagnostics;
 
 typedef struct {
-    int historical_prior_index;
     int initial_max_iter;
     int selection_max_iter;
     int latent_max_iter;

@@ -20,7 +20,8 @@ Used when both coefficients and residual variance are marginalized.}
 \item{max_integration_nodes}{Maximum nodes for polynomial-exact Gaussian
 integration when only coefficients are marginalized. Its cost grows rapidly
 with the number of candidate coefficients, including forced terms. An
-unsupported size is rejected before sampling; no model states are dropped.}
+unsupported size is rejected before sampling; no model states are dropped.
+Non-default settings for a different algorithm are rejected at fitting.}
 }
 \value{
 An \code{imr_control} specification for \code{\link[=imr]{imr()}}.

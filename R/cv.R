@@ -1,4 +1,4 @@
-#' Cross-Validate a Joint IMR Model
+#' Cross-Validate an IMR Model
 #'
 #' The default refits the complete model within each training fold, including
 #' preprocessing and formula transformations. Reweighting uses Pareto-smoothed

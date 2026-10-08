@@ -24,7 +24,7 @@ void initialize_sampler_state(int outcome_type, double **Y, double ***newCC, dou
                  _Bool ***gamma, int n_platforms, int *G, int n_subgroups,
                  int **platform_models_c, int *n_platform_models_c,
                  int **model_platforms_c, int *n_model_platforms_c, int *sample_size_ptr,
-                 double *log_likelihood, double *logdet, double *scal,
+                 double *log_likelihood,
                  double *h, double h1, double h0, double hg, double alpha, double psi, int K, const imr_numerical_control *numerical)
 {
 
@@ -89,7 +89,7 @@ void initialize_sampler_state(int outcome_type, double **Y, double ***newCC, dou
     double stop = numerical->tolerance;
     int rr = 1;
     int k = 1 + K + total_selected_features;
-    double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG, numerical);
+    double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG);
     double *precision_copy = imr_copy_symmetric_matrix(precision, k);
     gsl_matrix_view m11 = gsl_matrix_view_array(precision, k, k);
     if (gsl_linalg_cholesky_decomp(&m11.matrix) != 0)

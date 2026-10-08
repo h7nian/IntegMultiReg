@@ -59,5 +59,5 @@ test_that("available-platform routing uses names and stored training transforms"
   expect_s3_class(named, "imr_predictions")
   expect_output(print(named), "metabolomic")
   expect_error(predict(f, one, platform_names = "unknown", covariates = simIMR$covariates), "platform")
-  expect_error(predict(f, one, max_models = 3), "Unused")
+  expect_error(predict(f, one, max_models = 3), "only to a Laplace")
 })

@@ -43,7 +43,8 @@ a list of explicitly named starting states, one per chain. \code{NULL} selects
 the original initialization for a Laplace fit and dispersed starts for
 the other samplers.}
 
-\item{theta_step}{Standard deviation of the log-interaction proposal.}
+\item{theta_step}{Standard deviation of the log-interaction proposal.
+Applies to IMR interactions; BMS fixes those interactions at zero.}
 
 \item{swap_rate}{Whole-feature pair proposal rate. Each update attempts
 \code{ceiling(swap_rate * number_of_platform_features)} exchanges per platform;
@@ -54,7 +55,9 @@ fitting. These can also be computed later by \code{\link[=mcmc_diagnostics]{mcmc
 
 \item{max_draw_memory_mb}{Limit on estimated retained-array size in MiB.
 This is not a limit on total process memory; fitting/combining draws needs
-additional workspace. Increase explicitly for large stored posteriors.}
+additional workspace. Increase explicitly for large stored posteriors.
+Non-default settings that do not apply to the chosen computation are
+rejected. Fits record active settings in \code{control$effective}.}
 
 \item{variance_step}{Standard deviation of the log-variance proposal when
 coefficients are marginalized. \code{NULL} uses a subgroup-specific value

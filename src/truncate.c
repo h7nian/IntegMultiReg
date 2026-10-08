@@ -23,13 +23,11 @@
  * each censored time and its initial latent value lie below this bound.
  */
 void sample_censored_latent_response(int model, int n_platforms, int *selected_platforms, int n_selected_platforms, int *n_features, int sample_size,
-                  double *latent_y, double *observed_y, double **covariates, double ***features, _Bool ***gamma, double *quadratic_form, double *log_likelihood,
-                  int n_censored, int *censored_index, double logdet, gsl_rng *rng, int *n_platform_models, int **platform_models,
+                  double *latent_y, double *observed_y, double **covariates, double ***features, _Bool ***gamma, double *log_likelihood,
+                  int n_censored, int *censored_index, gsl_rng *rng, int *n_platform_models, int **platform_models,
                   double *accept_y, double slab_scale, double covariate_scale, double intercept_scale, double first_platform_scale, int n_covariates, double alpha, double psi, const imr_numerical_control *numerical)
 {
   (void)n_platforms;
-  (void)quadratic_form;
-  (void)logdet;
 
   int *selected_feature_index[n_selected_platforms];
   int n_selected_features[n_selected_platforms];
@@ -60,7 +58,7 @@ void sample_censored_latent_response(int model, int n_platforms, int *selected_p
     int max_iter = numerical->latent_max_iter;
     double tolerance = numerical->tolerance;
     int moment_order = 1;
-    double *precision = build_posterior_precision(k_val, n_covariates, n_selected_features[0], n_subjects, slab_scale, covariate_scale, intercept_scale, first_platform_scale, design, numerical);
+    double *precision = build_posterior_precision(k_val, n_covariates, n_selected_features[0], n_subjects, slab_scale, covariate_scale, intercept_scale, first_platform_scale, design);
     double *precision_copy = imr_copy_symmetric_matrix(precision, k_val);
     gsl_matrix_view m = gsl_matrix_view_array(precision, k_val, k_val);
     if (gsl_linalg_cholesky_decomp(&m.matrix) != 0)

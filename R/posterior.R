@@ -3,7 +3,12 @@
 .imr_parameter_blocks <- function(object, parm = "all") {
   families <- c("coefficients", "variance", "selection", "interaction", "latent")
   if (identical(parm, "all")) {
-    parm <- if (is.null(object$posterior$coefficients)) setdiff(families, c("coefficients", "variance")) else families
+    parm <- if (isTRUE(object$control$conditional_regression)) {
+      c("coefficients", "variance", "latent")
+    } else if (is.null(object$posterior$coefficients)) setdiff(families, c("coefficients", "variance")) else families
+  }
+  if (isTRUE(object$control$conditional_regression) && any(parm %in% c("selection", "interaction"))) {
+    .imr_abort("Use the originating fit for selection and interaction draws.")
   }
   if (is.null(object$posterior$coefficients) && any(parm %in% c("coefficients", "variance"))) {
     .imr_abort("This fit stores selection and interaction draws. Regression parameter draws require conditional posterior sampling or a different marginalization choice.")
@@ -74,8 +79,9 @@
 #' no sampling and does not alter the random-number state.
 #' @param object An `imr` fit or an `imr_posterior` conditional-regression object.
 #' @param parm `"coefficients"`, `"variance"`, `"selection"`, `"interaction"`,
-#'   `"latent"` or `"all"`. The default is regression coefficients, or
-#'   selection for a Laplace fit without regression draws.
+#'   `"latent"` or `"all"` (default). The default returns the same five named
+#'   families for every sampler; unavailable families are `NULL`. Explicitly
+#'   requesting an unavailable family gives an error.
 #' @return Named arrays with dimensions iteration by chain by parameter,
 #'   grouped by availability subgroup or platform. `parm = "all"` returns a
 #'   list of these families. Selection indicators are derived as `beta != 0` when regression draws
@@ -93,9 +99,9 @@
 #'     seed = 1, diagnostics = FALSE
 #'   )
 #' )
-#' dim(posterior_draws(fit)[[1]])
+#' dim(posterior_draws(fit)$coefficients[[1]])
 #' @export
-posterior_draws <- function(object, parm = "coefficients") {
+posterior_draws <- function(object, parm = "all") {
   conditional <- inherits(object, "imr_posterior")
   if (conditional) {
     .imr_check_regression_posterior(object)
@@ -103,16 +109,11 @@ posterior_draws <- function(object, parm = "coefficients") {
   } else {
     .imr_check_fit(object)
   }
-  if (missing(parm) && is.null(object$posterior$coefficients)) parm <- "selection"
   parm <- match.arg(parm, c("coefficients", "variance", "selection", "interaction", "latent", "all"))
   if (parm == "latent" && (is.null(object$posterior$latent) || object$control$outcome_type == "continuous")) {
     .imr_abort("This fit has no stored augmented responses; fit binary/censored data with `imr_mcmc(keep_latent = TRUE)`.")
   }
-  requested <- if (conditional && parm == "all") c("coefficients", "variance", "latent") else parm
-  if (conditional && any(requested %in% c("selection", "interaction"))) {
-    .imr_abort("Use the originating fit for selection and interaction draws.")
-  }
-  blocks <- .imr_parameter_blocks(object, requested)
+  blocks <- .imr_parameter_blocks(object, parm)
   by_family <- split(blocks, vapply(blocks, `[[`, "", "family"))
   result <- lapply(by_family, function(x) {
     stats::setNames(
@@ -120,7 +121,13 @@ posterior_draws <- function(object, parm = "coefficients") {
       vapply(x, `[[`, "", "group")
     )
   })
-  if (parm == "all") result else result[[parm]]
+  if (parm != "all") {
+    return(result[[parm]])
+  }
+  families <- c("coefficients", "variance", "selection", "interaction", "latent")
+  output <- stats::setNames(vector("list", length(families)), families)
+  output[names(result)] <- result
+  output
 }
 
 # Empirical inverse CDF, with the same floating-point boundary tolerance for

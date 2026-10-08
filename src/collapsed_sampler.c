@@ -93,7 +93,7 @@ SEXP imr_collapsed_sample(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP a
                   SEXP sample_size, SEXP n_features_R, SEXP n_covariates_R,
                   SEXP X1_filtered, SEXP newYY_list, SEXP type_outcome,
                   SEXP newCC_list,
-                  SEXP draws_R, SEXP burnin_R, SEXP selection_update_R, SEXP numerical_R, SEXP initial_R, SEXP storage_R)
+                  SEXP draws_R, SEXP burnin_R, SEXP numerical_R, SEXP initial_R, SEXP storage_R)
 {
     if (TYPEOF(storage_R) != INTSXP || XLENGTH(storage_R) != 2 ||
         INTEGER(storage_R)[0] < 1 || INTEGER(storage_R)[0] == NA_INTEGER ||
@@ -108,11 +108,6 @@ SEXP imr_collapsed_sample(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP a
         Rf_error("Invalid collapsed sampler iteration budget");
     const int n_updates = n_draws * thin;
     imr_numerical_control numerical = imr_read_numerical_control(numerical_R);
-    if (!isInteger(selection_update_R) || XLENGTH(selection_update_R) != 1 ||
-        INTEGER(selection_update_R)[0] < IMR_UPDATE_UNADJUSTED ||
-        INTEGER(selection_update_R)[0] > IMR_UPDATE_MRF_HASTINGS)
-        Rf_error("Invalid sampler method");
-    int selection_update = INTEGER(selection_update_R)[0];
     /* Reject unsupported censored working times before allocating workspaces.
      * Observed events are not subject to the latent-proposal upper bound. */
     if (asInteger(type_outcome) == IMR_OUTCOME_SURVIVAL) {
@@ -334,7 +329,6 @@ SEXP imr_collapsed_sample(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP a
 
     double ***newCC_ptrs = r_list_matrix_to_c(n_subgroups, newCC_list);
     newCC = newCC_ptrs;
-    const char likelihood_type[] = "NonLocal";
 
     double *h = malloc(n_subgroups * sizeof(double));
     for (int i = 0; i < n_subgroups; i++)
@@ -487,7 +481,7 @@ SEXP imr_collapsed_sample(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP a
     }
 
     GetRNGstate();
-    double log_likelihood[n_subgroups], logdet[n_subgroups], scal[n_subgroups];
+    double log_likelihood[n_subgroups];
     Rprintf("\n");
 
     initialize_sampler_state(outcome_type, ylatent, newCC, X1,
@@ -495,7 +489,7 @@ SEXP imr_collapsed_sample(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP a
                 platform_models_c, n_platform_models_c,
                 model_platforms_c,
                 n_model_platforms_c, sample_size_ptr,
-                log_likelihood, logdet, scal, h, h1, h0, hg, alpha, psi, K, &numerical);
+                log_likelihood, h, h1, h0, hg, alpha, psi, K, &numerical);
 
     double *mrf = calloc(n_platforms, sizeof(double));
     for (int l = 0; l < n_platforms; l++)
@@ -562,13 +556,13 @@ SEXP imr_collapsed_sample(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP a
         {
             laplace_diagnostics.subgroup = m;
              sample_gamma_indicators(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
-                        ylatent[m], newCC[m], X1[m], gamma, &log_likelihood[m], &logdet[m], &scal[m], nu, theta,
-                        n_platform_models_c, platform_models_c, accept_gamma, r, likelihood_type, h[m], h1, h0, hg, K, alpha, psi, selection_update, &numerical);
+                        ylatent[m], newCC[m], X1[m], gamma, &log_likelihood[m], nu, theta,
+                        n_platform_models_c, platform_models_c, accept_gamma, r, h[m], h1, h0, hg, K, alpha, psi, &numerical);
             if ((outcome_type == IMR_OUTCOME_SURVIVAL) && (n_censored[m] > 0))
             {
                 sample_censored_latent_response(m, n_platforms, model_platforms_c[m], n_model_platforms_c[m], G, sample_size_ptr[m],
-                             ylatent[m], yobs[m], newCC[m], X1[m], gamma, &scal[m], &log_likelihood[m],
-                             n_censored[m], censored_index[m], logdet[m], r, n_platform_models_c, platform_models_c,
+                             ylatent[m], yobs[m], newCC[m], X1[m], gamma, &log_likelihood[m],
+                             n_censored[m], censored_index[m], r, n_platform_models_c, platform_models_c,
                              accept_y[m], h[m], h1, h0, hg, K, alpha, psi, &numerical);
                 if (save)
                 {
@@ -634,8 +628,8 @@ SEXP imr_collapsed_sample(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP a
             }
         }
 
-        double current_log_posterior = log_posterior(log_likelihood, gamma, nu, theta, mrf, alpha0, betaTh, n_subgroups,
-                              n_platforms, G, n_platform_models_c, selection_update);
+        double current_log_posterior = imr_model_log_score(log_likelihood, gamma, nu, theta, mrf, alpha0, betaTh, n_subgroups,
+                              n_platforms, G, n_platform_models_c, IMR_POSTERIOR_SCORE);
         if (s < n_burnin) log_posterior_sample[s] = current_log_posterior;
         else if (save) log_posterior_sample[n_burnin + saved_row] = current_log_posterior;
         if (save && keep_latent && outcome_type != IMR_OUTCOME_CONTINUOUS) {
@@ -831,6 +825,36 @@ SEXP imr_collapsed_sample(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP a
     SET_STRING_ELT(listNames, 7, mkChar("laplace_diagnostics"));
     if (keep_latent) SET_STRING_ELT(listNames, 8, mkChar("latent_sample"));
     setAttrib(list, R_NamesSymbol, listNames);
+
+    /* Export existing counters without changing proposals or RNG consumption. */
+    SEXP acceptance_R = PROTECT(allocVector(REALSXP, 6));
+    protect_count++;
+    SEXP acceptance_names_R = PROTECT(allocVector(STRSXP, 6));
+    protect_count++;
+    const char *acceptance_names[] = {"selection_proposals", "selection_accepts",
+        "interaction_proposals", "interaction_accepts", "latent_proposals", "latent_accepts"};
+    for (int i = 0; i < 6; ++i) {
+        REAL(acceptance_R)[i] = 0;
+        SET_STRING_ELT(acceptance_names_R, i, mkChar(acceptance_names[i]));
+    }
+    double iterations = (double)n_burnin + n_updates;
+    for (int l = 0; l < n_platforms; ++l) {
+        REAL(acceptance_R)[0] += iterations * n_platform_models_c[l];
+        for (int i = 0; i < n_platform_models_c[l]; ++i) {
+            REAL(acceptance_R)[1] += accept_gamma[l][i];
+            if (strcmp(model_method, "BMS") != 0) for (int j = 0; j < i; ++j) {
+                REAL(acceptance_R)[2] += iterations;
+                REAL(acceptance_R)[3] += accept_theta[l][i][j];
+            }
+        }
+    }
+    if (accept_y != NULL) for (int m = 0; m < n_subgroups; ++m) {
+        REAL(acceptance_R)[4] += iterations *
+            (outcome_type == IMR_OUTCOME_BINARY ? sample_size_ptr[m] : n_censored[m]);
+        for (int i = 0; i < sample_size_ptr[m]; ++i) REAL(acceptance_R)[5] += accept_y[m][i];
+    }
+    setAttrib(acceptance_R, R_NamesSymbol, acceptance_names_R);
+    setAttrib(list, install("acceptance"), acceptance_R);
 
     /// We free memories ...
     for (int s = 0; s < n_draws; s++)

@@ -173,7 +173,7 @@ described in the [joint computation guide](joint-posterior.html).
 # Extract samples and assess exploration
 
 ```{r draws}
-beta <- posterior_draws(fit)
+beta <- posterior_draws(fit, "coefficients")
 dim(beta[[1]])  # retained iteration, chain, coefficient
 summary(fit, parm = "variance")
 plot(fit, type = "coefficient_trace")

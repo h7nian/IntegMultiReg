@@ -86,7 +86,7 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
                           double alpha, double psi, int *G, int n_subgroups, int n_platforms,
                           int *n_platform_models_c, int *n_model_platforms_c, int **model_platforms_c,
                           int **platform_models_c, int *sample_size_ptr, int K,
-                          double ***betaTh, const char *likelihood_type, double *post, int *model_index,
+                          double ***betaTh, double *post, int *model_index,
                           int *high_model_index, int *n_unique_models_out, int max_models, const imr_numerical_control *numerical)
 
 {
@@ -160,38 +160,13 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
 	        total_selected_features += n_selected_features[ll];
       }
 
-      int s;
 
-      if (strcmp(likelihood_type, "Local") == 0)
-      {
-        double a;
-        double *Sigma = malloc((size_t) N * N * sizeof(double));
-        if (!Sigma) Rf_error("malloc failed for Sigma");
-        for (int i = 0; i < N; i++)
-        {
-          for (int j = 0; j <= i; j++)
-          {
-            a = 0;
-            for (s = 0; s < total_selected_features; s++)
-            {
-              a += PG[i][s] * PG[j][s];
-            }
-            Sigma[i * N + j] = Sigma[j * N + i] = h0 + h[m] * a;
-          }
-          Sigma[i * N + i] += 1;
-        }
-        double logdet = 0;
-        double scal = cholesky_quadratic_form(N, Sigma, y[m], &logdet);
-        loglik[m] = -(N / 2.0) * log(IMR_PI * 2 * alpha) + gsl_sf_lngamma(N / 2.0 + alpha) - gsl_sf_lngamma(alpha) - 0.5 * logdet - ((N / 2.0) + alpha) * log(1 + scal / (2 * psi));
-        free(Sigma);
-      }
-      else
       {
         int maxiter = numerical->prediction_max_iter;
         double stop = numerical->tolerance;
         int rr = 1;
         int k = 1 + K + total_selected_features;
-        double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG, numerical);
+        double *precision = build_posterior_precision(k, K, n_selected_features[0], N, h[m], h1, h0, hg, PG);
         double *precision_copy = imr_copy_symmetric_matrix(precision, k);
         gsl_matrix_view m11 = gsl_matrix_view_array(precision, k, k);
         gsl_linalg_cholesky_decomp(&m11.matrix);
@@ -211,8 +186,8 @@ double ***infer_posterior_models(double **y, double ***C, double ****X, int n_dr
     }
     /* Theta is fixed across ranked states. Its prior contributes a common
      * constant, so retain historical arithmetic here for both samplers. */
-    post[l] = log_posterior(loglik, gamma_sample[n_draws - 1 - l1], nu, theta, mrf, alpha0, betaTh, n_subgroups,
-                      n_platforms, G, n_platform_models_c, IMR_UPDATE_UNADJUSTED);
+    post[l] = imr_model_log_score(loglik, gamma_sample[n_draws - 1 - l1], nu, theta, mrf, alpha0, betaTh, n_subgroups,
+                      n_platforms, G, n_platform_models_c, IMR_RANKING_SCORE);
   } // end number of models l=0
 
   sort_descending_index(n_unique_models, post, high_model_index);

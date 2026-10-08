@@ -1,4 +1,4 @@
-.imr_conditional_diagnostics <- function(samples, fit, subgroup, model, output_draws) {
+.imr_conditional_diagnostics <- function(samples, fit, subgroup, model, output_draws, workers = 1L) {
   rows <- nrow(samples[[1L]])
   parameters <- ncol(samples[[1L]]) - 1L
   array_for <- function(matrices, labels) {
@@ -29,7 +29,7 @@
     }
     blocks[[3L]] <- list(family = "latent", group = fit$model$subgroup_names[subgroup], draws = latent, observed = observed)
   }
-  result <- do.call(rbind, lapply(blocks, .imr_diagnostic_block))
+  result <- .imr_diagnose_blocks(blocks, workers)
   result$selection_model <- model
   result$output_draws <- output_draws
   result$draws_per_model_chain <- rows
@@ -85,6 +85,7 @@
     dimnames = list(NULL, "mixture", fit$model$subgroup_names)
   )
   control <- fit$control
+  control$conditional_regression <- TRUE
   control$mcmc$draws <- n
   control$mcmc$chains <- 1L
   list(
@@ -109,10 +110,12 @@
 #' exclusion zeros. Conditional-chain diagnostics are available separately with
 #' [mcmc_diagnostics()]; mixture output rows are not additional MCMC chains.
 #' @param object,x An `imr_posterior` object from [sample_regression_posterior()].
-#' @param parm `"coefficients"`, `"variance"`, or `"latent"`.
+#' @param parm `"all"` (summary default), `"coefficients"` (interval default),
+#'   `"variance"`, or `"latent"`.
 #' @param level Equal-tail probability level.
 #' @param ... Unused arguments are rejected.
-#' @return `summary()` and `confint()` return parameter tables. `coef()` returns
+#' @return `summary()` returns a `summary.imr` object with a parameters table;
+#'   `confint()` returns the interval table. `coef()` returns
 #'   named coefficient means by subgroup; `print()` returns its input invisibly.
 #' @example inst/examples/conditional-posterior.R
 #' @name imr_posterior_methods
@@ -120,19 +123,21 @@ NULL
 
 #' @rdname imr_posterior_methods
 #' @export
-summary.imr_posterior <- function(object, level = .95, parm = c("coefficients", "variance", "latent"), ...) {
+summary.imr_posterior <- function(object, parm = "all", level = .95, ...) {
   .imr_reject_dots(...)
   .imr_check_regression_posterior(object)
   level <- .imr_check_level(level)
-  parm <- match.arg(parm)
+  parm <- match.arg(parm, c("all", "coefficients", "variance", "latent"))
   if (parm == "latent" && is.null(object$latent)) .imr_abort("No conditional latent draws were retained.")
-  .imr_posterior_tables(.imr_conditional_view(object), parm, level, include_diagnostics = FALSE)
+  .imr_summary(.imr_conditional_view(object), parm, level, conditional = TRUE)
 }
 
 #' @rdname imr_posterior_methods
 #' @export
 confint.imr_posterior <- function(object, parm = "coefficients", level = .95, ...) {
-  summary(object, level = level, parm = parm, ...)
+  .imr_reject_dots(...)
+  .imr_check_regression_posterior(object)
+  .imr_intervals(.imr_conditional_view(object), parm, .imr_check_level(level))
 }
 
 #' @rdname imr_posterior_methods
@@ -150,38 +155,7 @@ print.imr_posterior <- function(x, ...) {
   .imr_check_regression_posterior(x)
   cat("Conditional regression posterior:", x$control$output_draws, "mixture draws\n")
   cat(x$approximation, "\n")
-  .imr_print_diagnostics(x$diagnostics)
+  if (is.null(x$diagnostics)) cat("Conditional diagnostics were not computed.\n") else .imr_print_diagnostics(x$diagnostics)
   cat("Diagnostics refer to fixed-model conditional chains; inspect the source fit separately.\n")
   invisible(x)
-}
-
-#' Predict from Conditional Regression Posterior Draws
-#'
-#' Uses stored conditional coefficient and variance draws with the predictive
-#' quantities and scaling described in [predict.imr()]. It retains the model
-#' weighting approximation documented in [sample_regression_posterior()].
-#' @param object An `imr_posterior` object.
-#' @param newdata,platform_names,covariates,quantity,type,interval,level,seed
-#'   Prediction inputs and quantities as in [predict.imr()]. Intervals are
-#'   included by default for this uncertainty object.
-#' @param ... Unused arguments are rejected.
-#' @return An `imr_predictions` list of predictions and optional intervals.
-#' @example inst/examples/conditional-posterior.R
-#' @export
-predict.imr_posterior <- function(object, newdata, platform_names = NULL, covariates = NULL,
-                                  quantity = c("conditional_mean", "new_observation"),
-                                  type = c("response", "link"), interval = TRUE,
-                                  level = .95, seed = 1L, ...) {
-  .imr_reject_dots(...)
-  .imr_check_regression_posterior(object)
-  quantity <- match.arg(quantity)
-  type <- match.arg(type)
-  .imr_check_flag(interval, "interval")
-  level <- .imr_check_level(level)
-  seed <- .imr_check_integer_scalar(seed, "seed", min = 0)
-  inputs <- .imr_prediction_inputs(object$fit, newdata, platform_names, covariates)
-  saved <- .imr_save_rng()
-  on.exit(.imr_restore_rng(saved), add = TRUE)
-  if (quantity == "new_observation") set.seed(seed)
-  .imr_predict_joint(.imr_conditional_view(object), inputs, quantity, type, interval, level)
 }

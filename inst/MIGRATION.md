@@ -94,3 +94,47 @@ names include `model_variant = "imr"/"bms"`, `inclusion_probabilities()`,
 `legacy`, `original`, `corrected` and precision/scoring selectors belong to
 their archived versions. Current fitting uses the symmetric MRF, the boundary
 Hastings correction where required, and coefficient-role prior indexing.
+
+
+## Consistent extraction, prediction and conditional controls
+
+`posterior_draws(fit)` now returns the same named family list for every sampler:
+coefficients, variance, selection, interaction and latent. Unavailable families
+are `NULL`. Previously the default selected coefficients for some fits and
+selection indicators for others. Specify `parm = "coefficients"` or another
+family when the caller needs its arrays directly.
+
+Prediction methods share the same formals and default to `type = "response"`
+and `interval = FALSE`. The `prediction` attribute records the calculation,
+quantity, scale and summary. Laplace selection fits provide `model_average`
+point predictions. For log-time survival the default exponentiates the original
+working-scale point; `type = "link"` preserves its old numeric value. Binary
+link predictions average the working predictors, while response predictions
+retain the original weighted probabilities. Obtain conditional regression draws
+before requesting posterior intervals or future observations from a selection
+fit. No additional sampler runs implicitly during prediction.
+
+Conditional sampling now uses the same settings constructor:
+
+```r
+posterior <- sample_regression_posterior(fit, output_draws = 1000,
+  mcmc = imr_mcmc(draws = 200, burnin = 1000, chains = 2,
+    seed = 1, keep_latent = TRUE))
+summary(posterior)$parameters
+predict(posterior, new_data, interval = TRUE)
+```
+
+Move the former `min_draws_per_model_chain` to `mcmc$draws`, and `latent` to
+`mcmc$keep_latent`; `output_draws` retains its mixture-size meaning. Here the
+chain budget is a minimum per fixed model. `thin` changes storage, `workers`
+applies to large diagnostic blocks, and the conditional updates retain their
+serial random-number sequence. Old flat arguments are not aliases.
+Conditional summaries now use the same `summary.imr` container as fitting
+summaries, with `draw_type = "conditional mixture"` and no fictitious chain count.
+
+Non-default settings that do not apply to the selected algorithm now fail at
+fitting. The supplied control objects remain in the fit for replay; the active
+controls are listed separately in `control$effective`. `mcmc_diagnostics(fit,
+type = "sampler")` returns a common table of update methods, proposal counts,
+accepted counts and rates. Inapplicable rates remain `NA`. Laplace counters are
+exported from the original computation without changing its proposals.

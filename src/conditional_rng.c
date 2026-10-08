@@ -2,6 +2,7 @@
 #include <Rinternals.h>
 #include <Rmath.h>
 #include <R_ext/Random.h>
+#include "pmom_proposal.h"
 
 /* Accepted standardized draw for the scalar pMOM kernel. R retains input
  * validation, normalization and the final location/scale transformation. */
@@ -26,11 +27,7 @@ SEXP imr_pmom_standardized_draw(SEXP location_ratio_R, SEXP scale_ratio_R,
     double proposal;
     for (;;) {
         /* Use R's distribution functions, including runif's endpoint rule. */
-        if (runif(0, 1) < mixture_probability) proposal = rnorm(0, 1);
-        else {
-            double sign = runif(0, 1) < 0.5 ? -1 : 1;
-            proposal = sign * sqrt(rchisq(3));
-        }
+        proposal = imr_pmom_proposal(mixture_probability);
         double acceptance_uniform = runif(0, 1);
         /* Match R's separate product/addition rounding, not a fused multiply-add.
          * Keep the original powers and arithmetic order in the acceptance ratio. */

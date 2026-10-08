@@ -221,7 +221,8 @@ change the primary random stream. Log-density traces describe each algorithm's
 own target and are not comparable model-evidence scores.
 
 A Laplace fit stores selection and interaction draws. Its `predict()` method
-keeps the original rescored-state point approximation. Optional
+keeps the original rescored-state point approximation. Predictions use the
+common response-scale default; `type = "link"` retains original log-time values. Optional
 `sample_regression_posterior()` returns conditional regression draws with the
 empirical selection weights. Conditional-chain diagnostics cannot replace the
 source selection-chain diagnostics; short chains do not guarantee exact
@@ -234,3 +235,21 @@ three choices. Comparisons with the retained original algorithm must also allow
 for Laplace approximation error. Optimization of one fixed algorithm has a
 stricter regression criterion: preserve its arithmetic precision, full output
 and random stream under the same build and settings.
+
+
+# Shared inspection and controls
+
+`posterior_draws()` returns a fixed family list, with `NULL` for unavailable
+families. Explicit family requests retain the same meaning across algorithms.
+`summary()` returns a parameters table inside a `summary.imr` object, including
+for conditional regression mixtures. Mixture rows are never labelled MCMC chains.
+
+`predict()` shares its arguments across fitted and conditional objects. The
+result records quantity, calculation method and scale. Laplace model-mode
+predictions and predictions from regression draws remain distinct calculations;
+request conditional sampling explicitly when regression uncertainty is needed.
+
+`mcmc_diagnostics(fit, type = "sampler")` reports the available update counts in
+one format. Gibbs updates and integrated parameters have no MH acceptance rate.
+`fit$control$effective` records the controls used by the chosen algorithm;
+non-default controls for other algorithms are rejected.

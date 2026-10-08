@@ -2,18 +2,20 @@
 % Please edit documentation in R/predict.R
 \name{predict.imr}
 \alias{predict.imr}
-\title{Predict from a Joint IMR Posterior}
+\title{Predict Responses from an IMR Model}
 \usage{
 \method{predict}{imr}(
   object,
   newdata,
   platform_names = NULL,
   covariates = NULL,
-  quantity = c("conditional_mean", "new_observation"),
+  quantity = NULL,
   type = c("response", "link"),
   interval = FALSE,
   level = 0.95,
   seed = 1L,
+  max_models = NULL,
+  verbose = FALSE,
   ...
 )
 }
@@ -29,7 +31,10 @@ Named lists are matched to fitted names when possible.}
 \item{covariates}{Clinical predictors; formula fits require the original
 formula columns so the training transformation can be reused.}
 
-\item{quantity}{\code{"conditional_mean"} or \code{"new_observation"}.}
+\item{quantity}{\code{NULL} selects the available point calculation: conditional_mean
+for regression draws, model_average for a Laplace selection fit. Explicit
+choices are \code{"conditional_mean"}, \code{"new_observation"} and \code{"model_average"}.
+Selection fits require conditional sampling before intervals or observation noise.}
 
 \item{type}{\code{"response"} returns the outcome scale; \code{"link"} returns the
 Gaussian working scale (latent utility for binary data, log time for AFT).}
@@ -40,15 +45,21 @@ Gaussian working scale (latent utility for binary data, log time for AFT).}
 
 \item{seed}{Prediction-noise seed. It does not refit or resample parameters.}
 
+\item{max_models}{Maximum distinct models in a Laplace point approximation;
+\code{NULL} uses 100 there. Other fits reject a non-NULL value.}
+
+\item{verbose}{Report prediction progress.}
+
 \item{...}{Unused arguments are rejected.}
 }
 \value{
 An \code{imr_predictions} list of data frames by availability subgroup,
 each containing \code{id}, \code{prediction} and optional \code{lower}/\code{upper} columns.
+The \code{prediction} attribute records calculation, quantity, scale and summary.
 }
 \description{
-Integrates over the fitted joint coefficient and variance samples, routing
-subjects by their measured platforms and reusing training transformations.
+Uses stored regression draws, or model-mode averaging for a selection fit.
+Subjects are routed by their measured platforms using training transformations.
 \code{quantity = "conditional_mean"} describes the conditional expected response;
 \code{"new_observation"} additionally simulates outcome noise.
 }

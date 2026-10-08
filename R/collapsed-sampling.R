@@ -3,13 +3,10 @@
 # and standard clinical/molecular prior indexing. Historical unadjusted updates
 # are not another posterior sampler offered by the new interface.
 .imr_call_collapsed <- function(model, prep, control, seed, initial = NULL,
-                                verbose = FALSE,
-                                numerical = NULL) {
+                                verbose = FALSE) {
   priors <- control$priors
-  if (is.null(numerical)) {
-    settings <- control$numerical %||% imr_control()
-    numerical <- c(0, settings$laplace_max_iter, settings$laplace_tolerance)
-  }
+  settings <- control$numerical %||% imr_control()
+  numerical <- c(settings$laplace_max_iter, settings$laplace_tolerance)
   .imr_quietly(verbose, .Call(
     "imr_collapsed_sample",
     as.double(priors$forced_scale), as.double(priors$molecular_scale),
@@ -24,7 +21,7 @@
     prep$features, prep$response,
     as.integer(match(control$outcome_type, c("right.censored", "binary", "continuous"))),
     prep$covariates, as.integer(control$mcmc$draws), as.integer(control$mcmc$burnin),
-    1L, as.double(numerical), initial,
+    as.double(numerical), initial,
     as.integer(c(control$mcmc$thin, control$mcmc$keep_latent)),
     PACKAGE = "IntegMultiReg"
   ))

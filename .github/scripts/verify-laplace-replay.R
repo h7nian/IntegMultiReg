@@ -33,7 +33,10 @@ for (outcome in c('continuous', 'binary', 'right.censored')) for (variant in c('
       seed = 37, initial = NULL, diagnostics = FALSE)
   }
   fit <- do.call(imr, arguments)
-  prediction <- predict(fit, platforms, covariates = covariates)
+  prediction <- if (phase == 'baseline') predict(fit, platforms, covariates = covariates) else {
+    predict(fit, platforms, covariates = covariates,
+      type = if (outcome == 'right.censored') 'link' else 'response')
+  }
   if (phase == 'baseline') {
     result <- list(probability = lapply(fit$posterior$inclusion_probabilities, unname),
       selection = unlist(fit$posterior$selection_draws, use.names = FALSE),
@@ -57,7 +60,8 @@ for (outcome in c('continuous', 'binary', 'right.censored')) for (variant in c('
       log_density = unname(as.vector(fit$posterior$log_density)),
       latent_mean = unname(fit$posterior$latent_mean))
     post <- suppressWarnings(sample_regression_posterior(fit, output_draws = 80,
-      burnin = 40, chains = 2, min_draws_per_model_chain = 40, seed = 81, latent = TRUE))
+      mcmc = imr_mcmc(draws = 40, burnin = 40, chains = 2, seed = 81,
+        keep_latent = TRUE, initial = NULL)))
     coefficients <- post$coefficients
   }
   result$prediction <- unname(lapply(prediction, function(x) x$prediction))

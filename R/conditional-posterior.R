@@ -15,41 +15,59 @@
 #' \deqn{\sigma^2\mid\cdots\sim IG\left(a+\frac n2+\frac{3d}{2},
 #' b+\frac12\left[\|z-X\beta\|^2+\sum_j\beta_j^2/\tau_j\right]\right).}{sigma^2 | rest ~ inverse-Gamma(a + n/2 + 3d/2, b + (residual sum of squares + sum_j beta_j^2/tau_j)/2).}
 #'
-#' @param object An `imr_selection` fit. The other three marginalization choices
-#'   already store regression posterior draws, available with [posterior_draws()].
-#' @param output_draws Number of returned mixture rows.
-#' @param burnin Discarded iterations of each conditional chain.
-#' @param chains Conditional chains per subgroup selection model, at least two.
-#' @param min_draws_per_model_chain Minimum retained length of each conditional
-#'   chain; frequent models receive additional draws when needed for output.
-#' @param seed Seed for the conditional computation; the caller's RNG is restored.
-#' @param latent Retain augmented binary/censored responses paired with coefficients.
+#' @param object An `imr_selection` fit. Other samplers already store regression draws.
+#' @param output_draws Number of mixture rows to return.
+#' @param mcmc Settings from [imr_mcmc()]. `draws` is the minimum retained budget
+#'   per fixed-model chain; frequent models receive more draws when needed.
+#'   `keep_latent`, `thin`, `seed`, `chains` and memory limits use the same
+#'   conventions as fitting. NULL or dispersed initialization uses alternating
+#'   coefficient signs within each fixed model. Model-selection proposal settings
+#'   do not apply. Conditional updates preserve their serial RNG sequence;
+#'   `workers` parallelizes sufficiently large diagnostic blocks. With
+#'   diagnostics = FALSE, conditional-chain diagnostics are not retained and
+#'   cannot be reconstructed from the mixture rows.
 #' @return An `imr_posterior` object with coefficient, variance and optional latent
 #'   draws, source selection indices, conditional diagnostics and the originating fit.
 #' @example inst/examples/conditional-posterior.R
 #' @export
-sample_regression_posterior <- function(object, output_draws = 1000L, burnin = 1000L,
-                                        chains = 2L, min_draws_per_model_chain = 200L, seed = 1L,
-                                        latent = FALSE) {
+sample_regression_posterior <- function(object, output_draws = 1000L,
+                                        mcmc = imr_mcmc(
+                                          draws = 200L, burnin = 1000L,
+                                          chains = 2L, seed = 1L, initial = NULL
+                                        )) {
   validate_imr_object(object)
   if (!inherits(object, "imr_selection")) .imr_abort("This fit already contains regression posterior draws; use posterior_draws().")
   output_draws <- .imr_check_integer_scalar(output_draws, "output_draws", min = 2L)
-  burnin <- .imr_check_integer_scalar(burnin, "burnin", min = 0L)
-  chains <- .imr_check_integer_scalar(chains, "chains", min = 2L)
-  min_draws_per_model_chain <- .imr_check_integer_scalar(
-    min_draws_per_model_chain, "min_draws_per_model_chain",
-    min = 4L
+  mcmc <- .imr_validate_specification(mcmc, imr_mcmc, "imr_mcmc")
+  applicable <- c(
+    "draws", "burnin", "chains", "thin", "seed", "workers",
+    "keep_latent", "initial", "diagnostics", "max_draw_memory_mb"
   )
-  seed <- .imr_check_integer_scalar(seed, "seed", min = 0L)
-  .imr_check_flag(latent, "latent")
+  .imr_check_applicable(mcmc, imr_mcmc(), applicable, "conditional regression")
+  if (!is.null(mcmc$initial) && !identical(mcmc$initial, "dispersed")) {
+    .imr_abort("Conditional fixed-model chains use initial = NULL or 'dispersed'; model-selection starts do not apply.")
+  }
+  burnin <- mcmc$burnin
+  chains <- mcmc$chains
+  min_draws_per_model_chain <- mcmc$draws
+  seed <- mcmc$seed
   # For a continuous outcome the response is observed, so there is nothing
   # latent to return.
-  keep_latent <- latent && object$control$outcome_type != "continuous"
+  keep_latent <- mcmc$keep_latent && object$control$outcome_type != "continuous"
   if (object$control$outcome_type == "right.censored" &&
     (length(object$control$response_scale) != 1L ||
       !object$control$response_scale %in% c("log", "identity"))) {
     .imr_abort("Refit this survival model with an explicit `survival_scale`.")
   }
+  parameters <- sum(vapply(seq_along(object$model$subgroup_names), function(g) {
+    ncol(.imr_joint_design(object$model, object$preprocessing, g)) + 1L
+  }, 1L)) + if (keep_latent) sum(object$model$sample_sizes) else 0
+  bytes <- 8 * as.double(output_draws) * parameters
+  if (!is.finite(bytes) || bytes > mcmc$max_draw_memory_mb * 1024^2) {
+    .imr_abort("Conditional mixture arrays exceed `mcmc$max_draw_memory_mb`; reduce output_draws or raise the limit.")
+  }
+  if (is.null(seed)) seed <- sample.int(.Machine$integer.max, 1L)
+  mcmc$seed <- seed
   rng <- .imr_save_rng()
   on.exit(.imr_restore_rng(rng), add = TRUE)
   set.seed(seed)
@@ -86,6 +104,9 @@ sample_regression_posterior <- function(object, output_draws = 1000L, burnin = 1
         rep(priors$molecular_scale, ncol(design) - 1L - length(object$model$covariate_names))
       )[active]
       n <- max(min_draws_per_model_chain, ceiling(length(positions) / chains))
+      if (as.double(burnin) + as.double(n) * mcmc$thin > .Machine$integer.max) {
+        .imr_abort("Conditional chain length exceeds the supported iteration count.")
+      }
       y <- object$preprocessing$response[[g]][, 1L]
       status <- if (object$control$outcome_type == "right.censored") object$preprocessing$response[[g]][, 2L] else NULL
       samples <- lapply(seq_len(chains), function(chain) {
@@ -94,7 +115,7 @@ sample_regression_posterior <- function(object, output_draws = 1000L, burnin = 1
           draws = n, burnin = burnin,
           initial_beta = rep(if (chain %% 2L) -.5 else .5, ncol(X)),
           initial_variance = 1, outcome_type = object$control$outcome_type,
-          status = status, keep_latent = keep_latent
+          status = status, keep_latent = keep_latent, thin = mcmc$thin
         )
       })
       pool <- do.call(rbind, samples)
@@ -107,11 +128,14 @@ sample_regression_posterior <- function(object, output_draws = 1000L, burnin = 1
         pooled_latent <- do.call(rbind, lapply(samples, attr, "latent"))
         augmented[[g]][positions, ] <- pooled_latent[chosen, , drop = FALSE]
       }
-      records[[length(records) + 1L]] <- .imr_conditional_diagnostics(
-        samples, object, g, key, length(positions)
-      )
+      if (mcmc$diagnostics) {
+        records[[length(records) + 1L]] <- .imr_conditional_diagnostics(
+          samples, object, g, key, length(positions),
+          workers = mcmc$workers
+        )
+      }
     }
-    diagnostics[[g]] <- do.call(rbind, records)
+    diagnostics[g] <- list(do.call(rbind, records))
   }
   names(beta) <- names(variance) <- object$model$subgroup_names
   if (keep_latent) names(augmented) <- object$model$subgroup_names
@@ -127,8 +151,13 @@ sample_regression_posterior <- function(object, output_draws = 1000L, burnin = 1
       selection_draw_index = selection_draw_index,
       diagnostics = diagnostics, fit = object,
       control = list(
-        output_draws = output_draws, burnin = burnin, chains = chains,
-        min_draws_per_model_chain = min_draws_per_model_chain, seed = seed
+        output_draws = output_draws, mcmc = mcmc, effective = list(mcmc = mcmc[applicable]),
+        sampler_diagnostics = data.frame(
+          chain = NA_integer_,
+          update = c("coefficients", "variance", "latent"),
+          method = c("gibbs", "gibbs", if (object$control$outcome_type == "continuous") "observed" else "gibbs"),
+          proposed = NA_real_, accepted = NA_real_, rate = NA_real_
+        )
       ),
       approximation = "Empirical selection weights from the Laplace-based fit; conditional pMOM Gibbs draws."
     ),

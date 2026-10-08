@@ -62,7 +62,7 @@
       log_density = utils::tail(raw$log_posterior, control$mcmc$draws),
       selection_mean = raw$gam_mean, interaction_mean = raw$theta_mean,
       latent_mean = raw$estimate_latent_y, laplace_diagnostics = raw$laplace_diagnostics,
-      initial = initial, acceptance = numeric()
+      initial = initial, acceptance = attr(raw, "acceptance")
     ))
   }
   offsets <- c(0L, cumsum(lengths(model$feature_names)))

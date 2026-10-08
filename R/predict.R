@@ -1,7 +1,7 @@
-#' Predict from a Joint IMR Posterior
+#' Predict Responses from an IMR Model
 #'
-#' Integrates over the fitted joint coefficient and variance samples, routing
-#' subjects by their measured platforms and reusing training transformations.
+#' Uses stored regression draws, or model-mode averaging for a selection fit.
+#' Subjects are routed by their measured platforms using training transformations.
 #' `quantity = "conditional_mean"` describes the conditional expected response;
 #' `"new_observation"` additionally simulates outcome noise.
 #'
@@ -26,32 +26,90 @@
 #'   Named lists are matched to fitted names when possible.
 #' @param covariates Clinical predictors; formula fits require the original
 #'   formula columns so the training transformation can be reused.
-#' @param quantity `"conditional_mean"` or `"new_observation"`.
+#' @param quantity `NULL` selects the available point calculation: conditional_mean
+#'   for regression draws, model_average for a Laplace selection fit. Explicit
+#'   choices are `"conditional_mean"`, `"new_observation"` and `"model_average"`.
+#'   Selection fits require conditional sampling before intervals or observation noise.
 #' @param type `"response"` returns the outcome scale; `"link"` returns the
 #'   Gaussian working scale (latent utility for binary data, log time for AFT).
 #' @param interval Include equal-tail intervals in the prediction tables.
 #' @param level Equal-tail probability level.
 #' @param seed Prediction-noise seed. It does not refit or resample parameters.
+#' @param max_models Maximum distinct models in a Laplace point approximation;
+#'   `NULL` uses 100 there. Other fits reject a non-NULL value.
+#' @param verbose Report prediction progress.
 #' @param ... Unused arguments are rejected.
 #' @return An `imr_predictions` list of data frames by availability subgroup,
 #'   each containing `id`, `prediction` and optional `lower`/`upper` columns.
+#'   The `prediction` attribute records calculation, quantity, scale and summary.
 #' @export
 predict.imr <- function(object, newdata, platform_names = NULL, covariates = NULL,
-                        quantity = c("conditional_mean", "new_observation"),
-                        type = c("response", "link"), interval = FALSE,
-                        level = .95, seed = 1L, ...) {
+                        quantity = NULL, type = c("response", "link"), interval = FALSE,
+                        level = .95, seed = 1L, max_models = NULL, verbose = FALSE, ...) {
   .imr_reject_dots(...)
-  .imr_check_fit(object)
-  quantity <- match.arg(quantity)
-  type <- match.arg(type)
+  .imr_predict(
+    object, newdata, platform_names, covariates, quantity, type,
+    interval, level, seed, max_models, verbose
+  )
+}
+
+.imr_predict <- function(object, newdata, platform_names, covariates, quantity,
+                         type, interval, level, seed, max_models, verbose) {
+  conditional <- inherits(object, "imr_posterior")
+  if (conditional) .imr_check_regression_posterior(object) else .imr_check_fit(object)
+  fit <- if (conditional) object$fit else object
+  view <- if (conditional) .imr_conditional_view(object) else object
+  selection <- is.null(view$posterior$coefficients)
+  if (is.null(quantity)) quantity <- if (selection) "model_average" else "conditional_mean"
+  quantity <- match.arg(quantity, c("conditional_mean", "new_observation", "model_average"))
+  type <- match.arg(type, c("response", "link"))
   .imr_check_flag(interval, "interval")
+  .imr_check_flag(verbose, "verbose")
   level <- .imr_check_level(level)
   seed <- .imr_check_integer_scalar(seed, "seed", min = 0)
-  inputs <- .imr_prediction_inputs(object, newdata, platform_names, covariates)
+  if (selection && (quantity != "model_average" || interval)) {
+    .imr_abort("A selection fit provides model_average point predictions. Use sample_regression_posterior() for conditional_mean, new_observation or intervals.")
+  }
+  if (!selection && (!is.null(max_models) || quantity == "model_average")) {
+    .imr_abort("`max_models` and quantity = 'model_average' apply only to a Laplace selection fit.")
+  }
+  if (selection) max_models <- .imr_check_integer_scalar(max_models %||% 100L, "max_models", min = 1)
+  inputs <- .imr_prediction_inputs(fit, newdata, platform_names, covariates)
   saved <- .imr_save_rng()
   on.exit(.imr_restore_rng(saved), add = TRUE)
   if (quantity == "new_observation") set.seed(seed)
-  .imr_predict_joint(object, inputs, quantity, type, interval, level)
+  result <- if (selection) {
+    .imr_predict_selection(fit, inputs, max_models, verbose, type)
+  } else {
+    if (verbose) cat("Predicting from stored regression draws.\n")
+    .imr_predict_joint(view, inputs, quantity, type, interval, level)
+  }
+  log_time <- fit$control$outcome_type == "right.censored" && fit$control$response_scale == "log" && type == "response"
+  if (selection && log_time) {
+    result <- lapply(result, function(x) {
+      x$prediction <- exp(x$prediction)
+      if (any(!is.finite(x$prediction))) .imr_abort("Time-scale prediction overflows; use type = 'link'.")
+      x
+    })
+    result <- .imr_prediction_result(result, fit)
+  }
+  attr(result, "prediction") <- list(
+    method = if (selection) "ranked_model_modes" else if (conditional) "conditional_posterior_draws" else "posterior_draws",
+    quantity = quantity, type = type,
+    scale = if (fit$control$outcome_type == "right.censored") {
+      if (type == "link" && fit$control$response_scale == "log") "log_time" else "time"
+    } else if (fit$control$outcome_type == "binary") {
+      if (type == "link") "latent_utility" else if (quantity == "new_observation") "binary_outcome" else "probability"
+    } else {
+      "response"
+    },
+    summary = if (selection) {
+      if (log_time) "transformed_mode_average" else "mode_average"
+    } else if (log_time) "posterior_median" else "posterior_mean",
+    interval = interval, level = if (interval) level else NULL,
+    max_models = max_models
+  )
+  result
 }
 
 .imr_flat_draws <- function(x) {
@@ -166,6 +224,13 @@ predict.imr <- function(object, newdata, platform_names = NULL, covariates = NUL
 #' @return `x`, invisibly.
 #' @export
 print.imr_predictions <- function(x, row.names = FALSE, ...) {
+  info <- attr(x, "prediction")
+  if (!is.null(info)) {
+    cat(sprintf(
+      "Prediction: %s; %s scale; %s (%s).\n",
+      info$quantity, info$type, info$method, info$summary
+    ))
+  }
   platforms <- attr(x, "platforms")
   for (g in seq_along(x)) {
     cat(sprintf("%s (%s)\n", names(x)[g], paste(platforms[[g]], collapse = " + ")))
@@ -444,3 +509,67 @@ print.imr_predictions <- function(x, row.names = FALSE, ...) {
     subgroup_names = subgroup_names, n_platforms = n_platforms
   )
 }
+
+#' Model-Averaged Predictions from a Laplace Selection Fit
+#'
+#' Preserves the original ranked-model calculation for a fit that marginalizes
+#' both regression coefficients and residual variance. It uses approximate
+#' coefficient modes and rescored distinct selection states, rather than MCMC
+#' visit-frequency weights. This method returns point predictions without
+#' additional posterior sampling.
+#'
+#' @section Prediction rule:
+#' Candidate states are collected from the end of the stored history until
+#' all draws have been inspected or `100 * max_models` distinct states have
+#' been collected. The highest-scoring `max_models` states receive normalized
+#' exponential weights. For transformed predictor row x, prediction averages
+#' \deqn{\sum_m w_m x^T\widehat\beta_m.}{sum_m weight_m * x-transpose * approximate_beta_m.}
+#' Binary predictions instead average
+#' \deqn{\sum_m w_m\Phi(x^T\widehat\beta_m).}{sum_m weight_m * Phi(x-transpose * approximate_beta_m).}
+#' This is the original unit-variance probit approximation. For a log-time
+#' survival fit, `type = "link"` retains the original log-time prediction.
+#' The common default `type = "response"` exponentiates it. This is a transformed
+#' mode average, not a posterior mean survival time.
+#'
+#' @param object An `imr_selection` fit from
+#'   `imr(..., marginalize = "coefficients_and_variance")`.
+#' @param newdata,platform_names,covariates New-subject inputs as in [predict.imr()].
+#' @param quantity,type,interval,level,seed Common prediction controls as in [predict.imr()].
+#'   This fit supports model_average point predictions; obtain conditional
+#'   regression draws before requesting other quantities or intervals.
+#' @param max_models Maximum retained distinct models; NULL selects 100.
+#' @param verbose Print the native model-scoring diagnostics.
+#' @param ... Unused arguments are rejected.
+#' @return An `imr_predictions` list. Binary predictions are probabilities;
+#'   the default survival prediction uses the response scale. Calculation and
+#'   scale are recorded in the prediction attribute.
+#' @examples
+#' x <- data.frame(id = 1:20, marker = sin(1:20))
+#' y <- data.frame(id = x$id, y = 1 + x$marker + cos(x$id) / 3)
+#' fit <- imr(list(assay = x), y,
+#'   outcome_type = "continuous",
+#'   marginalize = "coefficients_and_variance", min_subgroup_size = 0,
+#'   priors = imr_priors(forced_scale = 1),
+#'   mcmc = imr_mcmc(
+#'     draws = 40, burnin = 20, chains = 1,
+#'     initial = NULL, seed = 1, diagnostics = FALSE
+#'   )
+#' )
+#' predict(fit, list(assay = x))
+#' @export
+predict.imr_selection <- predict.imr
+
+#' Predict from Conditional Regression Posterior Draws
+#'
+#' Uses stored conditional coefficient and variance draws with the predictive
+#' quantities and scaling described in [predict.imr()]. It retains the model
+#' weighting approximation documented in [sample_regression_posterior()].
+#' @param object An `imr_posterior` object.
+#' @param newdata,platform_names,covariates,quantity,type,interval,level,seed,max_models,verbose
+#'   Prediction inputs and quantities as in [predict.imr()]. The common default
+#'   returns point predictions; use interval = TRUE for intervals.
+#' @param ... Unused arguments are rejected.
+#' @return An `imr_predictions` list of predictions and optional intervals.
+#' @example inst/examples/conditional-posterior.R
+#' @export
+predict.imr_posterior <- predict.imr

@@ -16,24 +16,26 @@
 }
 
 # Conditional continuous-outcome model:
-# y | beta, sigma^2 ~ N(X beta, sigma^2 I), sigma^2 ~ IG(alpha, psi).
+# y | beta, sigma^2 ~ N(X beta, sigma^2 I), sigma^2 ~ IG(residual_shape, residual_rate).
 # Every active coefficient has the first-order pMOM prior.
 # IG uses a shape/rate parameterization: 1/sigma^2 ~ Gamma(shape, rate).
-.imr_conditional_chain <- function(X, y, prior_scale, alpha, psi,
+.imr_conditional_chain <- function(X, y, prior_scale, residual_shape, residual_rate,
                                    draws = 2000L, burnin = 1000L,
                                    initial_beta = NULL, initial_variance = NULL,
                                    outcome_type = "continuous", status = NULL,
-                                   keep_latent = FALSE) {
+                                   keep_latent = FALSE, thin = 1L) {
   stopifnot(
     is.matrix(X), is.numeric(X), all(is.finite(X)),
     is.numeric(y), length(y) == nrow(X), all(is.finite(y)),
     nrow(X) > 0L, ncol(X) > 0L,
     length(prior_scale) == ncol(X), all(is.finite(prior_scale)),
     all(prior_scale > 0),
-    length(alpha) == 1L, is.finite(alpha), alpha > 0,
-    length(psi) == 1L, is.finite(psi), psi > 0,
+    length(residual_shape) == 1L, is.finite(residual_shape), residual_shape > 0,
+    length(residual_rate) == 1L, is.finite(residual_rate), residual_rate > 0,
     length(draws) == 1L, draws >= 1L, draws == as.integer(draws),
-    length(burnin) == 1L, burnin >= 0L, burnin == as.integer(burnin)
+    length(burnin) == 1L, burnin >= 0L, burnin == as.integer(burnin),
+    length(thin) == 1L, thin >= 1L, thin == as.integer(thin),
+    as.double(burnin) + as.double(draws) * thin <= .Machine$integer.max
   )
   if (!outcome_type %in% c("continuous", "binary", "right.censored")) {
     stop("Unsupported conditional outcome type.")
@@ -50,14 +52,14 @@
   precision <- crossprod(X) + diag(1 / prior_scale, nrow = p)
   rhs <- drop(crossprod(X, y))
   beta <- if (is.null(initial_beta)) drop(solve(precision, rhs)) else initial_beta
-  v <- if (is.null(initial_variance)) {
-    (psi + sum((y - X %*% beta)^2) / 2) / (alpha + length(y) / 2)
+  variance <- if (is.null(initial_variance)) {
+    (residual_rate + sum((y - X %*% beta)^2) / 2) / (residual_shape + length(y) / 2)
   } else {
     initial_variance
   }
   stopifnot(
     length(beta) == p, all(is.finite(beta)),
-    length(v) == 1L, is.finite(v), v > 0
+    length(variance) == 1L, is.finite(variance), variance > 0
   )
   out <- matrix(NA_real_, draws, p + 1L)
   # The augmented response is a latent quantity only for binary and censored
@@ -72,34 +74,35 @@
   } else {
     colnames(X)
   }, "variance")
-  shape <- alpha + (length(y) + p) / 2 + p
-  for (iter in seq_len(burnin + draws)) {
+  shape <- residual_shape + (length(y) + p) / 2 + p
+  for (iter in seq_len(burnin + draws * thin)) {
     if (outcome_type != "continuous") {
       eta <- drop(X %*% beta)
       if (outcome_type == "binary") {
         direction <- ifelse(observed == 1, 1, -1)
-        y <- direction * .imr_lower_normal(direction * eta, sqrt(v), 0)
+        y <- direction * .imr_lower_normal(direction * eta, sqrt(variance), 0)
       } else {
         censored <- which(status == 0)
-        y[censored] <- .imr_lower_normal(eta[censored], sqrt(v), observed[censored])
+        y[censored] <- .imr_lower_normal(eta[censored], sqrt(variance), observed[censored])
       }
       rhs <- drop(crossprod(X, y))
     }
     for (j in seq_len(p)) {
       mu <- (rhs[j] - sum(precision[j, ] * beta) +
         precision[j, j] * beta[j]) / precision[j, j]
-      sd <- sqrt(v / precision[j, j])
+      sd <- sqrt(variance / precision[j, j])
       beta[j] <- .imr_pmom_normal(mu, sd)
     }
-    rate <- psi + (sum((y - drop(X %*% beta))^2) +
+    rate <- residual_rate + (sum((y - drop(X %*% beta))^2) +
       sum(beta^2 / prior_scale)) / 2
-    v <- 1 / stats::rgamma(1L, shape = shape, rate = rate)
-    if (any(!is.finite(beta)) || !is.finite(v) || v <= 0) {
+    variance <- 1 / stats::rgamma(1L, shape = shape, rate = rate)
+    if (any(!is.finite(beta)) || !is.finite(variance) || variance <= 0) {
       stop("Non-finite posterior state; check the data and prior scales.")
     }
-    if (iter > burnin) {
-      out[iter - burnin, ] <- c(beta, v)
-      if (!is.null(latent)) latent[iter - burnin, ] <- y
+    if (iter > burnin && (iter - burnin) %% thin == 0L) {
+      row <- (iter - burnin) %/% thin
+      out[row, ] <- c(beta, variance)
+      if (!is.null(latent)) latent[row, ] <- y
     }
   }
   if (!is.null(latent)) attr(out, "latent") <- latent

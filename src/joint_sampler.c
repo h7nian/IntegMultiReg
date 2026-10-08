@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <math.h>
 #include <string.h>
+#include "pmom_proposal.h"
 
 /* One chain of the joint pMOM/MRF posterior. All scratch allocations belong to
  * R; an unwind handler returns RNG ownership on interrupts and numerical errors. */
@@ -78,12 +79,7 @@ static double pmom_normal(double mean, double sd)
     double mixture = a * a / (a * a + b * b);
     for (int trial = 0; ; ++trial) {
         if (trial % 1024 == 0) R_CheckUserInterrupt();
-        double z;
-        if (runif(0, 1) < mixture) z = rnorm(0, 1);
-        else {
-            double sign = runif(0, 1) < .5 ? -1 : 1;
-            z = sign * sqrt(rchisq(3));
-        }
+        double z = imr_pmom_proposal(mixture);
         double numerator = a + b * z;
         double acceptance = numerator * numerator / (2 * (a * a + b * b * z * z));
         if (runif(0, 1) < acceptance) {

@@ -81,9 +81,18 @@ Identical seeds need not give identical draws across different algorithms.
 The [sampler guide](https://h7nian.github.io/IntegMultiReg/articles/marginalization.html)
 explains parameter recovery, computational limits and comparisons.
 
-For a Laplace fit, `predict()` retains the original point calculation and
-`sample_regression_posterior()` runs optional conditional regression chains.
+For a Laplace fit, `predict()` retains the original model-mode calculation,
+with the common response-scale default. Use `type = "link"` to recover its
+original log-time predictions. `sample_regression_posterior(fit, mcmc =
+imr_mcmc(...))` runs optional conditional regression chains.
 Their uncertainty retains the fitted selection weights and their approximation.
+
+`posterior_draws(fit)` returns five named families for every sampler, with
+`NULL` for unavailable families. Use `posterior_draws(fit, "coefficients")` to
+extract coefficient arrays explicitly. `mcmc_diagnostics(fit, type = "sampler")`
+reports update methods and available acceptance counts; Gibbs and integrated
+blocks have no Metropolis acceptance rate. Active controls are recorded in
+`fit$control$effective`.
 
 ## Predict and validate
 

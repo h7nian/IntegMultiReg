@@ -141,14 +141,13 @@ SEXP imr_predict_selection(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R,
         }
     }
     int n_unique_models;
-    const char likelihood_type[] = "NonLocal";
     double ***beta = infer_posterior_models(ymean, CC, XX, n_draws, gamma_sample,
                                      nu, theta, mrf, h, h1, h0,
                                      hg, alpha0,
                                      alpha, psi, G, n_subgroups, n_platforms,
                                      n_platform_models_c, n_model_platforms_c, model_platforms_c,
                                      platform_models_c, sample_size_ptr, K,
-                                     betaTh, likelihood_type, post, model_index,
+                                     betaTh, post, model_index,
                                      high_model_index, &n_unique_models, max_models_requested, &numerical);
 
     double **ypredT = calloc((n_subgroups), sizeof(double *));

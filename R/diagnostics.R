@@ -222,6 +222,9 @@ validate_imr_object <- function(object) {
 #' a fixed parameter from a chain that did not explore it.
 #' @param object An `imr` fit or an `imr_posterior` object. Conditional-model
 #'   diagnostics for the latter are separate from the source selection chains.
+#' @param type `"parameters"` returns R-hat, ESS and MCSE. `"sampler"`
+#'   returns a common table of update methods and available Metropolis counts.
+#'   Gibbs, integrated, fixed and observed quantities have no acceptance rate.
 #' @return A data frame naming parameter family, subgroup/platform and parameter,
 #'   with `rhat`, `ess_bulk`, `ess_tail`, `mcse_mean` and diagnostic status.
 #'   Constant samples remain undefined. Observed, unaugmented event responses
@@ -240,12 +243,22 @@ validate_imr_object <- function(object) {
 #' )
 #' head(mcmc_diagnostics(fit))
 #' @export
-mcmc_diagnostics <- function(object) {
+mcmc_diagnostics <- function(object, type = c("parameters", "sampler")) {
+  type <- match.arg(type)
   if (inherits(object, "imr_posterior")) {
     .imr_check_regression_posterior(object)
+    if (type == "sampler") {
+      return(object$control$sampler_diagnostics)
+    }
+    if (is.null(object$diagnostics)) {
+      .imr_abort("Conditional-chain diagnostics were not retained; use imr_mcmc(diagnostics = TRUE) when sampling. Mixture rows cannot replace the conditional chains.")
+    }
     return(object$diagnostics)
   }
   .imr_check_fit(object)
+  if (type == "sampler") {
+    return(object$control$acceptance)
+  }
   object$diagnostics %||% .imr_compute_diagnostics(object)
 }
 
@@ -262,11 +275,15 @@ mcmc_diagnostics <- function(object) {
       rep(FALSE, dim(block$draws)[3L])
     }
   }
+  .imr_diagnose_blocks(blocks, object$control$mcmc$workers)
+}
+
+.imr_diagnose_blocks <- function(blocks, workers = 1L) {
   # Short chains rarely recover the cost of starting and loading workers.
   work <- sum(vapply(blocks, function(block) {
     prod(dim(block$draws)[1:2]) * sum(!block$observed)
   }, 0))
-  workers <- if (work >= 1e6) object$control$mcmc$workers else 1L
+  workers <- if (work >= 1e6) workers else 1L
   result <- .imr_map_tasks(blocks, .imr_diagnostic_block, workers)
   out <- do.call(rbind, result)
   rownames(out) <- NULL

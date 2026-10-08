@@ -111,6 +111,12 @@ print.imr <- function(x, threshold = .5, rank = FALSE, top = 5L, ...) {
   control <- x$control
   model <- x$model
   cat(toupper(control$model_variant), " ", .imr_sampler_description(control), "\n", sep = "")
+  cat("Approximation:", if (.imr_marginalize(control) == "coefficients_and_variance") {
+    "Laplace with variance-matched Gaussian moments"
+  } else {
+    "none"
+  }, "\n")
+  .imr_print_effective(control$effective)
   cat("Outcome:", control$outcome_type, "(", control$response_scale, "scale )\n")
   cat(sprintf(
     "%d chains; %d retained draws per chain after %d burn-in updates; thinning %d.\n",
@@ -125,6 +131,27 @@ print.imr <- function(x, threshold = .5, rank = FALSE, top = 5L, ...) {
   }
   if (is.null(x$diagnostics)) cat("MCMC diagnostics have not been computed; use mcmc_diagnostics().\n") else .imr_print_diagnostics(x$diagnostics)
   invisible(x)
+}
+
+.imr_print_effective <- function(effective) {
+  if (is.null(effective)) {
+    return(invisible(NULL))
+  }
+  fields <- intersect(c("theta_step", "swap_rate", "variance_step"), names(effective$mcmc))
+  settings <- c(effective$mcmc[fields], effective$numerical)
+  if (!length(settings)) {
+    return(invisible(NULL))
+  }
+  values <- vapply(settings, function(x) {
+    if (is.null(x)) {
+      return("automatic")
+    }
+    value <- format(x, trim = TRUE, digits = 4)
+    if (length(x) > 1L && !is.null(names(x))) value <- paste0(names(x), "=", value)
+    paste(value, collapse = ",")
+  }, "")
+  cat("Computation:", paste(paste0(names(values), "=", values), collapse = "; "), "\n")
+  invisible(NULL)
 }
 
 .imr_print_diagnostics <- function(x) {
@@ -168,10 +195,16 @@ summary.imr <- function(object, parm = "all", level = .95, ...) {
   .imr_reject_dots(...)
   .imr_check_fit(object)
   level <- .imr_check_level(level)
+  .imr_summary(object, parm, level)
+}
+
+.imr_summary <- function(object, parm, level, conditional = FALSE) {
   structure(list(
-    parameters = .imr_posterior_tables(object, parm, level), level = level,
-    model_variant = object$control$model_variant, chains = object$control$mcmc$chains,
-    draws_per_chain = object$control$mcmc$draws
+    parameters = .imr_posterior_tables(object, parm, level, include_diagnostics = !conditional), level = level,
+    draw_type = if (conditional) "conditional mixture" else if (is.null(object$posterior$coefficients)) "selection chains" else "regression chains",
+    model_variant = object$control$model_variant, chains = if (conditional) NA_integer_ else object$control$mcmc$chains,
+    draws_per_chain = if (conditional) NA_integer_ else object$control$mcmc$draws,
+    output_draws = if (conditional) object$control$mcmc$draws else NULL
   ), class = "summary.imr")
 }
 
@@ -183,7 +216,7 @@ summary.imr <- function(object, parm = "all", level = .95, ...) {
 print.summary.imr <- function(x, digits = 4L, max_rows = 30L, ...) {
   .imr_reject_dots(...)
   max_rows <- .imr_check_integer_scalar(max_rows, "max_rows", min = 1)
-  cat(sprintf("%s joint posterior summary: %.1f%% equal-tail intervals\n", toupper(x$model_variant), 100 * x$level))
+  cat(sprintf("%s posterior summary (%s): %.1f%% equal-tail intervals\n", toupper(x$model_variant), x$draw_type, 100 * x$level))
   print(utils::head(x$parameters, max_rows), digits = digits, row.names = FALSE)
   if (nrow(x$parameters) > max_rows) cat(nrow(x$parameters) - max_rows, "additional rows in $parameters.\n")
   invisible(x)
@@ -221,6 +254,10 @@ confint.imr <- function(object, parm = "coefficients", level = .95, ...) {
   .imr_reject_dots(...)
   .imr_check_fit(object)
   level <- .imr_check_level(level)
+  .imr_intervals(object, parm, level)
+}
+
+.imr_intervals <- function(object, parm, level) {
   families <- c("coefficients", "variance", "selection", "interaction", "latent", "all")
   family <- if (length(parm) == 1L && is.character(parm) && parm %in% families) parm else "coefficients"
   result <- .imr_posterior_tables(object, family, level, include_diagnostics = FALSE)
