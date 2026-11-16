@@ -1,0 +1,20 @@
+{
+  "version": "0.1.3",
+  "source_url": "https://cran.r-project.org/src/contrib/IntegMultiReg_0.1.3.tar.gz",
+  "source_sha256": "636a352a8ab7a918429f9c8188f677a04e42662d30080f5abb0cfc2de320e5de",
+  "published_at": "2026-09-16 08:30:02 UTC",
+  "historical_repository_commit": "6d482dcab68564f4d885b72803dc00aeb915dbd8",
+  "restored_from_main": "44e69079ebb923d47af4c8d4dfe679d3dedf3c8a",
+  "package_source_comparison": "All shared package files match the CRAN archive byte-for-byte except DESCRIPTION, where CRAN build/publication fields and wrapping differ. Generated MD5/build/inst-doc files are not checked into the source tree.",
+  "historical_audit_assets": "Available in Git history at the historical_repository_commit; existing per-push CI remains in place.",
+  "local_validation": {
+    "installed_package_tests": {
+      "passed": 338,
+      "failures": 0,
+      "errors": 0,
+      "warnings": 0,
+      "skips": 0
+    },
+    "published_source_check": "R CMD check --no-manual --ignore-vignettes --no-tests: Status OK; tests run separately on the restored candidate."
+  }
+}

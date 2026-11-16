@@ -24,6 +24,7 @@ imr(platform_data_list = NULL, ..., formula = NULL)
   sample_mcmc = c(2000, 1000),
   seed = NULL,
   verbose = FALSE,
+  survival_scale = c("log", "identity"),
   ...
 )
 
@@ -84,13 +85,15 @@ Defaults to `rep(-3, length(platform_data_list))`.}
 \item{hh}{Scale of the non-local (product moment) prior on the slab
 regression effects (default `0.087`).}
 
-\item{h0}{Prior variance of the intercept (default `10000`).}
+\item{h0}{pMOM prior scale for the always-included intercept and clinical
+coefficients (default `10000`), corresponding to tau_0 in the original
+paper. This is not the marginal prior variance.}
 
 \item{sig_alpha_psi}{Length-2 numeric vector with the shape and rate of the
 inverse-gamma prior on the response error variance (default
 `c(0.001, 0.001)`).  Ignored when `type_outcome = "binary"`: a probit model
-has residual variance fixed at 1 for identifiability, so the error variance
-is pinned to 1 rather than estimated.}
+uses a highly concentrated inverse-gamma prior with shape and rate
+`100000` to approximate unit residual variance for identifiability.}
 
 \item{thet_alph_bet}{Length-2 numeric vector with the shape and rate of the
 gamma prior on the MRF interaction parameters theta, which borrow
@@ -108,6 +111,11 @@ whenever [set.seed()] is called beforehand or an explicit `seed` is passed.}
 
 \item{verbose}{Logical; if `TRUE`, print the sampler's progress and
 diagnostics to the console.  Defaults to `FALSE` (quiet).}
+
+\item{survival_scale}{Working response scale for right-censored outcomes.
+`"log"` (default) logs the supplied positive event/censoring times, as in
+the original AFT model. `"identity"` reproduces historical package analyses
+and does not fit a log-time AFT model. Ignored for other outcome types.}
 
 \item{data}{A data frame used with the formula interface.}
 

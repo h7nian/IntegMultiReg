@@ -225,8 +225,8 @@ SEXP main_function_prediction(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SE
         for (fold = 0; fold < n_folds; fold++)
         {
             int j = 0;
-            double *ytotal;
-            _Bool *ytotalb;
+            double *ytotal = NULL;
+            _Bool *ytotalb = NULL;
             if ((type_out == 1) || (type_out == 3)) // survival outcome or continuous
                 ytotal = dvector(0, N - 1);
             else // binary outcome
@@ -238,8 +238,8 @@ SEXP main_function_prediction(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SE
             for (int m = 0; m < n_subgroups; m++)
             {
                 int test_sample_size;
-                _Bool *ytestb;
-                double *ytest;
+                _Bool *ytestb = NULL;
+                double *ytest = NULL;
                 _Bool *deltatest = calloc((size_t)sample_size_ptr[m], sizeof(_Bool));
                 int *test_index = calloc((size_t)sample_size_ptr[m], sizeof(int));
                 int *train_index = calloc((size_t)sample_size_ptr[m], sizeof(int));

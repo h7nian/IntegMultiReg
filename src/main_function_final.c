@@ -202,8 +202,8 @@ SEXP main_function(SEXP h0_R, SEXP hh_R, SEXP alpha_R, SEXP psi_R, SEXP alpha0_R
     }
     int n_censored[n_subgroups];
     double **ymean = malloc(n_subgroups * sizeof(double *));
-    double **yobs;
-    _Bool **yobsb;
+    double **yobs = NULL;
+    _Bool **yobsb = NULL;
     if (type_out == 2) // binary
     {
         yobsb = malloc(n_subgroups * sizeof(_Bool *));

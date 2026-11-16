@@ -13,3 +13,4 @@
 ^src/.*\.so$
 ^src/symbols\.rds$
 ^src/Makevars$
+^cran-comments\.md$

@@ -36,7 +36,10 @@
 #' (and, when `covariates` is supplied, with covariate data).  For `"binary"`
 #' outcomes the returned `predict` column is a probability obtained through the
 #' probit link (`pnorm`); for `"continuous"` and `"right.censored"` outcomes it
-#' is the predicted (latent) response.
+#' is the predicted working response. For default log-time survival fits it is
+#' on the log-time scale; exponentiating gives a transformed point prediction,
+#' not a posterior mean survival time. Old and identity-scale fits retain their
+#' historical response scale.
 #'
 #' @return A named list with one data frame per active availability subgroup
 #'   model. Each data frame has columns `id` (subject identifier) and `predict`
@@ -60,11 +63,117 @@
 predict.imr <- function(object, newdata, platform_names = NULL,
                         covariates = NULL, max_models = 100,
                         verbose = FALSE, ...) {
+  .imr_check_flag(verbose, "verbose")
+  max_models <- .imr_check_integer_scalar(max_models, "max_models", min = 1)
+  inputs <- .imr_prediction_inputs(object, newdata, platform_names, covariates)
+  if (!is.null(inputs$empty)) return(inputs$empty)
+  x_train <- inputs$x_train
+  x_test <- inputs$x_test
+  cova_test <- inputs$cova_test
+  sample_ids <- inputs$sample_ids
+  samplesize_test <- inputs$samplesize_test
+  model_names <- inputs$model_names
+  n_platform <- inputs$n_platform
+  type_outcome <- object$type_outcome
+  if (is.null(type_outcome)) type_outcome <- "right.censored"
+  method <- object$method
+  if (is.null(method)) method <- "IMR"
+  method_c <- as.character(method)
+  results <- .quietly(verbose, .Call("mainFunctionPredictionTest",
+    h0_c = object$list_hyperpara[1],
+    hh_c = object$list_hyperpara[2],
+    alpha_c = object$list_hyperpara[3],
+    psi_c = object$list_hyperpara[4],
+    alpha0_c = object$list_hyperpara[5],
+    beta0_c = object$list_hyperpara[6],
+    seed_c = object$list_hyperpara[7],
+    nu_c = object$list_hyperpara[8:(7 + n_platform)],
+    y_latent = object$estimate_latent_y,
+    gam_sample_c = object$gam_sample,
+    theta_c = object$theta_mean,
+    method_c = method_c,
+    n_platform_c = as.integer(n_platform),
+    platform_models_c = object$data1[[2]],
+    model_platforms_c = object$data1[[3]],
+    n_models = as.integer(object$data1[[4]]),
+    sample_size = as.integer(object$data1[[5]]),
+    n_features = as.integer(object$data1[[6]]),
+    n_cov = as.integer(object$data1[[7]]),
+    x_filtered = x_train,
+    cov_list = object$data2[[3]],
+    ## data1[[9]] is the number of retained MCMC draws (= length(gam_sample));
+    ## it indexes the draws used for Bayesian model averaging.
+    sample = as.integer(object$data1[[9]]),
+    x_test = x_test,
+    c_test = cova_test,
+    samplesize_test_c = as.integer(samplesize_test),
+    max_models_pred = as.integer(max_models)
+  ))
+  names(results) <- model_names
+  if (type_outcome == "binary") {
+    res <- mapply(function(x, y) {
+      data.frame(
+        id = x,
+        predict = pnorm(y),
+        row.names = NULL,
+        stringsAsFactors = FALSE
+      )
+    }, sample_ids, results, SIMPLIFY = FALSE)
+  } else {
+    res <- mapply(function(x, y) {
+      data.frame(
+        id = x,
+        predict = y,
+        row.names = NULL,
+        stringsAsFactors = FALSE
+      )
+    }, sample_ids, results, SIMPLIFY = FALSE)
+  }
+
+  names(res) <- paste("model:", model_names, sep = "")
+  return(res)
+}
+
+#' @keywords internal
+#' @noRd
+.imr_prediction_covariates <- function(object, covariates) {
+  if (!is.data.frame(covariates)) {
+    .imr_abort("`covariates` must be a data frame.")
+  }
+  id <- if ("id" %in% names(covariates)) "id" else object$formula_id
+  if (is.null(id) || !id %in% names(covariates)) {
+    .imr_abort("`covariates` must contain the subject identifier column.")
+  }
+  ids <- covariates[[id]]
+  .imr_check_id_frame(data.frame(id = ids), "covariates",
+                      require_rows = FALSE, require_features = FALSE)
+  tt <- stats::delete.response(object$terms)
+  variables <- all.vars(tt)
+  if (!all(variables %in% names(covariates))) {
+    # Preserve the component-wise interface for explicitly encoded matrices.
+    if (identical(setdiff(names(covariates), id), object$covariate_names)) {
+      names(covariates)[names(covariates) == id] <- "id"
+      return(covariates[, c("id", object$covariate_names), drop = FALSE])
+    }
+    .imr_abort(sprintf("`covariates` is missing formula variable(s): %s.",
+                       paste(setdiff(variables, names(covariates)), collapse = ", ")))
+  }
+  mf <- stats::model.frame(tt, data = covariates, na.action = stats::na.fail,
+                            xlev = object$xlevels)
+  mm <- stats::model.matrix(tt, mf, contrasts.arg = object$contrasts)
+  mm <- mm[, attr(mm, "assign") != 0L, drop = FALSE]
+  if (nrow(mm) != length(ids) ||
+      !identical(colnames(mm), object$covariate_names)) {
+    .imr_abort("Formula covariates do not match the training model matrix.")
+  }
+  data.frame(id = ids, mm, check.names = FALSE, row.names = NULL)
+}
+
+# Shared routing/standardization for point and posterior predictions.
+.imr_prediction_inputs <- function(object, newdata, platform_names, covariates) {
   if (!inherits(object, "imr")) {
     .imr_abort("`object` must be an `imr` object returned by `imr()`.")
   }
-  .imr_check_flag(verbose, "verbose")
-  max_models <- .imr_check_integer_scalar(max_models, "max_models", min = 1)
   type_outcome <- object$type_outcome
   if (is.null(type_outcome)) {
     type_outcome <- "right.censored"
@@ -184,7 +293,7 @@ predict.imr <- function(object, newdata, platform_names = NULL,
     .imr_warn(
       "No subjects have both the required covariates and at least one platform."
     )
-    return(.imr_empty_predictions(model_names))
+    return(list(empty = .imr_empty_predictions(model_names)))
   }
   # Rows correspond to subjects and columns correspond to platforms.
   presence <- data.frame(do.call(cbind, lapply(newdata, function(df) {
@@ -236,7 +345,7 @@ predict.imr <- function(object, newdata, platform_names = NULL,
     .imr_warn(
       "No new subjects belong to availability subgroup models retained during training."
     )
-    return(.imr_empty_predictions(model_names))
+    return(list(empty = .imr_empty_predictions(model_names)))
   }
   routed_ids <- unique(unlist(sample_ids, use.names = FALSE))
   dropped_ids <- setdiff(as.character(all_ids), as.character(routed_ids))
@@ -293,93 +402,7 @@ predict.imr <- function(object, newdata, platform_names = NULL,
     )
   }
 
-  method_c <- as.character(method)
-  results <- .quietly(verbose, .Call("mainFunctionPredictionTest",
-    h0_c = object$list_hyperpara[1],
-    hh_c = object$list_hyperpara[2],
-    alpha_c = object$list_hyperpara[3],
-    psi_c = object$list_hyperpara[4],
-    alpha0_c = object$list_hyperpara[5],
-    beta0_c = object$list_hyperpara[6],
-    seed_c = object$list_hyperpara[7],
-    nu_c = object$list_hyperpara[8:(7 + n_platform)],
-    y_latent = object$estimate_latent_y,
-    gam_sample_c = object$gam_sample,
-    theta_c = object$theta_mean,
-    method_c = method_c,
-    n_platform_c = as.integer(n_platform),
-    platform_models_c = object$data1[[2]],
-    model_platforms_c = object$data1[[3]],
-    n_models = as.integer(object$data1[[4]]),
-    sample_size = as.integer(object$data1[[5]]),
-    n_features = as.integer(object$data1[[6]]),
-    n_cov = as.integer(object$data1[[7]]),
-    x_filtered = x_train,
-    cov_list = object$data2[[3]],
-    ## data1[[9]] is the number of retained MCMC draws (= length(gam_sample));
-    ## it indexes the draws used for Bayesian model averaging.
-    sample = as.integer(object$data1[[9]]),
-    x_test = x_test,
-    c_test = cova_test,
-    samplesize_test_c = as.integer(samplesize_test),
-    max_models_pred = as.integer(max_models)
-  ))
-  names(results) <- model_names
-  if (type_outcome == "binary") {
-    res <- mapply(function(x, y) {
-      data.frame(
-        id = x,
-        predict = pnorm(y),
-        row.names = NULL,
-        stringsAsFactors = FALSE
-      )
-    }, sample_ids, results, SIMPLIFY = FALSE)
-  } else {
-    res <- mapply(function(x, y) {
-      data.frame(
-        id = x,
-        predict = y,
-        row.names = NULL,
-        stringsAsFactors = FALSE
-      )
-    }, sample_ids, results, SIMPLIFY = FALSE)
-  }
-
-  names(res) <- paste("model:", model_names, sep = "")
-  return(res)
-}
-
-#' @keywords internal
-#' @noRd
-.imr_prediction_covariates <- function(object, covariates) {
-  if (!is.data.frame(covariates)) {
-    .imr_abort("`covariates` must be a data frame.")
-  }
-  id <- if ("id" %in% names(covariates)) "id" else object$formula_id
-  if (is.null(id) || !id %in% names(covariates)) {
-    .imr_abort("`covariates` must contain the subject identifier column.")
-  }
-  ids <- covariates[[id]]
-  .imr_check_id_frame(data.frame(id = ids), "covariates",
-                      require_rows = FALSE, require_features = FALSE)
-  tt <- stats::delete.response(object$terms)
-  variables <- all.vars(tt)
-  if (!all(variables %in% names(covariates))) {
-    # Preserve the component-wise interface for explicitly encoded matrices.
-    if (identical(setdiff(names(covariates), id), object$covariate_names)) {
-      names(covariates)[names(covariates) == id] <- "id"
-      return(covariates[, c("id", object$covariate_names), drop = FALSE])
-    }
-    .imr_abort(sprintf("`covariates` is missing formula variable(s): %s.",
-                       paste(setdiff(variables, names(covariates)), collapse = ", ")))
-  }
-  mf <- stats::model.frame(tt, data = covariates, na.action = stats::na.fail,
-                            xlev = object$xlevels)
-  mm <- stats::model.matrix(tt, mf, contrasts.arg = object$contrasts)
-  mm <- mm[, attr(mm, "assign") != 0L, drop = FALSE]
-  if (nrow(mm) != length(ids) ||
-      !identical(colnames(mm), object$covariate_names)) {
-    .imr_abort("Formula covariates do not match the training model matrix.")
-  }
-  data.frame(id = ids, mm, check.names = FALSE, row.names = NULL)
+  list(x_train = x_train, x_test = x_test, cova_test = cova_test,
+       sample_ids = sample_ids, samplesize_test = samplesize_test,
+       model_names = model_names, n_platform = n_platform)
 }

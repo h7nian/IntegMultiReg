@@ -206,7 +206,7 @@ double *predict_cv_fold(int type_out, int model, int K, int n_selected_platforms
     weight[l] = exp(weight[l] - wmax);
     sumw += weight[l];
   }
-  double *probtest;
+  double *probtest = NULL;
   if (type_out == 2) // binary outcome
   {
     // Normalize the model-averaging weights once (not inside the per-test-point
