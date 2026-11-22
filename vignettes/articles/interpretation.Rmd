@@ -1,0 +1,66 @@
+---
+title: "Interpreting the output"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Interpreting the output}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+## Selection probabilities and coefficients
+
+For a fitted `imr` object, `coef(fit)` returns marginal inclusion-probability
+matrices. Rows correspond to availability subgroups and columns to features.
+`summary(fit)` and `plot_top_features(fit)` rank features by the largest mPIP
+attained in a subgroup. This maximum is a ranking score, not the probability
+that the feature is included in at least one subgroup.
+
+For an `imr_posterior` object returned by `posterior_draws()`, `coef(post)`
+returns regression-coefficient means. `confint(post)` reports coefficient
+intervals. See the [uncertainty guide](uncertainty.html) for an executed example.
+
+## Availability patterns
+
+The rightmost bit represents the first platform. With platform order genomic,
+proteomic, metabolomic, `011` means genomic plus proteomic and `100` means
+metabolomic only. Subgroups with at most `ssize` subjects are excluded from
+fitting. Predictions require a matching subgroup retained during training.
+
+Clinical covariates are always included. They are adjustment variables rather
+than candidate molecular features. `compare_imr()` describes compatible fits;
+it does not automatically select a clinical formula or rank predictive models.
+
+## What `cv_imr()` computes
+
+Version 0.1.3 supplies the historical post-fit fold assessment. It reuses the
+full-data selection configurations, latent-response estimates and preprocessing.
+The sampler is not rerun within each training fold. The function has no
+`cv_method = "refit"` option in this release.
+
+The historical candidate-weighting calculation has additional limitations, so
+its scores should not be interpreted as independently validated test accuracy.
+An independent refit assessment needs external code to split subjects, refit
+preprocessing and selection on training data, and predict the held-out subjects.
+
+## Diagnostics
+
+The fitted object supports the log-posterior score trace, retained theta traces
+and selection-indicator traces. For example:
+
+```r
+plot(fit, type = "theta_trace", platform = 1, parameter = 1)
+plot(fit, type = "selection_trace", platform = 1,
+     subgroup = 1, feature = 1)
+```
+
+Visual stability is only one diagnostic. Compare longer runs and different
+starting states when drawing substantive conclusions. Returned model-average
+coefficient rows are pooled and resampled outputs; their row order is not an
+MCMC trajectory.
+
+The released selection engine also retains historical differences from the
+stated model: its neighbor contribution uses a factor of one for the symmetric
+MRF form, and its boundary-flip proposals omit a Hastings correction. Its stored
+score retains a positive Gamma-rate term. The documentation examples describe
+the fixed release and do not certify those transitions as exact posterior
+sampling. Increasing iterations alone does not resolve a target discrepancy.

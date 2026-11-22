@@ -1,0 +1,79 @@
+url: https://h7nian.github.io/IntegMultiReg/
+title: IntegMultiReg
+
+template:
+  bootstrap: 5
+  bootswatch: flatly
+  bslib:
+    primary: "#17566d"
+    link-color: "#17566d"
+
+development:
+  mode: release
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, github]
+  components:
+    articles:
+      text: Guides
+      menu:
+        - text: Coefficient and predictive intervals
+          href: articles/uncertainty.html
+        - text: Interpreting the output
+          href: articles/interpretation.html
+    github:
+      icon: fab fa-github
+      href: https://github.com/h7nian/IntegMultiReg
+      aria-label: Source code on GitHub
+
+reference:
+  - title: Prepare data
+    desc: Validate subjects, platforms and outcome coding before fitting.
+    contents:
+      - imr_data
+      - validate_imr_data
+      - as.data.frame.imr_data
+  - title: Fit a model
+    contents:
+      - imr
+  - title: Inspect and compare fits
+    contents:
+      - print.imr
+      - summary.imr
+      - coef.imr
+      - posterior_summary
+      - confint.imr
+      - validate_imr
+      - compare_imr
+  - title: Plot fitted results
+    contents:
+      - plot.imr
+      - plot_top_features
+      - plot_subgroup_sizes
+  - title: Predict and assess a fitted model
+    contents:
+      - predict.imr
+      - cv_imr
+  - title: Conditional posterior uncertainty
+    contents:
+      - posterior_draws
+      - imr_posterior_methods
+      - predict.imr_posterior
+  - title: Example data
+    contents:
+      - simIMR
+      - kircIMR
+  - title: Package information
+    contents:
+      - IntegMultiReg-package
+
+articles:
+  - title: Get started
+    contents:
+      - IntegMultiReg
+  - title: Understand the results
+    contents:
+      - uncertainty
+      - interpretation

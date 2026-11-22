@@ -1,0 +1,69 @@
+---
+title: "Coefficient and predictive intervals"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Coefficient and predictive intervals}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(IntegMultiReg)
+```
+
+`imr()` stores selection indicators and MRF interactions. To obtain regression
+coefficients and residual variances, run `posterior_draws()` on the fit. This
+starts a second-stage conditional calculation; it can take longer when many
+distinct selection models were retained.
+
+## A small continuous example
+
+```{r fit}
+x <- data.frame(id = 1:40, marker = seq(-1, 1, length.out = 40))
+y <- data.frame(id = x$id, response = 1 + x$marker + sin(x$id) / 3)
+fit <- imr(list(assay = x), y, type_outcome = "continuous", h0 = 1,
+           sample_mcmc = c(500, 250), seed = 1)
+post <- posterior_draws(fit, draws = 1000, burnin = 1000,
+                        conditional_draws = 1000, chains = 2, seed = 2)
+```
+
+The returned `beta` matrices contain coefficient draws, including exact zeros
+for inactive molecular features. The intercept and clinical coefficients stay
+in every model. Slopes use the subgroup-standardized predictor scales.
+
+```{r intervals}
+confint(post)[[1]][, c("term", "mean", "lower", "upper")]
+v <- post$variance[[1]]
+rbind(variance = quantile(v, c(.025, .5, .975)),
+      standard_deviation = quantile(sqrt(v), c(.025, .5, .975)))
+post$diagnostics
+```
+
+These are Bayesian credible intervals. The `draws` argument controls the number
+of returned model-average rows; `conditional_draws` sets the minimum retained
+length of each conditional chain. Inspect `diagnostics` and increase the latter
+and burn-in when the conditional chains do not explore adequately. Conditional
+split R-hat concerns this second stage; it does not diagnose the selection chain.
+
+## Conditional means and future observations
+
+```{r prediction}
+new <- list(assay = data.frame(id = 41, marker = 0))
+predict(post, new, type = "mean")
+predict(post, new, type = "response")
+```
+
+For continuous outcomes, `"mean"` describes uncertainty in the conditional
+response mean. `"response"` also generates residual noise for a future outcome.
+For binary outcomes, use `"mean"` for event-probability intervals; response
+intervals are discrete zero/one intervals.
+
+For a log-time survival fit, posterior predictions are transformed to time units
+and summarized by medians. The fitted-object `predict(fit, ...)` method returns
+working log-time point predictions. Future censoring times are not generated.
+
+The conditional calculation inherits empirical selection weights from the
+Laplace-based first stage. Good conditional diagnostics do not make these
+weights exact. Complete conditional-chain trajectories and latent-response
+draws are not retained in the public 0.1.3 result.

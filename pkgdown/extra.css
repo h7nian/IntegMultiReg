@@ -1,0 +1,29 @@
+.navbar-brand {
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.page-header h1,
+h1, h2, h3 {
+  letter-spacing: -0.015em;
+}
+
+main {
+  line-height: 1.65;
+}
+
+pre {
+  border: 1px solid #dce6ea;
+  border-radius: 0.45rem;
+}
+
+.ref-index h2 {
+  margin-top: 2rem;
+}
+
+@media (max-width: 767.98px) {
+  .container {
+    padding-left: 1.1rem;
+    padding-right: 1.1rem;
+  }
+}
