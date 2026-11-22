@@ -75,5 +75,5 @@ articles:
       - IntegMultiReg
   - title: Understand the results
     contents:
-      - uncertainty
-      - interpretation
+      - articles/uncertainty
+      - articles/interpretation
