@@ -5,9 +5,8 @@ template:
   bootstrap: 5
   bootswatch: flatly
   bslib:
-    primary: "#6D001F"
-    link-color: "#6D001F"
-    secondary: "#FFCC33"
+    primary: "#17566d"
+    link-color: "#17566d"
 
 development:
   mode: release

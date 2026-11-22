@@ -13,7 +13,7 @@ main {
 }
 
 pre {
-  border: 1px solid #e1d7d9;
+  border: 1px solid #dce6ea;
   border-radius: 0.45rem;
 }
 
@@ -26,30 +26,4 @@ pre {
     padding-left: 1.1rem;
     padding-right: 1.1rem;
   }
-}
-
-/* UMN maroon and gold; dark type on gold, white type on maroon. */
-.navbar {
-  background-color: #6D001F !important;
-  border-bottom: 3px solid #FFCC33;
-}
-
-.navbar .navbar-brand,
-.navbar .navbar-nav .nav-link {
-  color: #fff;
-}
-
-.navbar .navbar-nav .nav-link:hover,
-.navbar .navbar-nav .nav-link:focus {
-  color: #FFCC33;
-}
-
-.navbar .dropdown-menu a {
-  color: #242424;
-}
-
-.navbar .dropdown-item.active,
-.navbar .dropdown-item:active {
-  background-color: #6D001F;
-  color: #fff;
 }
