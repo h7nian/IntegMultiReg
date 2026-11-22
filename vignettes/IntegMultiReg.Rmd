@@ -15,10 +15,16 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  fig.width = 7,
-  fig.height = 4.2
+  fig.width = 6.5,
+  fig.height = 3.8
 )
 set.seed(1)
+knitr::knit_hooks$set(umn = function(before, options, envir) {
+  if (before) graphics::par(family = "sans", bty = "l", lwd = 0.8,
+    fg = "#242424", col.axis = "#242424", col.lab = "#242424",
+    col.main = "#242424")
+})
+knitr::opts_chunk$set(umn = TRUE)
 ```
 
 # Overview
@@ -46,6 +52,17 @@ library(IntegMultiReg)
 data("simIMR", package = "IntegMultiReg")
 sapply(simIMR$platforms, dim)
 ```
+
+The figures use UMN maroon and gold with neutral grey. Platform names are
+also printed as labels, so interpretation does not depend on colour alone.
+The following palette is used only for plotting:
+
+```{r figure-palette}
+umn <- list(maroon = "#6D001F", gold = "#FFCC33", grey = "#5A5A5A")
+umn$platform <- unname(unlist(umn))
+umn$heat <- colorRampPalette(c("#F5F1EC", umn$maroon))(64)
+```
+
 
 The bundled `simIMR` data set has three platforms (`genomic`, `proteomic`,
 `metabolomic`) measured on overlapping but partially missing sets of subjects,
@@ -88,7 +105,10 @@ kirc_fit <- imr(
   seed               = 1
 )
 summary(kirc_fit)
-plot_top_features(kirc_fit, top = 12)
+plot_top_features(kirc_fit, top = 12, col = umn$platform,
+                  show_source = FALSE, legend = FALSE,
+                  cex_axis = 0.9, cex_lab = 1, cex_main = 1.05,
+                  cex_names = 0.9)
 ```
 
 # Fitting the model
@@ -117,7 +137,8 @@ and `100` (metabolomic only); the bitstring digits run from the first platform
 across them.
 
 ```{r plot-sizes, fig.height = 3.6}
-plot_subgroup_sizes(fit)
+plot_subgroup_sizes(fit, col = umn$maroon,
+                    cex_axis = 0.9, cex_lab = 1, cex_main = 1.05)
 ```
 
 # Inspecting selected biomarkers
@@ -135,11 +156,15 @@ per-platform heatmaps or as a single ranked bar chart of the most strongly
 supported features across all platforms.
 
 ```{r plot-selection}
-plot(fit, type = "selection", platform = 1)
+plot(fit, type = "selection", platform = 1, col = umn$heat,
+     cex_axis = 0.85, cex_lab = 1, cex_main = 1.05)
 ```
 
 ```{r plot-top, fig.height = 4}
-plot_top_features(fit, top = 8)
+plot_top_features(fit, top = 8, col = umn$platform,
+                  show_source = FALSE, legend = FALSE,
+                  cex_axis = 0.9, cex_lab = 1, cex_main = 1.05,
+                  cex_names = 0.9)
 ```
 
 The estimated MRF interaction parameters, which measure how strongly each pair
@@ -147,7 +172,8 @@ of subgroups shares biomarkers, are shown with `type = "theta"`, and the
 log-posterior trace with `type = "trace"`.
 
 ```{r plot-trace}
-plot(fit, type = "trace")
+plot(fit, type = "trace", col = umn$maroon,
+     base_cex = 0.9, lwd = 0.8, las = 1)
 ```
 
 # Predicting new subjects
