@@ -13,6 +13,7 @@ class Page(HTMLParser):
         self.ids = set()
         self.links = []
         self.viewport = False
+        self.redirect = False
         self.feed(text)
 
     def handle_starttag(self, tag, attrs):
@@ -26,6 +27,11 @@ class Page(HTMLParser):
                 self.links.append(attrs[key])
         if tag == "meta" and attrs.get("name") == "viewport":
             self.viewport = True
+        if tag == "meta" and attrs.get("http-equiv", "").lower() == "refresh":
+            match = re.search(r"url\s*=\s*(.+)$", attrs.get("content", ""), re.I)
+            if match:
+                self.redirect = True
+                self.links.append(match.group(1).strip(" \"'"))
 
 
 root = Path(sys.argv[1]).resolve()
@@ -35,7 +41,7 @@ if not pages:
 errors = []
 checked = 0
 for path, page in pages.items():
-    if not page.viewport:
+    if not page.viewport and not page.redirect:
         errors.append("Missing viewport: " + str(path.relative_to(root)))
     for link in page.links:
         url = urlsplit(link)
@@ -77,7 +83,13 @@ if package.is_dir():
 home = (root / "index.html").read_text(encoding="utf-8")
 if not re.search(r"\b0\.1\.3\b", home):
     errors.append("The homepage does not identify version 0.1.3.")
-result = {"pages": len(pages), "local_links_checked": checked, "errors": errors}
+result = {
+    "pages": len(pages),
+    "content_pages": sum(not page.redirect for page in pages.values()),
+    "redirect_pages": sum(page.redirect for page in pages.values()),
+    "local_links_checked": checked,
+    "errors": errors,
+}
 print(json.dumps(result, indent=2))
 if errors:
     raise SystemExit(1)
