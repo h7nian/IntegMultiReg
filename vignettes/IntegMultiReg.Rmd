@@ -1,6 +1,6 @@
 ---
 title: "Integrative Bayesian Multi-Platform Regression with IntegMultiReg"
-author: "Sinian Zhang, Thierry Chekouo"
+author: "Sinian Zhang, Jianfeng Wang, Thierry Chekouo"
 output:
   rmarkdown::html_vignette:
     toc: true
