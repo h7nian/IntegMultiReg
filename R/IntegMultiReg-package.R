@@ -25,6 +25,16 @@
 #'
 #' Jianfeng Wang initiated the R interface that calls the C implementation.
 #'
+#' @author
+#' \strong{Maintainer}: Thierry Chekouo \email{tchekouo@umn.edu} (\href{https://orcid.org/0000-0002-3594-9182}{ORCID})
+#'
+#' Authors:
+#' \itemize{
+#'   \item Sinian Zhang \email{zhan9381@umn.edu}
+#'   \item Jianfeng Wang \email{wan01188@umn.edu}
+#'   \item Thierry Chekouo \email{tchekouo@umn.edu} (\href{https://orcid.org/0000-0002-3594-9182}{ORCID})
+#' }
+#'
 #' @references
 #' Chekouo T, Stingo FC, Doecke JD, Do K-A (2017). "A Bayesian Integrative
 #' Approach for Multi-Platform Genomic Data: A Kidney Cancer Case Study."
